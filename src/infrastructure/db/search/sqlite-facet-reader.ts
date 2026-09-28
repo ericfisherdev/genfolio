@@ -31,21 +31,69 @@ function without(query: GalleryQuery, key: keyof SearchFilters): GalleryQuery {
 }
 
 /**
- * The images a facet counts over: the whole library, or a numbered set evaluated once into
+ * The images a facet counts over: the whole library; a numbered set evaluated once into
  * `temp.facet_selection`, so facets sharing a selection don't re-run its filters (keyword
- * matching above all).
+ * matching above all); or, when a selection holds most of the library, the whole library
+ * minus a numbered set of the images it leaves out, which is far cheaper to count over.
  */
-type Counted = { readonly all: true } | { readonly all: false; readonly selection: number }
+type Counted =
+  | { readonly kind: 'all' }
+  | { readonly kind: 'selection'; readonly selection: number }
+  | { readonly kind: 'all-but'; readonly excluded: number }
 
 /**
- * Joins `alias.column` to the counted images; nothing for the whole library. The selection
- * number is an internal counter, never input, so it is written into the SQL text.
+ * Joins `alias.column` to the numbered set, or nothing for the whole library. The number is
+ * an internal counter, never input, so it is written into the SQL text.
  */
-function restrict(counted: Counted, alias: string, column: string): string {
-  return counted.all
+function restrict(selection: number | undefined, alias: string, column: string): string {
+  return selection === undefined
     ? ''
-    : `JOIN temp.facet_selection s ON s.id = ${alias}.${column} AND s.selection = ${counted.selection}`
+    : `JOIN temp.facet_selection s ON s.id = ${alias}.${column} AND s.selection = ${selection}`
 }
+
+interface Sql {
+  readonly sql: string
+  readonly params: readonly unknown[]
+}
+
+/**
+ * A facet's `SELECT key, n … GROUP BY key` over some images, given the join that restricts
+ * its rows to them (empty for the whole library).
+ */
+type Grouped = (restriction: (alias: string, column: string) => string) => Sql
+
+const over =
+  (selection: number | undefined) =>
+  (alias: string, column: string): string =>
+    restrict(selection, alias, column)
+
+/**
+ * The `(key, n)` rows a facet shows over the counted images: counted directly, or as library
+ * totals minus the left-out images' counts. Keys left with no images are dropped.
+ */
+function countsOver(counted: Counted, grouped: Grouped): Sql {
+  switch (counted.kind) {
+    case 'all':
+      return grouped(over(undefined))
+    case 'selection':
+      return grouped(over(counted.selection))
+    case 'all-but': {
+      const totals = grouped(over(undefined))
+      const excluded = grouped(over(counted.excluded))
+      return {
+        sql: `SELECT key, SUM(n) AS n FROM (
+            ${totals.sql}
+            UNION ALL
+            SELECT key, -n FROM (${excluded.sql})
+          ) GROUP BY key HAVING SUM(n) > 0`,
+        params: [...totals.params, ...excluded.params]
+      }
+    }
+  }
+}
+
+/** Past this share of the library, facets count the library minus what a selection leaves out. */
+const COMPLEMENT_ABOVE = 0.7
 
 /** Facet counts for the filter pickers, over the same scope and filters as the gallery. */
 export class SqliteFacetReader {
@@ -54,7 +102,9 @@ export class SqliteFacetReader {
 
   constructor(
     private readonly db: Database.Database,
-    private readonly selector: ImageSelector
+    private readonly selector: ImageSelector,
+    /** Share of the library past which counting goes by the left-out images; for tests. */
+    private readonly complementAbove = COMPLEMENT_ABOVE
   ) {
     db.exec(`CREATE TEMP TABLE IF NOT EXISTS facet_selection (
       selection INTEGER NOT NULL,
@@ -93,20 +143,41 @@ export class SqliteFacetReader {
    */
   private counted(scope: GalleryQuery, cache: Map<string, Counted>): Counted {
     const selection = this.selector.select(scope)
-    if (!selection.prefix && !selection.where) return { all: true }
-    if (!hasFilters(scope) && this.coversEveryImage(selection)) return { all: true }
+    if (!selection.prefix && !selection.where) return { kind: 'all' }
+    if (!hasFilters(scope) && this.coversEveryImage(selection)) return { kind: 'all' }
     const key = `${selection.prefix}${selection.where}\0${JSON.stringify(selection.params)}`
     const cached = cache.get(key)
     if (cached) return cached
-    const counted: Counted = { all: false, selection: cache.size }
-    this.run(
+    // Two numbers per selection: the selection itself, and the images it leaves out.
+    const number = cache.size * 2
+    const selected = this.run(
       `${selection.prefix}
        INSERT INTO temp.facet_selection (selection, id)
-       SELECT ${counted.selection}, id FROM images ${selection.where}`,
+       SELECT ${number}, id FROM images ${selection.where}`,
       selection.params
     )
+    const counted: Counted =
+      selected > this.librarySize() * this.complementAbove
+        ? { kind: 'all-but', excluded: this.leftOut(number, number + 1) }
+        : { kind: 'selection', selection: number }
     cache.set(key, counted)
     return counted
+  }
+
+  /** Numbers the images selection `from` leaves out as `into`; returns `into`. */
+  private leftOut(from: number, into: number): number {
+    this.run(
+      `INSERT INTO temp.facet_selection (selection, id)
+       SELECT ${into}, id FROM images
+       WHERE id NOT IN (SELECT id FROM temp.facet_selection WHERE selection = ${from})`,
+      []
+    )
+    return into
+  }
+
+  private librarySize(): number {
+    const [row] = this.all<{ count: number }>('SELECT COUNT(*) AS count FROM images', [])
+    return row?.count ?? 0
   }
 
   /**
@@ -114,70 +185,81 @@ export class SqliteFacetReader {
    * left out of the second half, so each image counts once per model without DISTINCT.
    */
   private checkpoints(counted: Counted): FacetValue[] {
+    const used = countsOver(counted, (restricted) => ({
+      sql: `SELECT model_id AS key, COUNT(*) AS n FROM (
+          SELECT g.checkpoint_id AS model_id FROM generations g
+          ${restricted('g', 'image_id')} WHERE g.checkpoint_id IS NOT NULL
+          UNION ALL
+          SELECT g.refiner_id FROM generations g ${restricted('g', 'image_id')}
+          WHERE g.refiner_id IS NOT NULL AND g.refiner_id IS NOT g.checkpoint_id
+        ) GROUP BY model_id`,
+      params: []
+    }))
     return this.all<FacetValue>(
-      `SELECT models.id, models.display_name AS name, COUNT(*) AS count
-       FROM (
-         SELECT g.image_id, g.checkpoint_id AS model_id FROM generations g
-         ${restrict(counted, 'g', 'image_id')} WHERE g.checkpoint_id IS NOT NULL
-         UNION ALL
-         SELECT g.image_id, g.refiner_id FROM generations g
-         ${restrict(counted, 'g', 'image_id')}
-         WHERE g.refiner_id IS NOT NULL AND g.refiner_id IS NOT g.checkpoint_id
-       ) used JOIN models ON models.id = used.model_id
-       GROUP BY models.id
+      `SELECT models.id, models.display_name AS name, used.n AS count
+       FROM (${used.sql}) used JOIN models ON models.id = used.key
        ORDER BY count DESC, name COLLATE NOCASE, models.id`,
-      []
+      used.params
     )
   }
 
   /**
    * Weight bounds apply to the counted links, as they do to the gallery's matching links.
-   * A link is unique per (image, LoRA), so counting links counts images.
+   * A link is unique per (image, LoRA), so counting links counts images. Grouped by model id
+   * first, so names are looked up once per LoRA, not once per link.
    */
   private loras(counted: Counted, min: number | null, max: number | null): FacetValue[] {
+    const used = countsOver(counted, (restricted) => ({
+      sql: `SELECT links.model_id AS key, COUNT(*) AS n
+        FROM generation_loras links ${restricted('links', 'image_id')}
+        WHERE (? IS NULL OR links.weight >= ?) AND (? IS NULL OR links.weight <= ?)
+        GROUP BY links.model_id`,
+      params: [min, min, max, max]
+    }))
     return this.all<FacetValue>(
-      // Grouped by model id first, so names are looked up once per LoRA, not once per link.
-      `SELECT models.id, models.display_name AS name, used.count
-       FROM (
-         SELECT links.model_id, COUNT(*) AS count
-         FROM generation_loras links ${restrict(counted, 'links', 'image_id')}
-         WHERE (? IS NULL OR links.weight >= ?) AND (? IS NULL OR links.weight <= ?)
-         GROUP BY links.model_id
-       ) used JOIN models ON models.id = used.model_id
-       ORDER BY used.count DESC, name COLLATE NOCASE, models.id`,
-      [min, min, max, max]
+      `SELECT models.id, models.display_name AS name, used.n AS count
+       FROM (${used.sql}) used JOIN models ON models.id = used.key
+       ORDER BY count DESC, name COLLATE NOCASE, models.id`,
+      used.params
     )
   }
 
   /** A tag link is unique per (image, tag), so counting links counts images. */
   private tags(counted: Counted): FacetValue[] {
+    const used = countsOver(counted, (restricted) => ({
+      sql: `SELECT links.tag_id AS key, COUNT(*) AS n
+        FROM image_tags links ${restricted('links', 'image_id')}
+        GROUP BY links.tag_id`,
+      params: []
+    }))
     return this.all<FacetValue>(
-      `SELECT tags.id, tags.name, used.count
-       FROM (
-         SELECT links.tag_id, COUNT(*) AS count
-         FROM image_tags links ${restrict(counted, 'links', 'image_id')}
-         GROUP BY links.tag_id
-       ) used JOIN tags ON tags.id = used.tag_id
-       ORDER BY used.count DESC, tags.name_key, tags.id`,
-      []
+      `SELECT tags.id, tags.name, used.n AS count
+       FROM (${used.sql}) used JOIN tags ON tags.id = used.key
+       ORDER BY count DESC, tags.name_key, tags.id`,
+      used.params
     )
   }
 
   private generators(counted: Counted): { kind: GeneratorKind; count: number }[] {
+    const used = countsOver(counted, (restricted) => ({
+      sql: `SELECT g.generator AS key, COUNT(*) AS n
+        FROM generations g ${restricted('g', 'image_id')} GROUP BY g.generator`,
+      params: []
+    }))
     return this.all<{ kind: GeneratorKind; count: number }>(
-      `SELECT g.generator AS kind, COUNT(*) AS count FROM generations g
-       ${restrict(counted, 'g', 'image_id')}
-       GROUP BY g.generator ORDER BY count DESC, g.generator`,
-      []
+      `SELECT key AS kind, n AS count FROM (${used.sql}) ORDER BY count DESC, kind`,
+      used.params
     )
   }
 
   private withoutMetadata(counted: Counted): number {
-    const [row] = this.all<{ count: number }>(
-      `SELECT COUNT(*) AS count FROM images i ${restrict(counted, 'i', 'id')}
-       WHERE i.id NOT IN (SELECT image_id FROM generations)`,
-      []
-    )
+    // One constant key, so the library-minus-left-out form works here too.
+    const used = countsOver(counted, (restricted) => ({
+      sql: `SELECT 0 AS key, COUNT(*) AS n FROM images i ${restricted('i', 'id')}
+        WHERE i.id NOT IN (SELECT image_id FROM generations)`,
+      params: []
+    }))
+    const [row] = this.all<{ count: number }>(`SELECT n AS count FROM (${used.sql})`, used.params)
     return row?.count ?? 0
   }
 
@@ -195,8 +277,9 @@ export class SqliteFacetReader {
     return this.statement(sql).all(...params) as T[]
   }
 
-  private run(sql: string, params: readonly unknown[]): void {
-    this.statement(sql).run(...params)
+  /** Returns how many rows changed. */
+  private run(sql: string, params: readonly unknown[]): number {
+    return this.statement(sql).run(...params).changes
   }
 
   /** Statements are cached by text, which depends only on the filters in use. */
