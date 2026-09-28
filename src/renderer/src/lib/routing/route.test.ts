@@ -69,6 +69,10 @@ describe('routes with filters', () => {
       filters: { seed: '1' }
     })
     expect(parseRoute('#/?q=%20%20&lmode=all')).toEqual(ALL_PHOTOS)
+    expect(parseRoute('#/?lora=1&lmin=1&lmax=0.5')).toEqual({
+      kind: RouteKind.All,
+      filters: { loras: { ids: [1], mode: SetMatchMode.Any } }
+    })
     expect(parseRoute(`#/?seed=${'9'.repeat(41)}`)).toEqual(ALL_PHOTOS)
   })
 

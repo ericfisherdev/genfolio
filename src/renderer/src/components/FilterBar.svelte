@@ -70,6 +70,15 @@
   function setLoras(changes: Partial<NonNullable<SearchFilters['loras']>>): void {
     const current = filters.loras ?? { ids: [], mode: SetMatchMode.Any }
     const next = { ...current, ...changes }
+    // A new bound that crosses the other one replaces it: the range must stay min ≤ max.
+    if (
+      next.minWeight !== undefined &&
+      next.maxWeight !== undefined &&
+      next.minWeight > next.maxWeight
+    ) {
+      if ('minWeight' in changes) delete next.maxWeight
+      else delete next.minWeight
+    }
     for (const bound of ['minWeight', 'maxWeight'] as const) {
       if (next[bound] === undefined) delete next[bound]
     }

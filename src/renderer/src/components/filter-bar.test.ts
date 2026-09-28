@@ -116,6 +116,16 @@ describe('FilterBar', () => {
       }
     )
     expect(filters(harness)?.loras).toEqual({ ids: [2, 5], mode: SetMatchMode.All })
+
+    const max = within(dialog).getByRole('spinbutton', { name: 'Maximum LoRA weight' })
+    await fireEvent.change(max, { target: { value: '0.4' } })
+    await fireEvent.change(
+      within(dialog).getByRole('spinbutton', { name: 'Minimum LoRA weight' }),
+      {
+        target: { value: '0.8' }
+      }
+    )
+    expect(filters(harness)?.loras).toEqual({ ids: [2, 5], mode: SetMatchMode.All, minWeight: 0.8 })
   })
 
   it('toggles generators', async () => {

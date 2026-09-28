@@ -30,8 +30,20 @@ function defined<T extends object>(entries: [keyof T, unknown][]): T {
   return Object.fromEntries(entries.filter(([, value]) => value !== undefined)) as T
 }
 
+/** Both bounds, or neither when they're inverted (the service rejects min > max). */
+function weightRange(params: URLSearchParams): { min?: number; max?: number } {
+  const min = finite(params.get('lmin'))
+  const max = finite(params.get('lmax'))
+  if (min !== undefined && max !== undefined && min > max) return {}
+  return defined([
+    ['min', min],
+    ['max', max]
+  ])
+}
+
 export function parseFilters(params: URLSearchParams): SearchFilters | undefined {
   const loraIds = idList(params.get('lora'))
+  const weights = weightRange(params)
   const query = params.get('q')
   const scope = params.get('qs')
   const generators = params
@@ -49,8 +61,8 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
         defined<NonNullable<SearchFilters['loras']>>([
           ['ids', loraIds],
           ['mode', params.get('lmode') === SetMatchMode.All ? SetMatchMode.All : SetMatchMode.Any],
-          ['minWeight', finite(params.get('lmin'))],
-          ['maxWeight', finite(params.get('lmax'))]
+          ['minWeight', weights.min],
+          ['maxWeight', weights.max]
         ])
     ],
     [
