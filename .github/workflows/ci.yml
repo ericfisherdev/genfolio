@@ -35,6 +35,9 @@ jobs:
       # Ubuntu 24.04 blocks unprivileged user namespaces, which Chromium's sandbox needs.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: xvfb-run --auto-servernum npm run test:e2e
+      # The same suite against the packaged app, so asar unpacking, native modules and
+      # packaging config are exercised on every PR.
+      - run: xvfb-run --auto-servernum npm run test:e2e:packaged
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
