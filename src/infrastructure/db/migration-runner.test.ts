@@ -24,7 +24,13 @@ const LATEST_TABLES = [
   'library_roots',
   'metadata_raw',
   'model_hashes',
-  'models'
+  'models',
+  // FTS5 creates the virtual table's row in sqlite_schema plus its shadow tables.
+  'prompt_fts',
+  'prompt_fts_config',
+  'prompt_fts_data',
+  'prompt_fts_docsize',
+  'prompt_fts_idx'
 ]
 
 describe('MigrationRunner', () => {
