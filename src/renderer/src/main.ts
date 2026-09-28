@@ -6,6 +6,7 @@ import { GalleryState } from './lib/state/gallery.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
+import { ImageMarks } from './lib/state/image-marks'
 import { LibraryState } from './lib/state/library.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
@@ -18,16 +19,18 @@ if (!target) throw new Error('#app mount point missing from index.html')
 
 const api = window.genfolio
 const library = new LibraryState(api)
+const gallery = new GalleryState(api)
 const services: AppServices = {
   api,
   router: new RouterState(windowHashLocation(window)),
   library,
-  gallery: new GalleryState(api),
+  gallery,
   scans: new ScanProgressState(api, () => void library.refresh()),
   sort: new SortPreference(localPreferenceStore(() => window.localStorage)),
   generation: new GenerationDetailsState(api),
   copier: new GenerationCopier(api, library),
-  facets: new FacetsState(api)
+  facets: new FacetsState(api),
+  marks: new ImageMarks(api, gallery, library)
 }
 
 export default mount(App, {

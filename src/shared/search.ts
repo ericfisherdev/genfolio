@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_RATING } from './gallery-kinds'
 import { GeneratorKind } from './generation-kinds'
 import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from './search-kinds'
 
@@ -39,7 +40,11 @@ export const searchFiltersSchema = z
     seed: z.string().min(1).max(MAX_SEED_LENGTH).optional(),
     /** Images whose prompt equals this image's prompt. */
     samePromptAs: id.optional(),
-    hasMetadata: z.boolean().optional()
+    hasMetadata: z.boolean().optional(),
+    /** Only images marked as favourites (false isn't a filter). */
+    favoritesOnly: z.literal(true).optional(),
+    /** At least this many stars. */
+    minRating: z.number().int().min(1).max(MAX_RATING).optional()
   })
   .strict()
 

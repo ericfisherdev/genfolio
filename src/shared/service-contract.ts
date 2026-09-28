@@ -4,7 +4,9 @@ import {
   galleryQuerySchema,
   imageCardSchema,
   imageLayoutSchema,
-  MAX_IMAGES_PER_REQUEST
+  MAX_IMAGES_PER_REQUEST,
+  MAX_IDS_PER_MARK,
+  MAX_RATING
 } from './gallery'
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
@@ -24,12 +26,15 @@ export enum ServiceMethod {
   RenderDisplayCopy = 'images.render-display-copy',
   ImageGeneration = 'images.generation',
   ImageGenerationText = 'images.generation-text',
-  SearchFacets = 'search.facets'
+  SearchFacets = 'search.facets',
+  SetFavorite = 'images.set-favorite',
+  SetRating = 'images.set-rating'
 }
 
 const noParams = z.object({}).strict()
 const rootIdParams = z.object({ rootId: z.number().int().positive() }).strict()
 const imageIdParams = z.object({ imageId: z.number().int().positive() }).strict()
+const markIds = z.array(z.number().int().positive()).min(1).max(MAX_IDS_PER_MARK)
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -51,6 +56,15 @@ export const serviceContract = {
   [ServiceMethod.SearchFacets]: {
     params: z.object({ query: galleryQuerySchema }).strict(),
     result: searchFacetsSchema
+  },
+  [ServiceMethod.SetFavorite]: {
+    params: z.object({ ids: markIds, favorite: z.boolean() }).strict(),
+    /** How many of the images exist and were set. */
+    result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.SetRating]: {
+    params: z.object({ ids: markIds, rating: z.number().int().min(0).max(MAX_RATING) }).strict(),
+    result: z.object({ changed: z.number().int().nonnegative() })
   },
   [ServiceMethod.GalleryImages]: {
     params: z

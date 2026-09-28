@@ -17,7 +17,8 @@ const ORDER_BY: Readonly<Record<SortOrder, string>> = {
   [SortOrder.Newest]: 'created_at DESC, id DESC',
   [SortOrder.Oldest]: 'created_at ASC, id ASC',
   [SortOrder.RecentlyAdded]: 'added_at DESC, id DESC',
-  [SortOrder.FileName]: 'file_name COLLATE NOCASE ASC, id ASC'
+  [SortOrder.FileName]: 'file_name COLLATE NOCASE ASC, id ASC',
+  [SortOrder.Rating]: 'rating DESC, created_at DESC, id DESC'
 }
 
 /** Folder names in natural, case-insensitive order: `2` before `10`, `a` next to `B`. */
@@ -35,6 +36,8 @@ interface CardRow {
   size_bytes: number
   created_at: number
   added_at: number
+  is_favorite: number
+  rating: number
 }
 
 interface DirectoryRow {
@@ -59,7 +62,8 @@ export class SqliteGalleryReader implements GalleryReader {
     this.cardsByIds = db.prepare(`
       SELECT images.id, directories.root_id, images.directory_id, images.file_name,
              directories.rel_path, images.format, images.width, images.height,
-             images.size_bytes, images.created_at, images.added_at
+             images.size_bytes, images.created_at, images.added_at, images.is_favorite,
+             images.rating
       FROM images JOIN directories ON directories.id = images.directory_id
       WHERE images.id IN (SELECT value FROM json_each(?))
     `)
@@ -96,7 +100,9 @@ export class SqliteGalleryReader implements GalleryReader {
       height: row.height,
       sizeBytes: row.size_bytes,
       createdAt: row.created_at,
-      addedAt: row.added_at
+      addedAt: row.added_at,
+      favorite: row.is_favorite === 1,
+      rating: row.rating
     }))
   }
 

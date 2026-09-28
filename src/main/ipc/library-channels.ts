@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { IpcChannel } from '@shared/genfolio-api'
-import { galleryQuerySchema, MAX_IMAGES_PER_REQUEST } from '@shared/gallery'
+import {
+  galleryQuerySchema,
+  MAX_IDS_PER_MARK,
+  MAX_IMAGES_PER_REQUEST,
+  MAX_RATING
+} from '@shared/gallery'
 import { AddRootOutcome, type AddRootViaDialogResult } from '@shared/library'
 import { ServiceMethod } from '@shared/service-contract'
 import type { ServiceRequester } from '../service/library-service-client'
@@ -39,6 +44,18 @@ export function registerLibraryChannels(
   )
   ipc.register(IpcChannel.GalleryLayout, z.tuple([galleryQuerySchema]), (query) =>
     service.request(ServiceMethod.GalleryLayout, { query })
+  )
+  const markIds = z.array(z.number().int().positive()).min(1).max(MAX_IDS_PER_MARK)
+  ipc.register(
+    IpcChannel.SetFavorite,
+    z.tuple([markIds, z.boolean()]),
+    async (ids, favorite) =>
+      (await service.request(ServiceMethod.SetFavorite, { ids, favorite })).changed
+  )
+  ipc.register(
+    IpcChannel.SetRating,
+    z.tuple([markIds, z.number().int().min(0).max(MAX_RATING)]),
+    async (ids, rating) => (await service.request(ServiceMethod.SetRating, { ids, rating })).changed
   )
   ipc.register(IpcChannel.SearchFacets, z.tuple([galleryQuerySchema]), (query) =>
     service.request(ServiceMethod.SearchFacets, { query })

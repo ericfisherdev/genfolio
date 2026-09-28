@@ -6,7 +6,8 @@
     [SortOrder.Newest]: 'Newest',
     [SortOrder.Oldest]: 'Oldest',
     [SortOrder.RecentlyAdded]: 'Recently added',
-    [SortOrder.FileName]: 'File name'
+    [SortOrder.FileName]: 'File name',
+    [SortOrder.Rating]: 'Rating'
   }
 
   const { sort } = getAppServices()

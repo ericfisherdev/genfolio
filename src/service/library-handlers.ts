@@ -17,6 +17,7 @@ import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqli
 import { SqliteImageVersionCheck } from '@infrastructure/db/repositories/sqlite-image-version-check'
 import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/sqlite-metadata-record-repository'
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
+import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlite-image-mark-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createSearchFilters } from '@infrastructure/db/search/filters'
@@ -61,6 +62,7 @@ export function createLibraryHandlers(
     transact: (work) => db.transaction(work)(),
     now
   })
+  const marks = new SqliteImageMarkRepository(db)
   const searchFilters = createSearchFilters()
   const gallery = new SqliteGalleryReader(db, searchFilters)
   const facets = new SqliteFacetReader(db, searchFilters)
@@ -97,6 +99,12 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.GalleryLayout]: async ({ query }) => gallery.layout(query),
     [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
+    [ServiceMethod.SetFavorite]: async ({ ids, favorite }) => ({
+      changed: marks.setFavorite(ids as ImageId[], favorite)
+    }),
+    [ServiceMethod.SetRating]: async ({ ids, rating }) => ({
+      changed: marks.setRating(ids as ImageId[], rating)
+    }),
     [ServiceMethod.SearchFacets]: async ({ query }) => facets.facets(query),
     [ServiceMethod.DirectoryTree]: async ({ rootId }) =>
       gallery.directoryTree(rootId as RootId) ?? null,

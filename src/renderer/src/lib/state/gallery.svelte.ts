@@ -89,6 +89,34 @@ export class GalleryState {
    * Fetches cards not yet loaded or requested, at most 500 per request. A failed batch is
    * released so its ids are asked for again; results that arrive after a reload are dropped.
    */
+  /**
+   * Changes cached cards in place (an optimistic update) and returns what they were, for
+   * restoring; cards not cached yet are fetched fresh later anyway.
+   */
+  patchCards(
+    ids: readonly number[],
+    patch: Partial<Pick<ImageCard, 'favorite' | 'rating'>>
+  ): ImageCard[] {
+    const previous: ImageCard[] = []
+    for (const id of ids) {
+      const card = this.cards.get(id)
+      if (!card) continue
+      previous.push(card)
+      this.cards.set(id, { ...card, ...patch })
+    }
+    return previous
+  }
+
+  /** Puts back cards returned by patchCards. */
+  restoreCards(cards: readonly ImageCard[]): void {
+    for (const card of cards) this.cards.set(card.id, card)
+  }
+
+  /** Loads the current query's layout again, keeping cached cards (after marks changed). */
+  async refreshLayout(): Promise<void> {
+    if (this.query) await this.load(this.query)
+  }
+
   async ensureCards(ids: readonly number[]): Promise<void> {
     const generation = this.cardGeneration
     const missing = ids.filter((id) => !this.cards.has(id) && !this.requested[id])

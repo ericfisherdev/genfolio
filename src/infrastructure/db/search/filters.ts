@@ -102,6 +102,18 @@ export class HasMetadataFilter implements CriteriaFilter {
   }
 }
 
+export class FavoriteFilter implements CriteriaFilter {
+  condition({ favoritesOnly }: SearchFilters): SqlCondition | undefined {
+    return favoritesOnly ? { sql: 'is_favorite = 1', params: [] } : undefined
+  }
+}
+
+export class MinRatingFilter implements CriteriaFilter {
+  condition({ minRating }: SearchFilters): SqlCondition | undefined {
+    return minRating === undefined ? undefined : { sql: 'rating >= ?', params: [minRating] }
+  }
+}
+
 /** Every filter the gallery applies, in the order their conditions are written. */
 export function createSearchFilters(): CriteriaFilter[] {
   return [
@@ -111,6 +123,8 @@ export function createSearchFilters(): CriteriaFilter[] {
     new GeneratorFilter(),
     new SeedFilter(),
     new SamePromptFilter(),
-    new HasMetadataFilter()
+    new HasMetadataFilter(),
+    new FavoriteFilter(),
+    new MinRatingFilter()
   ]
 }

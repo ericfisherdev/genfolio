@@ -16,6 +16,8 @@ export enum IpcChannel {
   GalleryLayout = 'gallery:layout',
   GalleryImages = 'gallery:images',
   SearchFacets = 'search:facets',
+  SetFavorite = 'image:set-favorite',
+  SetRating = 'image:set-rating',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -46,6 +48,10 @@ export interface GenfolioApi {
   getImageLayout(query: GalleryQuery): Promise<Int32Array>
   /** Filter picker values with counts, over the query's scope and its other filters. */
   getFacets(query: GalleryQuery): Promise<SearchFacets>
+  /** Marks up to 10,000 images (MAX_IDS_PER_MARK); resolves how many exist and were set. */
+  setFavorite(ids: readonly number[], favorite: boolean): Promise<number>
+  /** Rates up to 10,000 images 0 (unrated) to 5; resolves how many exist and were set. */
+  setRating(ids: readonly number[], rating: number): Promise<number>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

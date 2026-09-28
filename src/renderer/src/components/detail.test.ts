@@ -47,7 +47,9 @@ const cardFor = (id: number): ImageCard => ({
   height: 1024,
   sizeBytes: 1_234_567,
   createdAt: Date.UTC(2026, 8, 27, 12),
-  addedAt: Date.UTC(2026, 8, 28, 9)
+  addedAt: Date.UTC(2026, 8, 28, 9),
+  favorite: false,
+  rating: 0
 })
 
 async function openDetail(
@@ -104,6 +106,25 @@ describe('DetailView', () => {
     expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
     await fireEvent.click(screen.getByRole('button', { name: 'Same seed' }))
     expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+  })
+
+  it('favourites with F and rates with 0–5', async () => {
+    const setFavorite = vi.fn(async () => 1)
+    const setRating = vi.fn(async () => 1)
+    await openDetail(8, { setFavorite, setRating, getGeneration: async () => null })
+    await screen.findByRole('complementary', { name: 'File details' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /Favourite/ })).toBeTruthy())
+    await fireEvent.keyDown(window, { key: 'f' })
+    await fireEvent.keyDown(window, { key: '4' })
+    await fireEvent.keyDown(window, { key: '4', ctrlKey: true })
+    expect(setFavorite).toHaveBeenCalledWith([8], true)
+    expect(setRating).toHaveBeenCalledTimes(1)
+    expect(setRating).toHaveBeenCalledWith([8], 4)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '4 stars' }).getAttribute('aria-pressed')).toBe(
+        'true'
+      )
+    )
   })
 
   it('steps with the arrow keys and stops at the ends', async () => {

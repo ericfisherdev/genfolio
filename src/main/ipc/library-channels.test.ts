@@ -49,6 +49,19 @@ describe('registerLibraryChannels', () => {
     )
   })
 
+  it('forwards favourite and rating marks, rejecting invalid ones', async () => {
+    const { request, invoke } = setup(async () => undefined, {
+      [ServiceMethod.SetFavorite]: { changed: 2 },
+      [ServiceMethod.SetRating]: { changed: 1 }
+    })
+    await expect(invoke(IpcChannel.SetFavorite, [1, 2], true)).resolves.toBe(2)
+    await expect(invoke(IpcChannel.SetRating, [3], 5)).resolves.toBe(1)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.SetRating, { ids: [3], rating: 5 })
+    expect(() => invoke(IpcChannel.SetRating, [3], 6)).toThrow()
+    expect(() => invoke(IpcChannel.SetFavorite, [], true)).toThrow()
+    expect(() => invoke(IpcChannel.SetFavorite, [1], 'yes')).toThrow()
+  })
+
   it('forwards a validated facet query to the service', async () => {
     const facets = { checkpoints: [], loras: [], generators: [], withoutMetadata: 0 }
     const { request, invoke } = setup(async () => undefined, {

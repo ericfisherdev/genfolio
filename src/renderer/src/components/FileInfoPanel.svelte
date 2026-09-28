@@ -2,15 +2,18 @@
   import type { ImageCard } from '@shared/gallery'
   import { folderName } from '../lib/format/folder-name'
   import { formatBytes, formatDate } from '../lib/format/file-facts'
+  import RatingStars from './RatingStars.svelte'
 
   interface Props {
     card: ImageCard | undefined
     rootPath: string | undefined
     onreveal: () => void
     oncopypath: () => void
+    onfavorite: (favorite: boolean) => void
+    onrate: (rating: number) => void
   }
 
-  let { card, rootPath, onreveal, oncopypath }: Props = $props()
+  let { card, rootPath, onreveal, oncopypath, onfavorite, onrate }: Props = $props()
   const folder = $derived.by(() => {
     if (!card) return ''
     const root = rootPath ? folderName(rootPath) : ''
@@ -21,6 +24,18 @@
 <aside class="panel" aria-label="File details">
   {#if card}
     <h2 title={card.fileName}>{card.fileName}</h2>
+    <div class="marks">
+      <button
+        type="button"
+        class="favorite"
+        class:on={card.favorite}
+        aria-pressed={card.favorite}
+        title="Favourite (F)"
+        onclick={() => onfavorite(!card.favorite)}
+        >{card.favorite ? '♥ Favourite' : '♡ Favourite'}</button
+      >
+      <RatingStars rating={card.rating} {onrate} label="Rating (0–5)" />
+    </div>
     <dl>
       <dt>Folder</dt>
       <dd>{folder}</dd>
@@ -52,6 +67,15 @@
     margin: 0 0 var(--space-3);
     font-size: 1rem;
     word-break: break-all;
+  }
+  .marks {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+  }
+  .favorite.on {
+    color: #ff6b8b;
   }
   dl {
     display: grid;
