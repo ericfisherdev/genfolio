@@ -19,7 +19,9 @@ const card = (id: number): ImageCard => ({
   createdAt: 1,
   addedAt: 1,
   favorite: false,
-  rating: 0
+  rating: 0,
+  similarGroupId: null,
+  similarCount: 0
 })
 
 interface FakeApi {

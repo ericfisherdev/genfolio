@@ -49,7 +49,9 @@ const cardFor = (id: number): ImageCard => ({
   createdAt: Date.UTC(2026, 8, 27, 12),
   addedAt: Date.UTC(2026, 8, 28, 9),
   favorite: false,
-  rating: 0
+  rating: 0,
+  similarGroupId: null,
+  similarCount: 0
 })
 
 async function openDetail(

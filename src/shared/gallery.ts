@@ -58,7 +58,11 @@ export const imageCardSchema = z
     createdAt: z.number(),
     addedAt: z.number(),
     favorite: z.boolean(),
-    rating: z.number().int().min(0).max(MAX_RATING)
+    rating: z.number().int().min(0).max(MAX_RATING),
+    /** The image's look-alike group, if it is in one. */
+    similarGroupId: id.nullable(),
+    /** The other images in that group (0 when none). */
+    similarCount: z.number().int().nonnegative()
   })
   .readonly()
 

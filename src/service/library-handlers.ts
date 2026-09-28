@@ -9,6 +9,7 @@ import { ImageFileResolver } from '@application/image-file-resolver'
 import { ImageForgetter } from '@application/image-forgetter'
 import { HashIndexer } from '@application/hash-indexer'
 import { HashingQueue } from '@application/hashing-queue'
+import { SimilarityService } from '@application/similarity-service'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
@@ -26,6 +27,7 @@ import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlit
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
 import { SqliteImageHashRepository } from '@infrastructure/db/repositories/sqlite-image-hash-repository'
+import { SqliteSimilarityRepository } from '@infrastructure/db/repositories/sqlite-similarity-repository'
 import { NapiImageHasher } from '@infrastructure/imaging/napi-image-hasher'
 import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
@@ -71,6 +73,14 @@ export function createLibraryHandlers(
     realpath,
     stat
   })
+  const similarity = new SimilarityService(
+    new SqliteSimilarityRepository(db),
+    () => new Promise((resolve) => setImmediate(resolve))
+  )
+  const logFailure =
+    (what: string) =>
+    (error: unknown): void =>
+      console.error(`[library-service] ${what} failed`, error)
   const hashing = new HashingQueue(
     new HashIndexer(
       new SqliteImageHashRepository(db),
@@ -80,13 +90,17 @@ export function createLibraryHandlers(
       { batchSize: 200, concurrency: HASH_CONCURRENCY }
     ),
     emit,
-    () => undefined,
-    (error) => console.error('[library-service] hashing failed', error)
+    (ids) => void similarity.index(ids).catch(logFailure('finding look-alikes')),
+    logFailure('hashing')
   )
   // Every finished scan may have added or changed images to hash.
   const emitAndHash = (event: ScanEvent): void => {
     emit(event)
-    if (event.type === ScanEventType.Finished) hashing.request()
+    if (event.type !== ScanEventType.Finished) return
+    // Removed images leave their groups; new and changed ones are hashed, then compared.
+    similarity.regroup()
+    void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
+    hashing.request()
   }
   const scanner = createScanRoot(db, { directories, images, logger: scanLogger, fileRef, now })
   const roots = new LibraryRoots({
@@ -138,6 +152,7 @@ export function createLibraryHandlers(
   ])
 
   // Images left unhashed by an earlier session (or by an older HASH_VERSION).
+  void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
   hashing.request()
 
   return {
@@ -178,9 +193,16 @@ export function createLibraryHandlers(
     [ServiceMethod.AlbumsMove]: async ({ albumId, imageIds, beforeId }) => ({
       changed: albums.move(albumId, imageIds as ImageId[], beforeId as ImageId | null)
     }),
-    [ServiceMethod.ImagesForget]: async ({ ids }) => ({
-      forgotten: await forgetter.forget(ids as ImageId[])
-    }),
+    [ServiceMethod.ImagesForget]: async ({ ids }) => {
+      const forgotten = await forgetter.forget(ids as ImageId[])
+      if (forgotten > 0) similarity.regroup()
+      return { forgotten }
+    },
+    [ServiceMethod.SimilarityThreshold]: async () => ({ threshold: similarity.threshold() }),
+    [ServiceMethod.SetSimilarityThreshold]: async ({ threshold }) => {
+      similarity.setThreshold(threshold)
+      return { threshold }
+    },
     [ServiceMethod.PresetsList]: async () => presets.list(),
     [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
     [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),
