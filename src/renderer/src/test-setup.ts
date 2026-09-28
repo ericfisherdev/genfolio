@@ -17,3 +17,8 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     disconnect = noop
   }
 }
+
+// jsdom images never decode; Chromium's decode() resolves once pixels are ready.
+if (typeof HTMLImageElement !== 'undefined' && !HTMLImageElement.prototype.decode) {
+  HTMLImageElement.prototype.decode = () => Promise.resolve()
+}

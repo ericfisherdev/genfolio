@@ -225,7 +225,7 @@ describe('LibraryView', () => {
     const listRoots = vi.fn(async () => sampleLibrary().roots)
     const harness = testServices(sampleLibrary(), { listRoots, getImageLayout })
     await harness.services.library.refresh()
-    render(LibraryView, { context: harness.context })
+    render(AppShell, { context: harness.context })
     await waitFor(() => expect(harness.services.gallery.count).toBe(2))
 
     listRoots.mockResolvedValue([])
