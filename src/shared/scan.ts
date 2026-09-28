@@ -32,8 +32,16 @@ export const scanEventSchema = z.discriminatedUnion('type', [
   z
     .object({ type: z.literal(ScanEventType.Finished), rootId, report: scanReportSchema })
     .readonly(),
-  z.object({ type: z.literal(ScanEventType.Failed), rootId, reason: z.string() }).readonly()
+  z.object({ type: z.literal(ScanEventType.Failed), rootId, reason: z.string() }).readonly(),
+  z
+    .object({
+      type: z.literal(ScanEventType.Hashing),
+      /** Images hashed so far in this pass; the pass has ended when done equals total. */
+      done: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative()
+    })
+    .readonly()
 ])
 
-/** Scan lifecycle notifications pushed from the library service to the renderer. */
+/** Scan lifecycle and background hashing notifications pushed from the service to the renderer. */
 export type ScanEvent = z.infer<typeof scanEventSchema>

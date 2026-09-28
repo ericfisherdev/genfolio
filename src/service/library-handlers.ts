@@ -7,6 +7,8 @@ import { DisplayCopies } from '@application/display-copies'
 import { fileRef } from '@application/file-ref'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { ImageForgetter } from '@application/image-forgetter'
+import { HashIndexer } from '@application/hash-indexer'
+import { HashingQueue } from '@application/hashing-queue'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
@@ -23,6 +25,8 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlite-image-mark-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
+import { SqliteImageHashRepository } from '@infrastructure/db/repositories/sqlite-image-hash-repository'
+import { NapiImageHasher } from '@infrastructure/imaging/napi-image-hasher'
 import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
@@ -34,7 +38,7 @@ import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
-import type { ScanEvent } from '@shared/scan'
+import { ScanEventType, type ScanEvent } from '@shared/scan'
 import { ServiceMethod } from '@shared/service-contract'
 import { HealthReporter } from './health/health-reporter'
 import { ImageCodecProbe } from './health/image-codec-probe'
@@ -47,6 +51,8 @@ import { createGenerationParser, createScanRoot } from './scan-root-factory'
 const DISPLAY_COPY_CACHE_BYTES = 200 * 1024 * 1024
 /** Matches the default libuv thread pool that runs @napi-rs/image work. */
 const DISPLAY_COPY_CONCURRENCY = 4
+/** Hashing shares that pool in the background, so it leaves room for grid copies. */
+const HASH_CONCURRENCY = 2
 
 const scanLogger: ScanLogger = {
   warn: (message, ref) => console.warn(`[library-service] ${message} (file ${ref})`)
@@ -60,12 +66,34 @@ export function createLibraryHandlers(
   const now = (): number => Date.now()
   const directories = new SqliteDirectoryRepository(db)
   const images = new SqliteImageRepository(db)
+  const imageFiles = new ImageFileResolver(new SqliteImageLocator(db), {
+    open: (path) => open(path, 'r'),
+    realpath,
+    stat
+  })
+  const hashing = new HashingQueue(
+    new HashIndexer(
+      new SqliteImageHashRepository(db),
+      imageFiles,
+      new NapiImageHasher(),
+      { run: (work) => db.transaction(work)() },
+      { batchSize: 200, concurrency: HASH_CONCURRENCY }
+    ),
+    emit,
+    () => undefined,
+    (error) => console.error('[library-service] hashing failed', error)
+  )
+  // Every finished scan may have added or changed images to hash.
+  const emitAndHash = (event: ScanEvent): void => {
+    emit(event)
+    if (event.type === ScanEventType.Finished) hashing.request()
+  }
   const scanner = createScanRoot(db, { directories, images, logger: scanLogger, fileRef, now })
   const roots = new LibraryRoots({
     roots: new SqliteLibraryRootRepository(db),
     directories,
     images,
-    scans: new ScanCoordinator(scanner, emit),
+    scans: new ScanCoordinator(scanner, emitAndHash),
     resolver: new NodeDirectoryResolver(),
     transact: (work) => db.transaction(work)(),
     now
@@ -98,11 +126,7 @@ export function createLibraryHandlers(
     models
   )
   const displayCopies = new DisplayCopies(
-    new ImageFileResolver(new SqliteImageLocator(db), {
-      open: (path) => open(path, 'r'),
-      realpath,
-      stat
-    }),
+    imageFiles,
     new NapiImageResizer(),
     new ByteLruCache<string>(DISPLAY_COPY_CACHE_BYTES),
     new ConcurrencyLimiter(DISPLAY_COPY_CONCURRENCY)
@@ -112,6 +136,9 @@ export function createLibraryHandlers(
     new SqliteProbe(db),
     new ImageCodecProbe(Transformer)
   ])
+
+  // Images left unhashed by an earlier session (or by an older HASH_VERSION).
+  hashing.request()
 
   return {
     [ServiceMethod.Health]: () => health.report(),

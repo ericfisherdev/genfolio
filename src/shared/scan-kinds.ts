@@ -9,5 +9,7 @@ export enum ScanPhase {
 export enum ScanEventType {
   Progress = 'progress',
   Finished = 'finished',
-  Failed = 'failed'
+  Failed = 'failed',
+  /** Library-wide background hashing for look-alikes, after scans. */
+  Hashing = 'hashing'
 }

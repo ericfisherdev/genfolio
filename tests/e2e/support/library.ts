@@ -44,7 +44,7 @@ export function addAndAwaitScan(
     let resolveFinished: (event: ScanEvent) => void = () => undefined
     const finished = new Promise<ScanEvent>((resolve) => (resolveFinished = resolve))
     const off = window.genfolio.onScanEvent((event) => {
-      if (event.type !== 'progress') resolveFinished(event)
+      if (event.type === 'finished' || event.type === 'failed') resolveFinished(event)
     })
     const result = await window.genfolio.addRootViaDialog()
     const event = result.outcome === 'added' ? await finished : undefined
