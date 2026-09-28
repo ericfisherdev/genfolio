@@ -19,3 +19,9 @@ export enum HashKind {
   AutoV1 = 'autov1',
   Unknown = 'unknown'
 }
+
+/** What a stored model is used as. */
+export enum ModelKind {
+  Checkpoint = 'checkpoint',
+  Lora = 'lora'
+}

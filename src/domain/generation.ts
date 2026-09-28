@@ -45,6 +45,11 @@ export interface SourcedGeneration {
   readonly generation: ParsedGeneration
 }
 
+/** A generation as stored for an image: merged fields plus the origin whose data won. */
+export interface StoredGeneration extends ParsedGeneration {
+  readonly origin: MetadataOrigin
+}
+
 /** Reads one text format of generation data. */
 export interface GenerationParser {
   /** The generation in `text`, or `undefined` when the text isn't in this format. Never throws. */

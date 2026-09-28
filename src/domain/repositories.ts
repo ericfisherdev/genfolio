@@ -1,4 +1,6 @@
+import type { StoredGeneration } from './generation'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
+import type { MetadataRecord } from './metadata-record'
 
 /** Thrown when adding a root whose path is already registered. */
 export class DuplicateRootError extends Error {
@@ -49,4 +51,34 @@ export interface ImageRepository {
    * rows another writer changed since the snapshot survive.
    */
   deleteMany(stats: readonly StoredFileStat[]): void
+}
+
+export interface GenerationRepository {
+  /**
+   * In one transaction: upserts the checkpoint, refiner and LoRA models (reused by name
+   * identity, collecting new hashes) and replaces the image's generation and LoRA links.
+   * `null` removes the generation.
+   */
+  replace(imageId: ImageId, generation: StoredGeneration | null): void
+  find(imageId: ImageId): StoredGeneration | undefined
+  /** Deletes models no generation uses any more. Returns how many. */
+  pruneUnusedModels(): number
+}
+
+export interface MetadataRecordRepository {
+  /** Replaces every raw record stored for the image, in one transaction. */
+  replace(imageId: ImageId, records: readonly MetadataRecord[]): void
+  /** The image's records in the order they were stored. */
+  list(imageId: ImageId): MetadataRecord[]
+}
+
+/** When a directory's `log.html` was last read, to skip unchanged logs. */
+export interface FileStamp {
+  readonly sizeBytes: number
+  readonly mtimeMs: number
+}
+
+export interface FooocusLogRepository {
+  find(directoryId: DirectoryId): FileStamp | undefined
+  save(directoryId: DirectoryId, stamp: FileStamp): void
 }
