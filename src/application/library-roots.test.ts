@@ -11,7 +11,7 @@ import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
 import { ImageFormat } from '@shared/image-format'
 import { AddRootOutcome } from '@shared/library'
-import { LibraryRoots, UnknownRootError, isInside } from './library-roots'
+import { LibraryRoots, UnknownRootError, isInside, type DirectoryResolver } from './library-roots'
 import { ScanCoordinator, type RootScanner } from './scan-coordinator'
 
 let dir: string
@@ -27,6 +27,10 @@ beforeEach(() => {
   db = migratedMemoryDb()
   started = []
   blockScans = false
+  roots = makeRoots(new NodeDirectoryResolver())
+})
+
+function makeRoots(resolver: DirectoryResolver): LibraryRoots {
   const scanner: RootScanner = {
     run: (root, signal) => {
       started.push(root.id)
@@ -36,16 +40,19 @@ beforeEach(() => {
       )
     }
   }
-  roots = new LibraryRoots({
+  return new LibraryRoots({
     roots: new SqliteLibraryRootRepository(db),
     directories: new SqliteDirectoryRepository(db),
     images: new SqliteImageRepository(db),
     scans: new ScanCoordinator(scanner, () => undefined),
-    resolver: new NodeDirectoryResolver(),
+    resolver,
     transact: (work) => db.transaction(work)(),
     now: () => 42
   })
-})
+}
+
+/** Resolves instantly, so concurrent adds reach their decisions in the same turn. */
+const instantResolver: DirectoryResolver = { realDirectory: async (path) => path }
 
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
@@ -66,6 +73,8 @@ describe('isInside', () => {
     expect(isInside('/lib', '/lib')).toBe(false)
     expect(isInside('/library', '/lib')).toBe(false)
     expect(isInside('/lib', '/lib/a')).toBe(false)
+    expect(isInside('/lib/..hidden', '/lib')).toBe(true)
+    expect(isInside('/lib/../x', '/lib')).toBe(false)
   })
 })
 
@@ -137,6 +146,34 @@ describe('LibraryRoots', () => {
     expect(relPaths).toContain('2026-09-27')
   })
 
+  it('never leaves nested roots when adds of parent folders overlap', async () => {
+    blockScans = true
+    roots = makeRoots(instantResolver)
+    await roots.add(folder('outputs/a/b'))
+
+    const results = await Promise.all([
+      roots.add(folder('outputs/a')),
+      roots.add(folder('outputs'))
+    ])
+
+    expect(results.map((result) => result.outcome)).toEqual([
+      AddRootOutcome.Added,
+      AddRootOutcome.Added
+    ])
+    expect(roots.list().map((root) => root.path)).toEqual([join(dir, 'outputs')])
+  })
+
+  it('returns AlreadyAdded rather than throwing when the same parent is added twice at once', async () => {
+    blockScans = true
+    roots = makeRoots(instantResolver)
+    await roots.add(folder('outputs/a'))
+    const path = folder('outputs')
+
+    const outcomes = (await Promise.all([roots.add(path), roots.add(path)])).map((r) => r.outcome)
+
+    expect(outcomes).toEqual([AddRootOutcome.Added, AddRootOutcome.AlreadyAdded])
+  })
+
   it('cancels a running scan before removing the root', async () => {
     blockScans = true
     await roots.add(folder('outputs'))
@@ -151,7 +188,7 @@ describe('LibraryRoots', () => {
     await roots.add(folder('outputs'))
     const id = roots.list()[0]?.id as RootId
     await settle()
-    expect(roots.rescan(id)).toBe(true)
-    expect(() => roots.rescan(999 as RootId)).toThrow(UnknownRootError)
+    await expect(roots.rescan(id)).resolves.toBe(true)
+    await expect(roots.rescan(999 as RootId)).rejects.toThrow(UnknownRootError)
   })
 })

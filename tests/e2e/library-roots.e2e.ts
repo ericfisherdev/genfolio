@@ -8,7 +8,7 @@ import type { ScanEvent } from '../../src/shared/scan'
 import { launchApp, tempUserData, type LaunchedApp } from './support/launch'
 
 const FIXTURES = resolve(__dirname, '../fixtures/fooocus')
-let launched: LaunchedApp
+let launched: LaunchedApp | undefined
 let library: string
 
 /** A library folder holding copies of the committed Fooocus fixture images. */
@@ -49,19 +49,29 @@ function addAndAwaitScan(
   })
 }
 
+/** The app launched for the current test; beforeEach guarantees it. */
+const current = (): LaunchedApp => {
+  if (!launched) throw new Error('app was not launched')
+  return launched
+}
+
 test.beforeEach(async () => {
+  launched = undefined
   library = makeLibrary()
   launched = await launchApp()
 })
 
 test.afterEach(async () => {
-  await launched.close()
-  rmSync(library, { recursive: true, force: true })
+  try {
+    await launched?.close()
+  } finally {
+    rmSync(library, { recursive: true, force: true })
+  }
 })
 
 test('adding a folder scans it and lists the root with its image count', async () => {
-  const page = await launched.app.firstWindow()
-  await stubFolderPicker(launched.app, library)
+  const page = await current().app.firstWindow()
+  await stubFolderPicker(current().app, library)
 
   const { result, finished } = await addAndAwaitScan(page)
 
@@ -74,24 +84,24 @@ test('adding a folder scans it and lists the root with its image count', async (
 })
 
 test('a folder inside an existing root is rejected and a cancelled picker changes nothing', async () => {
-  const page = await launched.app.firstWindow()
-  await stubFolderPicker(launched.app, library)
+  const page = await current().app.firstWindow()
+  await stubFolderPicker(current().app, library)
   await addAndAwaitScan(page)
 
-  await stubFolderPicker(launched.app, join(library, '2026-09-27'))
+  await stubFolderPicker(current().app, join(library, '2026-09-27'))
   expect((await addAndAwaitScan(page)).result).toEqual({
     outcome: 'inside-existing-root',
     path: library
   })
 
-  await stubFolderPicker(launched.app, undefined)
+  await stubFolderPicker(current().app, undefined)
   expect((await addAndAwaitScan(page)).result).toEqual({ outcome: 'cancelled' })
   expect(await page.evaluate(() => window.genfolio.listRoots())).toHaveLength(1)
 })
 
 test('removing a root forgets it but leaves the files on disk', async () => {
-  const page = await launched.app.firstWindow()
-  await stubFolderPicker(launched.app, library)
+  const page = await current().app.firstWindow()
+  await stubFolderPicker(current().app, library)
   await addAndAwaitScan(page)
   const [root] = await page.evaluate(() => window.genfolio.listRoots())
 
@@ -102,13 +112,14 @@ test('removing a root forgets it but leaves the files on disk', async () => {
 })
 
 test('a database from a newer app is reported instead of crashing', async () => {
-  await launched.close()
+  await current().close()
+  launched = undefined
   const userData = tempUserData()
   const db = new Database(join(userData, 'genfolio.db'))
   db.pragma('user_version = 99')
   db.close()
   launched = await launchApp(userData)
 
-  const page = await launched.app.firstWindow()
+  const page = await current().app.firstWindow()
   await expect(page.getByRole('alert')).toContainText('Update Genfolio')
 })

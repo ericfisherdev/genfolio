@@ -21,15 +21,24 @@ export function tempUserData(): string {
   return mkdtempSync(join(tmpdir(), 'genfolio-e2e-'))
 }
 
-/** Launches Genfolio against an isolated userData directory (removed on close). */
+/**
+ * Launches Genfolio against an isolated userData directory, removed on close, or right away
+ * when the launch itself fails.
+ */
 export async function launchApp(userData = tempUserData()): Promise<LaunchedApp> {
   const env = { ...process.env, GENFOLIO_E2E: '1', GENFOLIO_USER_DATA: userData }
   const stringEnv = env as Record<string, string>
-  const app = await electron.launch(
-    packagedExecutable
-      ? { executablePath: packagedExecutable, env: stringEnv }
-      : { args: ['.'], env: stringEnv }
-  )
+  let app: ElectronApplication
+  try {
+    app = await electron.launch(
+      packagedExecutable
+        ? { executablePath: packagedExecutable, env: stringEnv }
+        : { args: ['.'], env: stringEnv }
+    )
+  } catch (error) {
+    rmSync(userData, { recursive: true, force: true })
+    throw error
+  }
   return {
     app,
     userData,

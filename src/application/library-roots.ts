@@ -37,13 +37,19 @@ export class UnknownRootError extends Error {
 /** True when `child` lies strictly inside `parent` (both absolute, resolved). */
 export function isInside(child: string, parent: string): boolean {
   const rel = relative(parent, child)
-  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)
 }
 
 const toPosix = (path: string): string => path.split(sep).join('/')
 
-/** Adding, listing, removing and rescanning the folders that make up the library. */
+/**
+ * Adding, listing, removing and rescanning the folders that make up the library.
+ * Mutations run one at a time, so each decision is made on a root list no other call is
+ * changing (the service is the only writer).
+ */
 export class LibraryRoots {
+  private tail: Promise<unknown> = Promise.resolve()
+
   constructor(private readonly deps: LibraryRootsDependencies) {}
 
   list(): RootSummary[] {
@@ -54,7 +60,11 @@ export class LibraryRoots {
    * Adds a folder and starts scanning it. Existing roots inside it are merged in, keeping
    * their indexed images. Expected conflicts are returned as outcomes, not thrown.
    */
-  async add(path: string): Promise<AddRootResult> {
+  add(path: string): Promise<AddRootResult> {
+    return this.exclusive(() => this.addExclusive(path))
+  }
+
+  private async addExclusive(path: string): Promise<AddRootResult> {
     const real = await this.deps.resolver.realDirectory(path)
     if (!real) return { outcome: AddRootOutcome.NotADirectory, path }
     const existing = this.deps.roots.list()
@@ -83,16 +93,27 @@ export class LibraryRoots {
   }
 
   /** Stops any running scan, then deletes the root's rows. Files on disk are never touched. */
-  async remove(rootId: RootId): Promise<boolean> {
-    await this.deps.scans.cancel(rootId)
-    return this.deps.roots.remove(rootId)
+  remove(rootId: RootId): Promise<boolean> {
+    return this.exclusive(async () => {
+      await this.deps.scans.cancel(rootId)
+      return this.deps.roots.remove(rootId)
+    })
   }
 
-  /** Throws {@link UnknownRootError}. Returns false when a scan is already running. */
-  rescan(rootId: RootId): boolean {
-    const root = this.deps.roots.findById(rootId)
-    if (!root) throw new UnknownRootError(rootId)
-    return this.deps.scans.start(root)
+  /** Rejects with {@link UnknownRootError}. Resolves false when a scan is already running. */
+  rescan(rootId: RootId): Promise<boolean> {
+    return this.exclusive(async () => {
+      const root = this.deps.roots.findById(rootId)
+      if (!root) throw new UnknownRootError(rootId)
+      return this.deps.scans.start(root)
+    })
+  }
+
+  /** Runs `work` after every earlier mutation settles; a failed one does not block the queue. */
+  private exclusive<T>(work: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(work, work)
+    this.tail = run.catch(() => undefined)
+    return run
   }
 
   private summarize(root: LibraryRoot): RootSummary {

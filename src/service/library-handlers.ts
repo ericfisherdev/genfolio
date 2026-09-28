@@ -63,6 +63,8 @@ export function createLibraryHandlers(
     [ServiceMethod.RemoveRoot]: async ({ rootId }) => ({
       removed: await roots.remove(rootId as RootId)
     }),
-    [ServiceMethod.RescanRoot]: async ({ rootId }) => ({ started: roots.rescan(rootId as RootId) })
+    [ServiceMethod.RescanRoot]: async ({ rootId }) => ({
+      started: await roots.rescan(rootId as RootId)
+    })
   }
 }
