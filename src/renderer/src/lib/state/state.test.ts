@@ -63,6 +63,9 @@ describe('ScanProgressState', () => {
     expect(scans.isScanning).toBe(false)
     listener({ type: ScanEventType.Hashing, done: 10, total: 10 })
     expect(scans.hashing).toBeUndefined()
+    listener({ type: ScanEventType.WatchUnavailable, rootId: 2 })
+    listener({ type: ScanEventType.WatchUnavailable, rootId: 2 })
+    expect(scans.unwatched).toEqual([2])
   })
 
   it('tracks progress per root, records failures and reports scan ends', () => {

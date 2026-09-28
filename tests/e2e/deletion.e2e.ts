@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -47,14 +47,15 @@ async function openGallery(): Promise<Page> {
   return page
 }
 
-test('a bulk delete trashes the files, forgets missing ones and reports the one it could not delete', async () => {
+// A file already missing when the delete runs is covered by the ImageDeleter unit tests:
+// with live updates, a file deleted outside the app leaves the library before a user could.
+test('a bulk delete trashes the files and reports exactly the one it could not delete', async () => {
   const page = await openGallery()
-  const [trashed, locked, missing] = await cardNames(page)
-  if (!trashed || !locked || !missing) throw new Error('not enough images')
+  const [trashed, locked, alsoTrashed] = await cardNames(page)
+  if (!trashed || !locked || !alsoTrashed) throw new Error('not enough images')
   await stubTrash({ refuse: [locked], answer: 0 })
-  unlinkSync(join(day(), missing))
 
-  for (const name of [trashed, locked, missing]) {
+  for (const name of [trashed, locked, alsoTrashed]) {
     await page.getByRole('checkbox', { name: `Select ${name}` }).click()
   }
   await page.getByRole('button', { name: 'Move to trash' }).click()
@@ -64,7 +65,7 @@ test('a bulk delete trashes the files, forgets missing ones and reports the one 
   await expect(report.getByRole('listitem')).toHaveCount(1)
   await expect(
     page.getByRole('status').filter({
-      hasText: 'Moved 1 image to the trash. 1 image was already gone. Could not delete 1 image.'
+      hasText: 'Moved 2 images to the trash. Could not delete 1 image.'
     })
   ).toBeVisible()
   await report.getByRole('button', { name: 'OK' }).click()
@@ -72,7 +73,7 @@ test('a bulk delete trashes the files, forgets missing ones and reports the one 
   expect(await asked(current().app)).toEqual([
     '1 image file could not be moved to the trash. Delete permanently instead?'
   ])
-  expect(readdirSync(trash)).toEqual([trashed])
+  expect(readdirSync(trash).sort()).toEqual([trashed, alsoTrashed].sort())
   expect(existsSync(join(day(), locked))).toBe(true)
   await expect(cards(page)).toHaveCount(4)
   expect(await cardNames(page)).toContain(locked)

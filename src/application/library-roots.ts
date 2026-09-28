@@ -47,6 +47,11 @@ export class LibraryRoots {
 
   constructor(private readonly deps: LibraryRootsDependencies) {}
 
+  /** Every root as stored, for following them on disk. */
+  all(): LibraryRoot[] {
+    return this.deps.roots.list()
+  }
+
   list(): RootSummary[] {
     return this.deps.roots.list().map((root) => this.summarize(root))
   }

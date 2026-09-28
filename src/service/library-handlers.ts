@@ -9,6 +9,7 @@ import { ImageFileResolver } from '@application/image-file-resolver'
 import { ImageForgetter } from '@application/image-forgetter'
 import { HashIndexer } from '@application/hash-indexer'
 import { HashingQueue } from '@application/hashing-queue'
+import { LiveUpdates } from '@application/live-updates'
 import { SimilarityService } from '@application/similarity-service'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
@@ -29,6 +30,7 @@ import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-al
 import { SqliteImageHashRepository } from '@infrastructure/db/repositories/sqlite-image-hash-repository'
 import { SqliteSimilarityRepository } from '@infrastructure/db/repositories/sqlite-similarity-repository'
 import { NapiImageHasher } from '@infrastructure/imaging/napi-image-hasher'
+import { ChokidarFileWatcher } from '@infrastructure/fs/chokidar-file-watcher'
 import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
@@ -156,14 +158,35 @@ export function createLibraryHandlers(
   hashing.request()
   // Changes made while the app was closed: every root is scanned (unchanged files are cheap).
   void roots.reconcileAll().catch(logFailure('reconciling the library'))
+  const live = new LiveUpdates(
+    new ChokidarFileWatcher(),
+    {
+      refresh: (rootId, dirs) => roots.refresh(rootId, dirs),
+      rescan: (rootId) => void roots.rescan(rootId).catch(logFailure('rescanning a root')),
+      watchUnavailable: (rootId) => emit({ type: ScanEventType.WatchUnavailable, rootId })
+    },
+    {
+      setTimeout: (callback, ms) => setTimeout(callback, ms),
+      clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+      setInterval: (callback, ms) => setInterval(callback, ms),
+      clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout)
+    }
+  )
+  void live.sync(roots.all()).catch(logFailure('watching the library'))
 
   return {
     [ServiceMethod.Health]: () => health.report(),
     [ServiceMethod.ListRoots]: async () => roots.list(),
-    [ServiceMethod.AddRoot]: ({ path }) => roots.add(path),
-    [ServiceMethod.RemoveRoot]: async ({ rootId }) => ({
-      removed: await roots.remove(rootId as RootId)
-    }),
+    [ServiceMethod.AddRoot]: async ({ path }) => {
+      const result = await roots.add(path)
+      await live.sync(roots.all())
+      return result
+    },
+    [ServiceMethod.RemoveRoot]: async ({ rootId }) => {
+      const removed = await roots.remove(rootId as RootId)
+      await live.sync(roots.all())
+      return { removed }
+    },
     [ServiceMethod.GalleryLayout]: async ({ query }) => gallery.layout(query),
     [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
     [ServiceMethod.TagsList]: async () => tags.list(),

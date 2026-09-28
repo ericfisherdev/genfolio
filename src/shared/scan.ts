@@ -40,7 +40,8 @@ export const scanEventSchema = z.discriminatedUnion('type', [
       done: z.number().int().nonnegative(),
       total: z.number().int().nonnegative()
     })
-    .readonly()
+    .readonly(),
+  z.object({ type: z.literal(ScanEventType.WatchUnavailable), rootId }).readonly()
 ])
 
 /** Scan lifecycle and background hashing notifications pushed from the service to the renderer. */

@@ -21,6 +21,11 @@
       Finding look-alikes {count.format(scans.hashing.done)} / {count.format(scans.hashing.total)}
     </span>
   {/if}
+  {#each scans.unwatched as rootId (rootId)}
+    <span class="failed">
+      {nameOf(rootId)} can't be watched for changes (system limit); it is rescanned every 10 minutes.
+    </span>
+  {/each}
   {#each Object.entries(scans.failures) as [rootId, reason] (rootId)}
     <span class="failed">Scan of {nameOf(Number(rootId))} failed: {reason}</span>
   {/each}
