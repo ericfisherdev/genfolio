@@ -101,12 +101,14 @@ describe('against a real FTS5 index', () => {
     expect(search('red', KeywordScope.Both)).toEqual([1, 2, 3])
     expect(search('cafe')).toEqual([2])
     expect(search('lighting:1.2')).toEqual([1])
+    expect(search('studio*lighting')).toEqual([1])
+    expect(search('red\0hair')).toEqual([1])
   })
 
   it('never builds an expression FTS5 rejects, whatever is typed', () => {
     let seed = 3
     const random = (): number => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
-    const alphabet = [...'ab c"-*():^{}+,.\'\\\t\n', 'AND', 'OR', 'NOT', 'NEAR', 'é', '桜', '😀']
+    const alphabet = [...'ab c"-*():^{}+,.\'\\\t\n\0', 'AND', 'OR', 'NOT', 'NEAR', 'é', '桜', '😀']
     for (let round = 0; round < 3000; round++) {
       const length = Math.floor(random() * 20)
       const input = Array.from(

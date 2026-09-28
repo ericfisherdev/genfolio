@@ -50,9 +50,14 @@ export function parseKeywords(input: string): KeywordQuery {
   return { include, exclude }
 }
 
+/**
+ * Stars and quotes become separators, as the tokenizer reads them in indexed text (`x*y` is
+ * `x y`); NUL does too, since FTS5 reads the MATCH text as a C string and would stop inside
+ * the quotes. The trailing star was already recorded as the prefix marker.
+ */
 function termOf(raw: string): KeywordTerm | undefined {
   const prefix = raw.endsWith('*')
-  const text = raw.replaceAll('*', '').replaceAll('"', ' ').trim()
+  const text = raw.replaceAll('*', ' ').replaceAll('"', ' ').replaceAll('\0', ' ').trim()
   return HAS_TOKEN.test(text) ? { text, prefix } : undefined
 }
 
