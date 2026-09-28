@@ -9,7 +9,7 @@ describe('HealthReporter', () => {
   it('merges every probe into one report', async () => {
     const reporter = new HealthReporter([
       probeOf({ electron: '44', node: '24' }),
-      probeOf({ sqlite: '3.53', fts5: true }),
+      probeOf({ sqlite: '3.53', fts5: true, schemaVersion: 1 }),
       probeOf({ decodableFormats: ['png'] })
     ])
     await expect(reporter.report()).resolves.toEqual({
@@ -17,6 +17,7 @@ describe('HealthReporter', () => {
       node: '24',
       sqlite: '3.53',
       fts5: true,
+      schemaVersion: 1,
       decodableFormats: ['png']
     })
   })

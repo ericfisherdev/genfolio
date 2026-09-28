@@ -11,15 +11,23 @@ import { guardNavigation } from './navigation-guard'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
 import { LibraryServiceSupervisor } from './service/library-service-supervisor'
+import { e2eUserDataOverride } from './user-data-override'
 import { createMainWindow } from './window'
 
 // Composition root of the main process.
+
+const userDataOverride = e2eUserDataOverride(process.env)
+if (userDataOverride) app.setPath('userData', userDataOverride)
 
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 const rendererEntry: RendererEntry =
   is.dev && devServerUrl
     ? { kind: 'dev-server', url: devServerUrl }
     : { kind: 'file', path: join(__dirname, '../renderer/index.html') }
+
+function libraryDatabasePath(): string {
+  return join(app.getPath('userData'), 'genfolio.db')
+}
 
 function openMainWindow(): void {
   createMainWindow({
@@ -37,7 +45,10 @@ app.whenReady().then(() => {
 
   const libraryService = new LibraryServiceSupervisor(
     (onExit) =>
-      new LibraryServiceClient(forkLibraryService(), { requestTimeoutMs: 30_000, onExit }),
+      new LibraryServiceClient(forkLibraryService(libraryDatabasePath()), {
+        requestTimeoutMs: 30_000,
+        onExit
+      }),
     { maxRestarts: 3, windowMs: 60_000 },
     {
       warn: (message) => console.warn(`[main] ${message}`),

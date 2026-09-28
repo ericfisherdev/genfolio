@@ -10,6 +10,7 @@ const health: ServiceHealth = {
   node: '24.21.0',
   sqlite: '3.53.4',
   fts5: true,
+  schemaVersion: 1,
   decodableFormats: ['png', 'webp']
 }
 
@@ -25,6 +26,7 @@ describe('ServiceStatus', () => {
         node: '24.21.0',
         sqlite: '3.53.4',
         fts5: true,
+        schemaVersion: 1,
         decodableFormats: ['png', 'webp']
       })
     })

@@ -1,0 +1,113 @@
+import type Database from 'better-sqlite3'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { DirectoryId, ImageFile, RootId } from '@domain/library'
+import { DuplicateRootError } from '@domain/repositories'
+import { ImageFormat } from '@shared/image-format'
+import { migratedMemoryDb } from '../testing/migrated-memory-db'
+import { ancestorPaths, SqliteDirectoryRepository } from './sqlite-directory-repository'
+import { SqliteImageRepository } from './sqlite-image-repository'
+import { SqliteLibraryRootRepository } from './sqlite-library-root-repository'
+
+let db: Database.Database
+let roots: SqliteLibraryRootRepository
+let directories: SqliteDirectoryRepository
+let images: SqliteImageRepository
+
+beforeEach(() => {
+  db = migratedMemoryDb()
+  roots = new SqliteLibraryRootRepository(db)
+  directories = new SqliteDirectoryRepository(db)
+  images = new SqliteImageRepository(db)
+})
+
+function imageIn(directoryId: DirectoryId, fileName: string, sizeBytes = 100): ImageFile {
+  return {
+    directoryId,
+    fileName,
+    format: ImageFormat.Png,
+    sizeBytes,
+    mtimeMs: 1_700_000_000_000,
+    width: 832,
+    height: 1216,
+    createdAt: 1_700_000_000_000
+  }
+}
+
+describe('SqliteLibraryRootRepository', () => {
+  it('adds and lists roots sorted by path', () => {
+    roots.add('/b', 1)
+    roots.add('/a', 2)
+    expect(roots.list().map((root) => root.path)).toEqual(['/a', '/b'])
+  })
+
+  it('rejects a duplicate path', () => {
+    roots.add('/a', 1)
+    expect(() => roots.add('/a', 2)).toThrow(DuplicateRootError)
+  })
+
+  it('removing a root cascades to its directories and images', () => {
+    const root = roots.add('/a', 1)
+    const other = roots.add('/b', 1)
+    images.upsertMany([imageIn(directories.ensure(root.id, 'x/y'), '1.png')], 1)
+    images.upsertMany([imageIn(directories.ensure(other.id, ''), '2.png')], 1)
+
+    expect(roots.remove(root.id)).toBe(true)
+    expect(directories.listByRoot(root.id)).toEqual([])
+    expect(images.countByRoot(root.id)).toBe(0)
+    expect(images.countByRoot(other.id)).toBe(1)
+    expect(roots.remove(root.id)).toBe(false)
+  })
+})
+
+describe('SqliteDirectoryRepository', () => {
+  it('lists ancestor paths root first', () => {
+    expect(ancestorPaths('a/b/c')).toEqual(['', 'a', 'a/b', 'a/b/c'])
+    expect(ancestorPaths('')).toEqual([''])
+  })
+
+  it('creates missing ancestors with parent links', () => {
+    const root = roots.add('/a', 1)
+    const leaf = directories.ensure(root.id, '2026/09/27')
+    const byPath = new Map(directories.listByRoot(root.id).map((d) => [d.relPath, d]))
+
+    expect([...byPath.keys()]).toEqual(['', '2026', '2026/09', '2026/09/27'])
+    expect(byPath.get('')?.parentId).toBeNull()
+    expect(byPath.get('2026/09')?.parentId).toBe(byPath.get('2026')?.id)
+    expect(byPath.get('2026/09/27')?.id).toBe(leaf)
+  })
+
+  it('returns the same id when called again', () => {
+    const root = roots.add('/a', 1)
+    expect(directories.ensure(root.id, 'x')).toBe(directories.ensure(root.id, 'x'))
+    expect(directories.listByRoot(root.id)).toHaveLength(2)
+  })
+})
+
+describe('SqliteImageRepository', () => {
+  it('updates file facts on conflict but keeps the first addedAt', () => {
+    const root = roots.add('/a', 1)
+    const dir = directories.ensure(root.id, '')
+    images.upsertMany([imageIn(dir, 'a.png', 100)], 111)
+    images.upsertMany([imageIn(dir, 'a.png', 200)], 222)
+
+    const row = db.prepare('SELECT size_bytes, added_at FROM images').get()
+    expect(row).toEqual({ size_bytes: 200, added_at: 111 })
+    expect(images.countByRoot(root.id)).toBe(1)
+  })
+
+  it('rejects a fractional mtime instead of storing a REAL (STRICT table)', () => {
+    const root = roots.add('/a', 1)
+    const dir = directories.ensure(root.id, '')
+    expect(() => images.upsertMany([{ ...imageIn(dir, 'a.png'), mtimeMs: 1.5 }], 1)).toThrow()
+  })
+
+  it('upserts 10k images in one batch within a second', () => {
+    const root = roots.add('/a', 1)
+    const dir = directories.ensure(root.id as RootId, '')
+    const batch = Array.from({ length: 10_000 }, (_, i) => imageIn(dir, `${i}.png`))
+    const started = performance.now()
+    images.upsertMany(batch, 1)
+    expect(performance.now() - started).toBeLessThan(1_000)
+    expect(images.countByRoot(root.id)).toBe(10_000)
+  })
+})
