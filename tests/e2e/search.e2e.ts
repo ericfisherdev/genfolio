@@ -68,12 +68,18 @@ test('filters by checkpoint and by LoRAs with All or Any', async () => {
   await expect(cards(page).getByRole('article')).toHaveAttribute('aria-label', /20-45-48/)
 })
 
-test('keyword search shows matches, and an exclusion that removes everything offers Clear filters', async () => {
+test('keyword search follows its scope, and an exclusion that removes everything offers Clear filters', async () => {
   const page = await openGallery()
   const search = page.getByRole('searchbox', { name: 'Search prompts' })
-  await search.fill('teapot')
+  // Every fixture's prompt is the same, and only the negative prompts mention watermarks,
+  // so each step here changes the result.
+  await search.fill('watermark')
   await search.press('Enter')
+  await expect(page.getByText('No images match these filters.')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Search in' }).selectOption({ label: 'Negative prompt' })
+  await expect(cards(page)).toHaveCount(6)
   await expect(page.getByText('6 of 6 images')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Search in' }).selectOption({ label: 'Prompt' })
   await search.fill('-teapot')
   await search.press('Enter')
   await expect(page.getByText('No images match these filters.')).toBeVisible()

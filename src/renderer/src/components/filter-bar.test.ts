@@ -57,6 +57,47 @@ describe('FilterBar', () => {
     expect(harness.hash.current).toBe('#/?q=blue')
   })
 
+  it('keeps a space typed just before a pause', async () => {
+    vi.useFakeTimers()
+    const harness = await renderBar()
+    const input = screen.getByRole('searchbox', { name: 'Search prompts' }) as HTMLInputElement
+    await fireEvent.input(input, { target: { value: 'red ' } })
+    await vi.advanceTimersByTimeAsync(300)
+    expect(harness.hash.current).toBe('#/?q=red')
+    expect(input.value).toBe('red ')
+  })
+
+  it('replaces the history entry while refining a search, and pushes when starting one', async () => {
+    const harness = await renderBar()
+    const write = vi.spyOn(harness.hash, 'write')
+    const replace = vi.spyOn(harness.hash, 'replace')
+    const input = screen.getByRole('searchbox', { name: 'Search prompts' })
+    await fireEvent.input(input, { target: { value: 'red' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    await fireEvent.input(input, { target: { value: 'red hair' } })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    await fireEvent.keyDown(input, { key: 'Enter' })
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(harness.hash.current).toBe('#/?q=red+hair')
+  })
+
+  it('says the pickers could not load instead of showing an empty list', async () => {
+    const harness = testServices(sampleLibrary(), {
+      getFacets: async () => {
+        throw new Error('service down')
+      }
+    })
+    harness.services.router.navigate({ kind: RouteKind.All })
+    await harness.services.facets.load({
+      scope: { kind: GalleryScopeKind.All },
+      sort: SortOrder.Newest
+    })
+    render(FilterBar, { context: harness.context })
+    await fireEvent.click(screen.getByRole('button', { name: /^Checkpoint/ }))
+    expect(screen.getByRole('alert').textContent).toContain('could not be loaded: service down')
+  })
+
   it('changes the keyword scope once there is a keyword', async () => {
     const harness = await renderBar({
       kind: RouteKind.All,

@@ -15,6 +15,8 @@
   const filters: SearchFilters = $derived(route?.filters ?? {})
   const checkpoints = $derived(facets.facets?.checkpoints ?? [])
   const loras = $derived(facets.facets?.loras ?? [])
+  /** Shown in the pickers only when there are no facets at all to fall back on. */
+  const facetsError = $derived(facets.facets ? undefined : facets.loadError)
   const generators = $derived(
     Object.values(GeneratorKind).filter(
       (kind) =>
@@ -24,12 +26,14 @@
   )
 
   /** Navigates to the same scope with `next` filters; unset fields are dropped. */
-  function apply(next: SearchFilters): void {
+  function apply(next: SearchFilters, history: 'push' | 'replace' = 'push'): void {
     if (!route) return
     const compact = Object.fromEntries(
       Object.entries(next).filter(([, value]) => value !== undefined)
     ) as SearchFilters
-    router.navigate(withFilters(route, compact))
+    const target = withFilters(route, compact)
+    if (history === 'replace') router.replace(target)
+    else router.navigate(target)
   }
 
   // Keyword typing updates the route after a pause; Enter applies at once.
@@ -38,7 +42,9 @@
   $effect(() => {
     const routed = filters.keywords?.query ?? ''
     untrack(() => {
-      if (keywordTimer === undefined) keyword = routed
+      // Only when the route says something else (back, forward, Clear): rewriting the input
+      // with the trimmed query would eat a space typed just before a pause.
+      if (keywordTimer === undefined && routed !== keyword.trim()) keyword = routed
     })
   })
   onDestroy(() => clearTimeout(keywordTimer))
@@ -47,12 +53,19 @@
     clearTimeout(keywordTimer)
     keywordTimer = undefined
     const query = keyword.trim()
-    apply({
-      ...filters,
-      keywords: query
-        ? { query, scope: filters.keywords?.scope ?? KeywordScope.Positive }
-        : undefined
-    })
+    const current = filters.keywords?.query ?? ''
+    if (query === current) return
+    // Refining an existing search replaces its history entry, so Back skips the drafts typed
+    // along the way; starting or clearing a search adds one.
+    apply(
+      {
+        ...filters,
+        keywords: query
+          ? { query, scope: filters.keywords?.scope ?? KeywordScope.Positive }
+          : undefined
+      },
+      current && query ? 'replace' : 'push'
+    )
   }
 
   function onkeywordinput(): void {
@@ -165,12 +178,14 @@
       <FacetPicker
         label="Checkpoint"
         values={checkpoints}
+        error={facetsError}
         selected={filters.checkpointIds ?? []}
         onchange={setCheckpoints}
       />
       <FacetPicker
         label="LoRA"
         values={loras}
+        error={facetsError}
         selected={filters.loras?.ids ?? []}
         onchange={(ids) => setLoras({ ids })}
       >

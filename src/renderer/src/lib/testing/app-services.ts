@@ -28,6 +28,9 @@ export function memoryHash(initial = ''): MemoryHash {
     write: (hash: string) => {
       location.current = hash
     },
+    replace: (hash: string) => {
+      location.current = hash
+    },
     onChange: (listener: () => void) => {
       listeners.push(listener)
       return () => {

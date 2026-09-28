@@ -41,9 +41,14 @@
     </div>
   {:else}
     <p class="summary" aria-live="polite">
-      {filtered
-        ? `${count.format(gallery.count)} of ${count.format(inScope)} images`
-        : `${count.format(inScope)} images`}
+      <!-- The layout of the previous query stays on screen until the filtered one arrives. -->
+      {#if filtered && gallery.loading}
+        Filtering…
+      {:else if filtered}
+        {count.format(gallery.count)} of {count.format(inScope)} images
+      {:else}
+        {count.format(inScope)} images
+      {/if}
     </p>
     <Gallery />
   {/if}

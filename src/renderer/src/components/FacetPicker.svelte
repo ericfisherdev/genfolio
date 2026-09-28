@@ -7,11 +7,13 @@
     values: readonly FacetValue[]
     selected: readonly number[]
     onchange: (ids: number[]) => void
+    /** Why the values couldn't be loaded, shown instead of an empty list. */
+    error?: string | undefined
     /** Extra controls shown above the list (the LoRA match mode and weight range). */
     children?: Snippet
   }
 
-  let { label, values, selected, onchange, children }: Props = $props()
+  let { label, values, selected, onchange, error, children }: Props = $props()
   let open = $state(false)
   let search = $state('')
   let root: HTMLDivElement | undefined = $state()
@@ -70,7 +72,9 @@
         autofocus
       />
       {@render children?.()}
-      {#if shown.length === 0}
+      {#if error}
+        <p class="empty" role="alert">The {label} list could not be loaded: {error}</p>
+      {:else if shown.length === 0}
         <p class="empty">{values.length === 0 ? 'None in these images' : 'No matches'}</p>
       {:else}
         <ul>
