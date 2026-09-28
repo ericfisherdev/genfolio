@@ -36,7 +36,12 @@ function setup(
 
 describe('registerLibraryChannels', () => {
   it('registers every library channel', () => {
-    const imageChannels = [IpcChannel.RevealImage, IpcChannel.CopyImagePath]
+    const imageChannels = [
+      IpcChannel.RevealImage,
+      IpcChannel.CopyImagePath,
+      IpcChannel.GetGeneration,
+      IpcChannel.CopyGeneration
+    ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)
         .filter((channel) => !imageChannels.includes(channel))

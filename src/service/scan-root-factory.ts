@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { FooocusLogIndexer } from '@application/fooocus-log-indexer'
 import { ImageMetadataIndex } from '@application/image-metadata-index'
 import { DEFAULT_SCAN_OPTIONS, ScanRoot, type ScanRootOptions } from '@application/scan-root'
+import type { GenerationSourceParser } from '@domain/generation'
 import { GenerationMerger } from '@domain/generation-merger'
 import type { DirectoryRepository, ImageRepository } from '@domain/repositories'
 import type { ScanLogger } from '@domain/scan'
@@ -29,16 +30,20 @@ export interface ScanRootCollaborators {
   readonly now: () => number
 }
 
+/** Every generation format, most specific first: JSON, UnFooocused's two-line text, A1111. */
+export function createGenerationParser(): GenerationSourceParser {
+  return new GenerationRecordParser([
+    new FooocusJsonParser(),
+    new UnFooocusedParser(),
+    new A1111InfotextParser()
+  ])
+}
+
 /** The metadata side of indexing: raw records in, merged generations stored. */
 export function createImageMetadataIndex(db: Database.Database): ImageMetadataIndex {
   const versions = new SqliteImageVersionCheck(db)
   return new ImageMetadataIndex(
-    // Most specific formats first: JSON, then UnFooocused's two-line text, then A1111.
-    new GenerationRecordParser([
-      new FooocusJsonParser(),
-      new UnFooocusedParser(),
-      new A1111InfotextParser()
-    ]),
+    createGenerationParser(),
     new GenerationMerger(),
     new SqliteMetadataRecordRepository(db, versions),
     new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions)

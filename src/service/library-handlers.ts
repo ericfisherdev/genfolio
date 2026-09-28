@@ -7,10 +7,16 @@ import { DisplayCopies } from '@application/display-copies'
 import { fileRef } from '@application/file-ref'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LibraryRoots } from '@application/library-roots'
+import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
+import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
+import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqlite-generation-repository'
+import { SqliteImageVersionCheck } from '@infrastructure/db/repositories/sqlite-image-version-check'
+import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/sqlite-metadata-record-repository'
+import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
@@ -24,7 +30,7 @@ import { ImageCodecProbe } from './health/image-codec-probe'
 import { RuntimeProbe } from './health/runtime-probe'
 import { SqliteProbe } from './health/sqlite-probe'
 import type { ServiceHandlers } from './rpc-dispatcher'
-import { createScanRoot } from './scan-root-factory'
+import { createGenerationParser, createScanRoot } from './scan-root-factory'
 
 /** In-memory budget for grid copies of large images (never written to disk). */
 const DISPLAY_COPY_CACHE_BYTES = 200 * 1024 * 1024
@@ -54,6 +60,12 @@ export function createLibraryHandlers(
     now
   })
   const gallery = new SqliteGalleryReader(db)
+  const versions = new SqliteImageVersionCheck(db)
+  const generationDetails = new GenerationDetailsReader(
+    new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions),
+    new SqliteMetadataRecordRepository(db, versions),
+    createGenerationParser()
+  )
   const displayCopies = new DisplayCopies(
     new ImageFileResolver(new SqliteImageLocator(db), {
       open: (path) => open(path, 'r'),
@@ -81,6 +93,12 @@ export function createLibraryHandlers(
     [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
     [ServiceMethod.DirectoryTree]: async ({ rootId }) =>
       gallery.directoryTree(rootId as RootId) ?? null,
+    [ServiceMethod.ImageGeneration]: async ({ imageId }) =>
+      generationDetails.details(imageId as ImageId),
+    [ServiceMethod.ImageGenerationText]: async ({ imageId, variant }) => {
+      const details = generationDetails.details(imageId as ImageId)
+      return details ? generationText(details, variant) : null
+    },
     [ServiceMethod.RenderDisplayCopy]: ({ imageId, maxWidth }) =>
       displayCopies.render(imageId as ImageId, maxWidth),
     [ServiceMethod.RescanRoot]: async ({ rootId }) => ({

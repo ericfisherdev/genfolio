@@ -7,12 +7,17 @@ import type { ScanEvent } from '../../../src/shared/scan'
 
 const FIXTURES = resolve(__dirname, '../../fixtures/fooocus')
 
-/** A library folder holding copies of the committed Fooocus fixture images. */
-export function makeLibrary(): string {
+/**
+ * A library folder holding copies of the committed Fooocus fixture images and, with
+ * `withLog`, their `log.html`.
+ */
+export function makeLibrary({ withLog = false }: { withLog?: boolean } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'genfolio-library-'))
   const day = join(root, '2026-09-27')
   mkdirSync(day)
-  for (const name of readdirSync(FIXTURES).filter((n) => /\.(png|webp|jpe?g)$/.test(n))) {
+  const copied = (name: string): boolean =>
+    /\.(png|webp|jpe?g)$/.test(name) || (withLog && name === 'log.html')
+  for (const name of readdirSync(FIXTURES).filter(copied)) {
     copyFileSync(join(FIXTURES, name), join(day, name))
   }
   return root

@@ -1,4 +1,6 @@
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
+import type { GenerationDetails } from './generation'
+import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
 import type { ServiceHealth } from './service-health'
@@ -14,7 +16,9 @@ export enum IpcChannel {
   GalleryImages = 'gallery:images',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
-  CopyImagePath = 'image:copy-path'
+  CopyImagePath = 'image:copy-path',
+  GetGeneration = 'image:get-generation',
+  CopyGeneration = 'image:copy-generation'
 }
 
 /** Main → renderer push channels. */
@@ -46,6 +50,13 @@ export interface GenfolioApi {
   revealImage(imageId: number): Promise<boolean>
   /** Copies the image's full path to the clipboard; false when it cannot be found. */
   copyImagePath(imageId: number): Promise<boolean>
+  /** How the image was generated, or null when it is unknown or carries no generation data. */
+  getGeneration(imageId: number): Promise<GenerationDetails | null>
+  /**
+   * Puts the variant's text on the clipboard in main (the renderer never passes clipboard
+   * text); false when the image has no such text.
+   */
+  copyGeneration(imageId: number, variant: CopyVariant): Promise<boolean>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
 }

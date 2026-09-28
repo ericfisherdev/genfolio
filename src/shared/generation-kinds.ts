@@ -32,3 +32,20 @@ export enum ModelKind {
   Checkpoint = 'checkpoint',
   Lora = 'lora'
 }
+
+/** What a resource row on the detail page stands for. */
+export enum ResourceKind {
+  Checkpoint = 'checkpoint',
+  Refiner = 'refiner',
+  Lora = 'lora'
+}
+
+/** Which text a copy action puts on the clipboard. */
+export enum CopyVariant {
+  Prompt = 'prompt',
+  /** The prompt with `<lora:name:weight>` tags appended, ready to paste into A1111. */
+  PromptWithLoras = 'prompt-with-loras',
+  Negative = 'negative',
+  /** Everything, as A1111 infotext. */
+  All = 'all'
+}
