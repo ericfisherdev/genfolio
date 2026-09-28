@@ -6,6 +6,7 @@ import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
 import { AlbumsState } from '../state/albums.svelte'
+import { ImageDeletion } from '../state/image-deletion.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
@@ -127,6 +128,7 @@ export function testServices(
       refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
     ),
     selection: new SelectionState(gallery),
+    deletion: new ImageDeletion(api, libraryState, () => void libraryState.refresh()),
     albums: new AlbumsState(api, libraryState, () =>
       refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
     )

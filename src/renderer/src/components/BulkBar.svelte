@@ -2,13 +2,20 @@
   import { MAX_TAG_NAME } from '@shared/tag-kinds'
   import type { Tag } from '@shared/tags'
   import { AlbumKind } from '@shared/albums'
+  import { DeleteMode } from '@shared/deletion-kinds'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import RatingStars from './RatingStars.svelte'
   import AddToAlbumDialog from './AddToAlbumDialog.svelte'
   import NameCombobox from './NameCombobox.svelte'
 
-  const { selection, marks, tags, library, gallery, albums } = getAppServices()
+  const { selection, marks, tags, library, gallery, albums, deletion } = getAppServices()
+
+  /** Deletes the selection; it is cleared unless the confirmation was declined. */
+  async function remove(mode: DeleteMode): Promise<void> {
+    const report = await deletion.delete(selection.list(), mode)
+    if (report && !report.cancelled) selection.clear()
+  }
   let adding: readonly number[] | undefined = $state()
   const shownAlbum = $derived(
     gallery.query?.scope.kind === GalleryScopeKind.Album
@@ -93,6 +100,12 @@
         )}>Remove from album</button
     >
   {/if}
+  <button type="button" class="danger" onclick={() => void remove(DeleteMode.Trash)}
+    >Move to trash</button
+  >
+  <button type="button" class="danger" onclick={() => void remove(DeleteMode.Permanent)}
+    >Delete permanently…</button
+  >
   <span class="spacer"></span>
   {#if selected < gallery.count}
     <button type="button" onclick={() => selection.selectAll()}>
@@ -134,5 +147,8 @@
   }
   .spacer {
     flex: 1;
+  }
+  .danger {
+    color: var(--color-danger);
   }
 </style>

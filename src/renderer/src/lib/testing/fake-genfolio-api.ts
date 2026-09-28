@@ -34,6 +34,7 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     addToAlbum: unexpected('addToAlbum'),
     removeFromAlbum: unexpected('removeFromAlbum'),
     moveInAlbum: unexpected('moveInAlbum'),
+    deleteImages: unexpected('deleteImages'),
     getDirectoryTree: unexpected('getDirectoryTree'),
     revealImage: unexpected('revealImage'),
     copyImagePath: unexpected('copyImagePath'),

@@ -1,4 +1,5 @@
 import type { Album, AlbumChange } from './albums'
+import type { DeleteMode, DeleteReport } from './deletion'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { SearchFacets, SearchFilters } from './search'
@@ -37,6 +38,7 @@ export enum IpcChannel {
   AddToAlbum = 'albums:add',
   RemoveFromAlbum = 'albums:remove',
   MoveInAlbum = 'albums:move',
+  DeleteImages = 'image:delete',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -110,6 +112,12 @@ export interface GenfolioApi {
     imageIds: readonly number[],
     beforeId: number | null
   ): Promise<number>
+  /**
+   * Deletes up to 10,000 images' files: to the trash, or permanently after main's own
+   * confirmation (also offered when the trash fails). Deleted and already missing files'
+   * images leave the library. Resolves what happened to each.
+   */
+  deleteImages(imageIds: readonly number[], mode: DeleteMode): Promise<DeleteReport>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

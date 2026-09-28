@@ -8,12 +8,27 @@
   import { samePromptRoute } from '../lib/gallery/find-similar'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
   import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
+  import { DeleteMode } from '@shared/deletion-kinds'
   import { AlbumArranger } from '../lib/gallery/album-arranger.svelte'
+  import { actionTargets } from '../lib/gallery/card-targets'
+  import type { MenuAction } from './ActionMenu.svelte'
   import AddToAlbumDialog from './AddToAlbumDialog.svelte'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api, copier, facets, marks, selection, albums } =
-    getAppServices()
+  const {
+    gallery,
+    router,
+    sort,
+    library,
+    scans,
+    api,
+    copier,
+    facets,
+    marks,
+    selection,
+    albums,
+    deletion
+  } = getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
@@ -113,6 +128,15 @@
   let adding: readonly number[] | undefined = $state()
   const arranger = new AlbumArranger(albums, gallery, selection, (ids) => (adding = ids))
 
+  function deleteActions(imageId: number): MenuAction[] {
+    const remove = (mode: DeleteMode) => () =>
+      void deletion.delete(actionTargets(selection, imageId), mode)
+    return [
+      { label: 'Move to trash', danger: true, onselect: remove(DeleteMode.Trash) },
+      { label: 'Delete permanently…', danger: true, onselect: remove(DeleteMode.Permanent) }
+    ]
+  }
+
   /** Whether a drag is over the far half of the slot, which drops after its image. */
   const overFarHalf = (event: DragEvent): boolean => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
@@ -188,7 +212,7 @@
               selecting={selection.count > 0}
               onselect={(range) =>
                 range ? selection.extendTo(imageId) : selection.toggle(imageId)}
-              moreActions={arranger.cardActions(imageId)}
+              moreActions={[...arranger.cardActions(imageId), ...deleteActions(imageId)]}
             />
           </div>
         {/each}

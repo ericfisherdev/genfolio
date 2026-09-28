@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ImageLocator, StoredImageLocation } from '@domain/image-location'
 import type { ImageId } from '@domain/library'
-import { ImageFileResolver, type ResolverFileSystem } from './image-file-resolver'
+import { FileStatus, ImageFileResolver, type ResolverFileSystem } from './image-file-resolver'
 
 let dir: string
 let library: string
@@ -125,5 +125,44 @@ describe('ImageFileResolver', () => {
     await expect(contentsOf(resolverFor(undefined))).resolves.toBeUndefined()
     await expect(contentsOf(resolverFor({ fileName: 'gone.png' }))).resolves.toBeUndefined()
     await expect(contentsOf(resolverFor({ relDir: '', fileName: 'day' }))).resolves.toBeUndefined()
+  })
+})
+
+describe('ImageFileResolver.inspect', () => {
+  const inspect = (resolver: ImageFileResolver): ReturnType<ImageFileResolver['inspect']> =>
+    resolver.inspect(1 as ImageId)
+
+  it('finds the exact file and says why there is none otherwise', async () => {
+    const found = await inspect(resolverFor({}))
+    expect(found).toMatchObject({ status: FileStatus.Found, exact: true })
+    if (found.status === FileStatus.Found) await found.file.handle.close()
+    await expect(inspect(resolverFor(undefined))).resolves.toEqual({ status: FileStatus.Unknown })
+    await expect(inspect(resolverFor({ fileName: 'gone.png' }))).resolves.toEqual({
+      status: FileStatus.Missing,
+      fileName: 'gone.png'
+    })
+    await expect(inspect(resolverFor({ relDir: '', fileName: 'day' }))).resolves.toMatchObject({
+      status: FileStatus.Refused
+    })
+  })
+
+  it('marks a file reached through a link inside the root as not exact', async () => {
+    symlinkSync(inside, join(library, 'day', 'link.png'))
+    const linked = await inspect(resolverFor({ fileName: 'link.png' }))
+    expect(linked).toMatchObject({ status: FileStatus.Found, exact: false })
+    if (linked.status === FileStatus.Found) await linked.file.handle.close()
+  })
+
+  it('reports a file it may not open as unreadable', async () => {
+    const denied: ResolverFileSystem = {
+      ...realFs,
+      open: async () => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' })
+      }
+    }
+    await expect(inspect(resolverFor({}, denied))).resolves.toEqual({
+      status: FileStatus.Unreadable,
+      fileName: 'a.png'
+    })
   })
 })

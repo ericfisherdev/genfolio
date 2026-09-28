@@ -22,6 +22,7 @@ function setup(size: { width: number; height: number } | undefined, fileName = '
     path: `/lib/${fileName}`,
     fileName,
     mtimeMs: 1,
+    sizeBytes: 1,
     ...size
   }
   const streamFile = vi.fn(
