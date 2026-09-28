@@ -76,6 +76,16 @@ describe('SqliteDirectoryRepository', () => {
     expect(byPath.get('2026/09/27')?.id).toBe(leaf)
   })
 
+  it('prunes directories with no images anywhere below them, keeping the root', () => {
+    const root = roots.add('/a', 1)
+    images.upsertMany([imageIn(directories.ensure(root.id, 'kept/deep'), '1.png')], 1)
+    directories.ensure(root.id, 'empty/deeper/deepest')
+    directories.ensure(root.id, 'kept/empty-sibling')
+
+    expect(directories.pruneEmpty(root.id)).toBe(4)
+    expect(directories.listByRoot(root.id).map((d) => d.relPath)).toEqual(['', 'kept', 'kept/deep'])
+  })
+
   it('returns the same id when called again', () => {
     const root = roots.add('/a', 1)
     expect(directories.ensure(root.id, 'x')).toBe(directories.ensure(root.id, 'x'))
@@ -93,6 +103,22 @@ describe('SqliteImageRepository', () => {
     const row = db.prepare('SELECT size_bytes, added_at FROM images').get()
     expect(row).toEqual({ size_bytes: 200, added_at: 111 })
     expect(images.countByRoot(root.id)).toBe(1)
+  })
+
+  it('lists stored file stats per root and deletes by id', () => {
+    const root = roots.add('/a', 1)
+    const dir = directories.ensure(root.id, 'x')
+    images.upsertMany([imageIn(dir, 'a.png', 1), imageIn(dir, 'b.png', 2)], 1)
+    const stats = images
+      .fileStatsByRoot(root.id)
+      .sort((a, b) => a.fileName.localeCompare(b.fileName))
+    expect(stats.map((s) => [s.relDir, s.fileName, s.sizeBytes])).toEqual([
+      ['x', 'a.png', 1],
+      ['x', 'b.png', 2]
+    ])
+
+    images.deleteMany([stats[0]!.id])
+    expect(images.fileStatsByRoot(root.id).map((s) => s.fileName)).toEqual(['b.png'])
   })
 
   it('rejects a fractional mtime instead of storing a REAL (STRICT table)', () => {

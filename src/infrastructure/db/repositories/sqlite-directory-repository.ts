@@ -19,6 +19,7 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
   private readonly insert: Database.Statement<[number, number | null, string]>
   private readonly selectId: Database.Statement<[number, string], { id: number }>
   private readonly selectByRoot: Database.Statement<[number], DirectoryRow>
+  private readonly deleteEmptyLeaves: Database.Statement<[number]>
 
   constructor(private readonly db: Database.Database) {
     this.insert = db.prepare(
@@ -28,6 +29,12 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
     this.selectByRoot = db.prepare(
       'SELECT id, root_id, parent_id, rel_path FROM directories WHERE root_id = ? ORDER BY rel_path'
     )
+    this.deleteEmptyLeaves = db.prepare(`
+      DELETE FROM directories
+      WHERE root_id = ? AND rel_path != ''
+        AND NOT EXISTS (SELECT 1 FROM images WHERE images.directory_id = directories.id)
+        AND NOT EXISTS (SELECT 1 FROM directories AS child WHERE child.parent_id = directories.id)
+    `)
   }
 
   ensure(rootId: RootId, relPath: string): DirectoryId {
@@ -48,6 +55,16 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
       parentId: row.parent_id as DirectoryId | null,
       relPath: row.rel_path
     }))
+  }
+
+  pruneEmpty(rootId: RootId): number {
+    return this.db.transaction(() => {
+      let removed = 0
+      for (let changes = 1; changes > 0; removed += changes) {
+        changes = this.deleteEmptyLeaves.run(rootId).changes
+      }
+      return removed
+    })()
   }
 
   private idOf(rootId: RootId, relPath: string): number {

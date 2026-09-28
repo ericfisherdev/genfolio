@@ -9,6 +9,7 @@
     "src/service/**/*",
     "src/shared/**/*",
     "src/domain/**/*",
+    "src/application/**/*",
     "src/infrastructure/**/*",
     "tests/e2e/**/*"
   ],
@@ -21,6 +22,7 @@
     "paths": {
       "@shared/*": ["./src/shared/*"],
       "@domain/*": ["./src/domain/*"],
+      "@application/*": ["./src/application/*"],
       "@infrastructure/*": ["./src/infrastructure/*"]
     }
   }
