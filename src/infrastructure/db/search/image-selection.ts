@@ -79,6 +79,8 @@ export class ImageSelector {
           : { sql: 'directory_id = ?', params: [scope.directoryId] }
       case GalleryScopeKind.Album:
         return this.albums.condition(scope.albumId)
+      case GalleryScopeKind.Similar:
+        return { sql: 'similar_group_id = ?', params: [scope.groupId] }
     }
   }
 }

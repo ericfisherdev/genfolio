@@ -95,4 +95,22 @@ describe('SimilarityService', () => {
     await similarity.ensureCurrent()
     expect(pairs()).toEqual([])
   })
+
+  it('lists groups largest first with the keeper (most pixels) first', async () => {
+    hash(1, 0)
+    hash(2, 1)
+    hash(3, 2)
+    hash(5, 30)
+    hash(6, 31)
+    library.db.prepare('UPDATE images SET width = 20 WHERE id = ?').run(image(3))
+    await similarity.index([1, 2, 3, 5, 6].map(image))
+    expect(similarity.groups(0, 10)).toEqual({
+      total: 2,
+      groups: [
+        { groupId: image(1), count: 3, imageIds: [image(3), image(1), image(2)] },
+        { groupId: image(5), count: 2, imageIds: [image(5), image(6)] }
+      ]
+    })
+    expect(similarity.groups(1, 10).groups.map((group) => group.groupId)).toEqual([image(5)])
+  })
 })

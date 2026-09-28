@@ -32,6 +32,10 @@ const api: GenfolioApi = {
   addToAlbum: (albumId, imageIds) => ipcRenderer.invoke(IpcChannel.AddToAlbum, albumId, imageIds),
   removeFromAlbum: (albumId, imageIds) =>
     ipcRenderer.invoke(IpcChannel.RemoveFromAlbum, albumId, imageIds),
+  getSimilarityThreshold: () => ipcRenderer.invoke(IpcChannel.SimilarityThreshold),
+  setSimilarityThreshold: (threshold) =>
+    ipcRenderer.invoke(IpcChannel.SetSimilarityThreshold, threshold),
+  listSimilarGroups: (offset, limit) => ipcRenderer.invoke(IpcChannel.SimilarGroups, offset, limit),
   listSlideshowPresets: () => ipcRenderer.invoke(IpcChannel.ListPresets),
   saveSlideshowPreset: (name, settings) =>
     ipcRenderer.invoke(IpcChannel.SavePreset, name, settings),

@@ -14,7 +14,9 @@ export enum SortOrder {
 export enum GalleryScopeKind {
   All = 'all',
   Directory = 'directory',
-  Album = 'album'
+  Album = 'album',
+  /** One look-alike group. */
+  Similar = 'similar'
 }
 
 /** Values per image in a layout array: `[id, width, height]`. */

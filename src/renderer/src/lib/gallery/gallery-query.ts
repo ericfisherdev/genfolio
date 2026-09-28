@@ -12,7 +12,7 @@ export interface ViewSorts {
   readonly album: SortOrder
 }
 
-/** The gallery query a route shows; image and slideshow routes keep showing `previous`. */
+/** The gallery query a route shows; routes that show no gallery keep `previous` loaded. */
 export function queryForRoute(
   route: Route,
   sorts: ViewSorts,
@@ -38,8 +38,15 @@ export function queryForRoute(
         sort: isSmartAlbum(route.albumId) ? sorts.current : sorts.album,
         ...filtersOf(route)
       }
+    case RouteKind.SimilarGroup:
+      return {
+        scope: { kind: GalleryScopeKind.Similar, groupId: route.groupId },
+        sort: sorts.current,
+        ...filtersOf(route)
+      }
     case RouteKind.Image:
     case RouteKind.Slideshow:
+    case RouteKind.SimilarGroups:
       return previous
   }
 }
@@ -62,5 +69,7 @@ function scopeKey(scope: GalleryQuery['scope']): string {
       return `dir:${scope.directoryId}:${scope.recursive ? 1 : 0}`
     case GalleryScopeKind.Album:
       return `album:${scope.albumId}`
+    case GalleryScopeKind.Similar:
+      return `similar:${scope.groupId}`
   }
 }

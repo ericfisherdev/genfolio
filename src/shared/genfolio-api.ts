@@ -8,6 +8,7 @@ import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
 import type { ServiceHealth } from './service-health'
+import type { SimilarGroupsPage } from './similarity'
 import type { SlideshowPreset, SlideshowSettings } from './slideshow'
 
 /** Renderer → main request channels. One channel per API method. */
@@ -43,6 +44,9 @@ export enum IpcChannel {
   ListPresets = 'slideshow:list-presets',
   SavePreset = 'slideshow:save-preset',
   DeletePreset = 'slideshow:delete-preset',
+  SimilarityThreshold = 'similarity:threshold',
+  SetSimilarityThreshold = 'similarity:set-threshold',
+  SimilarGroups = 'similarity:groups',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -128,6 +132,12 @@ export interface GenfolioApi {
   saveSlideshowPreset(name: string, settings: SlideshowSettings): Promise<SlideshowPreset>
   /** Resolves false when the preset was already gone. */
   deleteSlideshowPreset(presetId: number): Promise<boolean>
+  /** The Hamming distance (0–16) at or below which images are look-alikes. */
+  getSimilarityThreshold(): Promise<number>
+  /** Regroups every image at the new threshold before resolving. */
+  setSimilarityThreshold(threshold: number): Promise<number>
+  /** Up to 100 look-alike groups from `offset`, largest first, keeper first in each. */
+  listSimilarGroups(offset: number, limit: number): Promise<SimilarGroupsPage>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

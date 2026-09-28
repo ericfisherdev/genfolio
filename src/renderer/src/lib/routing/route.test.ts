@@ -13,6 +13,9 @@ describe('routes', () => {
     { kind: RouteKind.Album, albumId: 3, filters: { favoritesOnly: true } },
     { kind: RouteKind.Image, imageId: 42 },
     { kind: RouteKind.Slideshow },
+    { kind: RouteKind.SimilarGroups },
+    { kind: RouteKind.SimilarGroup, groupId: 4 },
+    { kind: RouteKind.SimilarGroup, groupId: 4, filters: { favoritesOnly: true } },
     { kind: RouteKind.Slideshow, startId: 7 }
   ])('round-trips %j', (route) => {
     expect(parseRoute(formatRoute(route))).toEqual(route)

@@ -10,10 +10,12 @@
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
+  import SimilarGroupsView from './SimilarGroupsView.svelte'
   import SlideshowView from './SlideshowView.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans, router, gallery, facets, tags, selection, albums } = getAppServices()
+  const { library, scans, router, gallery, facets, tags, selection, albums, similarity } =
+    getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
   // changed, whether the gallery or the detail view is on screen. The shell stays mounted in
@@ -49,6 +51,25 @@
     }
   })
 
+  // Hashing ends with regrouped look-alikes: counts on cards and in the sidebar change.
+  let wasHashing = false
+  $effect(() => {
+    const hashing = scans.hashing !== undefined
+    if (wasHashing && !hashing) {
+      untrack(() => {
+        void similarity.load()
+        void gallery.reload()
+      })
+    }
+    wasHashing = hashing
+  })
+
+  // Look-alike counts change when scans add or remove images.
+  $effect(() => {
+    void library.roots
+    untrack(() => void similarity.load())
+  })
+
   // Cancelled scans send no end event; forget progress for roots that are gone.
   $effect(() => {
     const ids = library.roots.map((root) => root.id)
@@ -72,7 +93,11 @@
         <FilterBar />
       {/if}
       <NoticeBar />
-      <LibraryView />
+      {#if router.route.kind === RouteKind.SimilarGroups}
+        <SimilarGroupsView />
+      {:else}
+        <LibraryView />
+      {/if}
     {/if}
   </main>
 </div>

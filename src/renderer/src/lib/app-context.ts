@@ -6,6 +6,7 @@ import type { SlideshowNavigator } from './slideshow/slideshow-navigator'
 import type { SlideshowPresetsState } from './slideshow/slideshow-presets.svelte'
 import type { SlideshowSettingsState } from './slideshow/slideshow-settings.svelte'
 import type { FacetsState } from './state/facets.svelte'
+import type { SimilarityState } from './state/similarity.svelte'
 import type { ImageDeletion } from './state/image-deletion.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
@@ -36,6 +37,7 @@ export interface AppServices {
   readonly slideshowSettings: SlideshowSettingsState
   readonly slideshowPresets: SlideshowPresetsState
   readonly slideshowNavigator: SlideshowNavigator
+  readonly similarity: SimilarityState
 }
 
 const APP_SERVICES = Symbol('app-services')

@@ -198,6 +198,7 @@ export function createLibraryHandlers(
       if (forgotten > 0) similarity.regroup()
       return { forgotten }
     },
+    [ServiceMethod.SimilarGroups]: async ({ offset, limit }) => similarity.groups(offset, limit),
     [ServiceMethod.SimilarityThreshold]: async () => ({ threshold: similarity.threshold() }),
     [ServiceMethod.SetSimilarityThreshold]: async ({ threshold }) => {
       similarity.setThreshold(threshold)

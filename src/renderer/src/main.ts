@@ -8,6 +8,7 @@ import { ImageDeletion } from './lib/state/image-deletion.svelte'
 import { SlideshowNavigator } from './lib/slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from './lib/slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from './lib/slideshow/slideshow-settings.svelte'
+import { SimilarityState } from './lib/state/similarity.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
@@ -48,6 +49,7 @@ const services: AppServices = {
   slideshowSettings: new SlideshowSettingsState(localPreferenceStore(() => window.localStorage)),
   slideshowPresets: new SlideshowPresetsState(api, library),
   slideshowNavigator: new SlideshowNavigator(router, gallery),
+  similarity: new SimilarityState(api, library, () => void gallery.reload()),
   deletion: new ImageDeletion(api, library, () => void library.refresh()),
   albums: new AlbumsState(api, library, () =>
     refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))

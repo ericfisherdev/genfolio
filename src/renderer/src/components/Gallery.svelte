@@ -128,6 +128,18 @@
   let adding: readonly number[] | undefined = $state()
   const arranger = new AlbumArranger(albums, gallery, selection, (ids) => (adding = ids))
 
+  /** Opens the image's look-alike group, when it is in one. */
+  function openSimilar(imageId: number): void {
+    const groupId = gallery.card(imageId)?.similarGroupId
+    if (groupId) router.navigate({ kind: RouteKind.SimilarGroup, groupId })
+  }
+
+  function similarActions(imageId: number): MenuAction[] {
+    return gallery.card(imageId)?.similarGroupId
+      ? [{ label: 'Find similar', onselect: () => openSimilar(imageId) }]
+      : []
+  }
+
   function deleteActions(imageId: number): MenuAction[] {
     const remove = (mode: DeleteMode) => () =>
       void deletion.delete(actionTargets(selection, imageId), mode)
@@ -212,7 +224,12 @@
               selecting={selection.count > 0}
               onselect={(range) =>
                 range ? selection.extendTo(imageId) : selection.toggle(imageId)}
-              moreActions={[...arranger.cardActions(imageId), ...deleteActions(imageId)]}
+              onsimilar={() => openSimilar(imageId)}
+              moreActions={[
+                ...similarActions(imageId),
+                ...arranger.cardActions(imageId),
+                ...deleteActions(imageId)
+              ]}
             />
           </div>
         {/each}

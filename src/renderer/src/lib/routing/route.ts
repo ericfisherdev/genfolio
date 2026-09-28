@@ -6,7 +6,11 @@ export enum RouteKind {
   Directory = 'directory',
   Album = 'album',
   Image = 'image',
-  Slideshow = 'slideshow'
+  Slideshow = 'slideshow',
+  /** Every look-alike group, with the threshold. */
+  SimilarGroups = 'similar-groups',
+  /** One look-alike group, as a gallery. */
+  SimilarGroup = 'similar-group'
 }
 
 export type Route =
@@ -18,16 +22,27 @@ export type Route =
       readonly filters?: SearchFilters
     }
   | { readonly kind: RouteKind.Album; readonly albumId: number; readonly filters?: SearchFilters }
+  | {
+      readonly kind: RouteKind.SimilarGroup
+      readonly groupId: number
+      readonly filters?: SearchFilters
+    }
+  | { readonly kind: RouteKind.SimilarGroups }
   | { readonly kind: RouteKind.Image; readonly imageId: number }
   /** Plays the current results, from `startId` or their first image. */
   | { readonly kind: RouteKind.Slideshow; readonly startId?: number }
 
 /** Routes that show a gallery, which is where filters apply. */
-export type GalleryRoute = Exclude<Route, { kind: RouteKind.Image | RouteKind.Slideshow }>
+export type GalleryRoute = Exclude<
+  Route,
+  { kind: RouteKind.Image | RouteKind.Slideshow | RouteKind.SimilarGroups }
+>
 
 /** Whether the route shows a gallery; the others show the current results image by image. */
 export const isGalleryRoute = (route: Route): route is GalleryRoute =>
-  route.kind !== RouteKind.Image && route.kind !== RouteKind.Slideshow
+  route.kind !== RouteKind.Image &&
+  route.kind !== RouteKind.Slideshow &&
+  route.kind !== RouteKind.SimilarGroups
 
 export const ALL_PHOTOS: Route = { kind: RouteKind.All }
 
@@ -36,6 +51,8 @@ const DIRECTORY = /^#\/dir\/([1-9]\d*)$/
 const ALBUM = /^#\/album\/([1-9]\d*)$/
 const IMAGE = /^#\/image\/([1-9]\d*)$/
 const SLIDESHOW = /^#\/slideshow$/
+const SIMILAR_GROUPS = /^#\/similar$/
+const SIMILAR_GROUP = /^#\/similar\/([1-9]\d*)$/
 const POSITIVE = /^[1-9]\d*$/
 
 /** Parses a location hash; an unrecognised path is All Photos, invalid filters are dropped. */
@@ -53,6 +70,9 @@ export function parseRoute(hash: string): Route {
   }
   const filters = parseFilters(params)
   const withFilters = filters ? { filters } : {}
+  if (SIMILAR_GROUPS.test(path)) return { kind: RouteKind.SimilarGroups }
+  const group = SIMILAR_GROUP.exec(path)
+  if (group) return { kind: RouteKind.SimilarGroup, groupId: Number(group[1]), ...withFilters }
   const album = ALBUM.exec(path)
   if (album) return { kind: RouteKind.Album, albumId: Number(album[1]), ...withFilters }
   const directory = DIRECTORY.exec(path)
@@ -70,6 +90,7 @@ export function parseRoute(hash: string): Route {
 
 export function formatRoute(route: Route): string {
   if (route.kind === RouteKind.Image) return `#/image/${route.imageId}`
+  if (route.kind === RouteKind.SimilarGroups) return '#/similar'
   if (route.kind === RouteKind.Slideshow) {
     return route.startId === undefined ? '#/slideshow' : `#/slideshow?start=${route.startId}`
   }
@@ -89,6 +110,8 @@ function galleryPath(route: GalleryRoute): string {
       return `#/dir/${route.directoryId}`
     case RouteKind.Album:
       return `#/album/${route.albumId}`
+    case RouteKind.SimilarGroup:
+      return `#/similar/${route.groupId}`
   }
 }
 
@@ -115,5 +138,7 @@ function withoutFilters(route: GalleryRoute): GalleryRoute {
       }
     case RouteKind.Album:
       return { kind: RouteKind.Album, albumId: route.albumId }
+    case RouteKind.SimilarGroup:
+      return { kind: RouteKind.SimilarGroup, groupId: route.groupId }
   }
 }

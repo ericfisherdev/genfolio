@@ -9,7 +9,7 @@
   import SidebarAlbums from './SidebarAlbums.svelte'
   import SidebarTags from './SidebarTags.svelte'
 
-  const { library, router } = getAppServices()
+  const { library, router, similarity } = getAppServices()
   const count = new Intl.NumberFormat()
 
   let removing: { id: number; label: string; path: string } | undefined = $state()
@@ -45,6 +45,16 @@
   >
     <span>All Photos</span>
     <span class="count">{count.format(library.totalImages)}</span>
+  </button>
+
+  <button
+    type="button"
+    class="all"
+    aria-current={router.route.kind === RouteKind.SimilarGroups ? 'page' : undefined}
+    onclick={() => router.navigate({ kind: RouteKind.SimilarGroups })}
+  >
+    <span>Look-alikes</span>
+    <span class="count">{count.format(similarity.total)}</span>
   </button>
 
   <h2>Folders</h2>

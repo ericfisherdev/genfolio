@@ -26,7 +26,8 @@ export const galleryQuerySchema = z
           recursive: z.boolean()
         })
         .strict(),
-      z.object({ kind: z.literal(GalleryScopeKind.Album), albumId: id }).strict()
+      z.object({ kind: z.literal(GalleryScopeKind.Album), albumId: id }).strict(),
+      z.object({ kind: z.literal(GalleryScopeKind.Similar), groupId: id }).strict()
     ]),
     sort: z.enum(SortOrder),
     filters: searchFiltersSchema.optional()
