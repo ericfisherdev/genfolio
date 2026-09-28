@@ -1,0 +1,50 @@
+[
+  {
+    "origin": "exif-user-comment",
+    "generation": {
+      "generator": "fwd-fooocus",
+      "prompt": "a ceramic teapot shaped like a snail on a wooden caf? table, (studio lighting:1.2), soft morning light, ? petals, \"still life\", 50mm: shallow depth of field",
+      "negativePrompt": "blurry, lowres, (text:1.3), watermark, \"signature\"",
+      "seed": "4590034657615269725",
+      "steps": 30,
+      "cfgScale": 2.66,
+      "sampler": "DPM++ 2M SDE Karras",
+      "scheduler": "karras",
+      "width": 1024,
+      "height": 1024,
+      "checkpoint": {
+        "name": "intorealism_sdxlV4",
+        "hash": "c23324c71c"
+      },
+      "vae": "Default (model)",
+      "loras": [
+        {
+          "name": "add-detail-xl",
+          "weight": 0.6,
+          "hash": "0d9bd1b873"
+        }
+      ],
+      "performance": "Speed",
+      "params": {
+        "Steps": "30",
+        "Sampler": "DPM++ 2M SDE Karras",
+        "Seed": "4590034657615269725",
+        "Size": "1024x1024",
+        "CFG scale": "2.66",
+        "Sharpness": "2",
+        "ADM Guidance": "(1.5, 0.8, 0.3)",
+        "Model": "intorealism_sdxlV4",
+        "Model hash": "c23324c71c",
+        "Performance": "Speed",
+        "Scheduler": "karras",
+        "VAE": "Default (model)",
+        "Raw prompt": "a ceramic teapot shaped like a snail on a wooden caf? table, (studio lighting:1.2), soft morning light, ? petals, \"still life\", 50mm: shallow depth of field",
+        "Raw negative prompt": "blurry, lowres, (text:1.3), watermark, \"signature\"",
+        "Clip skip": "2",
+        "Lora hashes": "add-detail-xl: 0d9bd1b873",
+        "Lora weights": "add-detail-xl: 0.6",
+        "Version": "FwdFooocus v2026.09.7"
+      }
+    }
+  }
+]
