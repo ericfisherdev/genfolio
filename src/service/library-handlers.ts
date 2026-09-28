@@ -1,11 +1,12 @@
 import { Transformer } from '@napi-rs/image'
 import type Database from 'better-sqlite3'
-import { open, realpath, stat } from 'node:fs/promises'
+import { lstat, open, realpath, stat } from 'node:fs/promises'
 import { ByteLruCache } from '@application/byte-lru-cache'
 import { ConcurrencyLimiter } from '@application/concurrency-limiter'
 import { DisplayCopies } from '@application/display-copies'
 import { fileRef } from '@application/file-ref'
 import { ImageFileResolver } from '@application/image-file-resolver'
+import { ImageForgetter } from '@application/image-forgetter'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
@@ -81,8 +82,15 @@ export function createLibraryHandlers(
   )
   const versions = new SqliteImageVersionCheck(db)
   const models = new SqliteModelCatalog(db)
+  const generations = new SqliteGenerationRepository(db, models, versions)
+  const forgetter = new ImageForgetter(
+    new SqliteImageLocator(db),
+    { exists: pathExists },
+    images,
+    generations
+  )
   const generationDetails = new GenerationDetailsReader(
-    new SqliteGenerationRepository(db, models, versions),
+    generations,
     new SqliteMetadataRecordRepository(db, versions),
     createGenerationParser(),
     models
@@ -141,6 +149,9 @@ export function createLibraryHandlers(
     [ServiceMethod.AlbumsMove]: async ({ albumId, imageIds, beforeId }) => ({
       changed: albums.move(albumId, imageIds as ImageId[], beforeId as ImageId | null)
     }),
+    [ServiceMethod.ImagesForget]: async ({ ids }) => ({
+      forgotten: await forgetter.forget(ids as ImageId[])
+    }),
     [ServiceMethod.SetFavorite]: async ({ ids, favorite }) => ({
       changed: marks.setFavorite(ids as ImageId[], favorite)
     }),
@@ -161,5 +172,15 @@ export function createLibraryHandlers(
     [ServiceMethod.RescanRoot]: async ({ rootId }) => ({
       started: await roots.rescan(rootId as RootId)
     })
+  }
+}
+
+/** Whether anything is at the path, without following a link; unsure (not ENOENT) is yes. */
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await lstat(path)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ENOENT'
   }
 }

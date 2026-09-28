@@ -5,10 +5,12 @@ import type { ImageCard } from '@shared/gallery'
 import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { ChangeOutcome } from '@shared/change-outcome'
+import { DeleteFailure, DeleteMode } from '@shared/deletion-kinds'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
 import BulkBar from './BulkBar.svelte'
+import DeleteReportDialog from './DeleteReportDialog.svelte'
 import GalleryCard from './GalleryCard.svelte'
 
 const layout = new Int32Array([7, 1, 1, 8, 1, 1, 9, 1, 1])
@@ -171,6 +173,26 @@ describe('BulkBar', () => {
     await waitFor(() =>
       expect(services.library.notice).toBe('Could not favourite 2 images: service down')
     )
+  })
+
+  it('moves the selection to the trash, clears it and lists what failed', async () => {
+    const deleteImages = vi.fn(async () => ({
+      cancelled: false,
+      deleted: [7],
+      missing: [],
+      failed: [
+        { imageId: 9, fileName: 'image-9.png', reason: DeleteFailure.TrashFailed, code: 'EXDEV' }
+      ]
+    }))
+    const { services, context } = await renderBar({ deleteImages, listRoots: async () => [] })
+    render(DeleteReportDialog, { context })
+    await fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }))
+    await waitFor(() => expect(deleteImages).toHaveBeenCalledWith([7, 9], DeleteMode.Trash))
+    await waitFor(() => expect(services.selection.count).toBe(0))
+    const dialog = await screen.findByRole('dialog', { name: 'Some images were not deleted' })
+    expect(dialog.textContent).toContain('image-9.png')
+    expect(dialog.textContent).toContain('could not be moved to the trash; kept (EXDEV)')
+    expect(services.library.notice).toBe('Moved 1 image to the trash. Could not delete 1 image.')
   })
 
   it('selects all or clears', async () => {

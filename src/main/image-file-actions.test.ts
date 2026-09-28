@@ -18,7 +18,8 @@ function setup(found: boolean): {
     fileName: 'a.png',
     width: 1,
     height: 1,
-    mtimeMs: 1
+    mtimeMs: 1,
+    sizeBytes: 1
   }
   const desktop = { showItemInFolder: vi.fn(), writeClipboardText: vi.fn() }
   const actions = new ImageFileActions({ open: async () => (found ? file : undefined) }, desktop)

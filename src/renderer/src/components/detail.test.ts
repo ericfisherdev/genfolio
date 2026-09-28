@@ -264,3 +264,39 @@ describe('marks on the detail page of a favourites view', () => {
     expect(setFavorite).not.toHaveBeenCalled()
   })
 })
+
+describe('deleting from the detail page', () => {
+  it('moves the image to the trash with Delete and shows the next one', async () => {
+    const deleteImages = vi.fn(async (ids: readonly number[]) => ({
+      cancelled: false,
+      deleted: [...ids],
+      missing: [],
+      failed: []
+    }))
+    const { services } = await openDetail(8, { deleteImages, getGeneration: async () => null })
+    await fireEvent.keyDown(window, { key: 'Delete' })
+    await waitFor(() => expect(deleteImages).toHaveBeenCalledWith([8], 'trash'))
+    await waitFor(() =>
+      expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+    )
+    await fireEvent.keyDown(window, { key: 'Delete', shiftKey: true })
+    await waitFor(() => expect(deleteImages).toHaveBeenLastCalledWith([9], 'permanent'))
+    // 9 was the last image, so the previous one is shown.
+    await waitFor(() =>
+      expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 8 })
+    )
+  })
+
+  it('stays on the image when the confirmation is declined', async () => {
+    const deleteImages = vi.fn(async () => ({
+      cancelled: true,
+      deleted: [],
+      missing: [],
+      failed: []
+    }))
+    const { services } = await openDetail(8, { deleteImages, getGeneration: async () => null })
+    await fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }))
+    await waitFor(() => expect(deleteImages).toHaveBeenCalled())
+    expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 8 })
+  })
+})

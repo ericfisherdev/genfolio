@@ -1,6 +1,7 @@
 import { join } from 'node:path'
-import { open, realpath, stat } from 'node:fs/promises'
-import { app, BrowserWindow, clipboard, ipcMain, session, shell } from 'electron'
+import { open, realpath, rm, stat } from 'node:fs/promises'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from 'electron'
+import { ImageDeleter } from '@application/image-deleter'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
@@ -11,6 +12,8 @@ import { isAppUrl, type RendererEntry } from './app-url'
 import { denyAllPermissions } from './deny-permissions'
 import { pickFolderWithDialog } from './folder-picker'
 import { ImageFileActions } from './image-file-actions'
+import { DialogDeleteConfirmer } from './delete-confirmer'
+import { registerDeletionChannels } from './ipc/deletion-channels'
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
@@ -90,6 +93,24 @@ function onReady(): void {
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
     { open: (path) => open(path, 'r'), realpath, stat }
+  )
+  registerDeletionChannels(
+    ipc,
+    new ImageDeleter(
+      imageFiles,
+      { trash: (path) => shell.trashItem(path), remove: (path) => rm(path) },
+      new DialogDeleteConfirmer((options) => {
+        const window = BrowserWindow.getFocusedWindow()
+        return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)
+      }),
+      {
+        forget: async (ids) =>
+          ids.length === 0
+            ? 0
+            : (await libraryService.request(ServiceMethod.ImagesForget, { ids: [...ids] }))
+                .forgotten
+      }
+    )
   )
   registerImageChannels(
     ipc,

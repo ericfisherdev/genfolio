@@ -30,7 +30,8 @@ function setup(): Harness {
       fileName: 'big.png',
       width: 4096,
       height: 4096,
-      mtimeMs: file.mtimeMs
+      mtimeMs: file.mtimeMs,
+      sizeBytes: 1
     }
   }
   const resizeToWebp = vi.fn(async () => new Uint8Array([1, 2, 3]))

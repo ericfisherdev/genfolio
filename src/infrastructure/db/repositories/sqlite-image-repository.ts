@@ -32,6 +32,7 @@ export class SqliteImageRepository implements ImageRepository {
   private readonly statsInRoot: Database.Statement<[number], StatRow>
   private readonly versionsInDir: Database.Statement<[number], VersionRow & { file_name: string }>
   private readonly deleteUnchanged: Database.Statement<[number, number, number]>
+  private readonly deleteListed: Database.Statement<[string]>
 
   constructor(private readonly db: Database.Database) {
     this.upsert = db.prepare(`
@@ -66,6 +67,9 @@ export class SqliteImageRepository implements ImageRepository {
     )
     this.deleteUnchanged = db.prepare(
       'DELETE FROM images WHERE id = ? AND size_bytes = ? AND mtime_ms = ?'
+    )
+    this.deleteListed = db.prepare(
+      'DELETE FROM images WHERE id IN (SELECT value FROM json_each(?))'
     )
   }
 
@@ -115,5 +119,9 @@ export class SqliteImageRepository implements ImageRepository {
     this.db.transaction(() => {
       for (const stat of stats) this.deleteUnchanged.run(stat.id, stat.sizeBytes, stat.mtimeMs)
     })()
+  }
+
+  deleteByIds(ids: readonly ImageId[]): number {
+    return this.deleteListed.run(JSON.stringify(ids)).changes
   }
 }

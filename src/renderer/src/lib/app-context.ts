@@ -3,6 +3,7 @@ import type { GenfolioApi } from '@shared/genfolio-api'
 import type { RouterState } from './routing/router.svelte'
 import type { AlbumsState } from './state/albums.svelte'
 import type { FacetsState } from './state/facets.svelte'
+import type { ImageDeletion } from './state/image-deletion.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
 import type { ImageMarks } from './state/image-marks'
@@ -28,6 +29,7 @@ export interface AppServices {
   readonly tags: TagsState
   readonly selection: SelectionState
   readonly albums: AlbumsState
+  readonly deletion: ImageDeletion
 }
 
 const APP_SERVICES = Symbol('app-services')

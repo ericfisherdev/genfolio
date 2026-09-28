@@ -31,6 +31,7 @@ export enum ServiceMethod {
   SearchFacets = 'search.facets',
   SetFavorite = 'images.set-favorite',
   SetRating = 'images.set-rating',
+  ImagesForget = 'images.forget',
   TagsList = 'tags.list',
   TagsOfImage = 'tags.of-image',
   TagsCreate = 'tags.create',
@@ -88,6 +89,11 @@ export const serviceContract = {
   [ServiceMethod.SetRating]: {
     params: z.object({ ids: markIds, rating: z.number().int().min(0).max(MAX_RATING) }).strict(),
     result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.ImagesForget]: {
+    /** Images whose files main deleted; only those whose path is now empty are forgotten. */
+    params: z.object({ ids: markIds }).strict(),
+    result: z.object({ forgotten: z.number().int().nonnegative() })
   },
   [ServiceMethod.TagsList]: { params: noParams, result: z.array(tagSchema).readonly() },
   [ServiceMethod.TagsOfImage]: { params: imageIdParams, result: z.array(tagSchema).readonly() },

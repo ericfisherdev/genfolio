@@ -4,6 +4,7 @@ import { appServicesContext, type AppServices } from './lib/app-context'
 import { RouterState, windowHashLocation } from './lib/routing/router.svelte'
 import { GalleryState } from './lib/state/gallery.svelte'
 import { AlbumsState } from './lib/state/albums.svelte'
+import { ImageDeletion } from './lib/state/image-deletion.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
@@ -41,6 +42,7 @@ const services: AppServices = {
     refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
   ),
   selection: new SelectionState(gallery),
+  deletion: new ImageDeletion(api, library, () => void library.refresh()),
   albums: new AlbumsState(api, library, () =>
     refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
   )

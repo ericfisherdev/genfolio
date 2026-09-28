@@ -32,6 +32,7 @@ const api: GenfolioApi = {
   addToAlbum: (albumId, imageIds) => ipcRenderer.invoke(IpcChannel.AddToAlbum, albumId, imageIds),
   removeFromAlbum: (albumId, imageIds) =>
     ipcRenderer.invoke(IpcChannel.RemoveFromAlbum, albumId, imageIds),
+  deleteImages: (imageIds, mode) => ipcRenderer.invoke(IpcChannel.DeleteImages, imageIds, mode),
   moveInAlbum: (albumId, imageIds, beforeId) =>
     ipcRenderer.invoke(IpcChannel.MoveInAlbum, albumId, imageIds, beforeId),
   getDirectoryTree: (rootId) => ipcRenderer.invoke(IpcChannel.DirectoryTree, rootId),

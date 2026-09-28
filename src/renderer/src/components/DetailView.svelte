@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
+  import { DeleteMode } from '@shared/deletion-kinds'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { LayoutUpdate } from '../lib/state/image-marks'
@@ -13,7 +14,8 @@
   import NoticeBar from './NoticeBar.svelte'
   import TagEditor from './TagEditor.svelte'
 
-  const { router, gallery, sort, library, api, generation, copier, marks } = getAppServices()
+  const { router, gallery, sort, library, api, generation, copier, marks, deletion } =
+    getAppServices()
   const count = new Intl.NumberFormat()
 
   const imageId = $derived(router.route.kind === RouteKind.Image ? router.route.imageId : 0)
@@ -109,12 +111,26 @@
     return false
   }
 
+  /** Deletes the image, then shows the next one (or the previous, or the gallery). */
+  async function remove(mode: DeleteMode): Promise<void> {
+    const deleted = imageId
+    const then = nextId ?? previousId
+    const report = await deletion.delete([deleted], mode)
+    const gone = report?.deleted.includes(deleted) || report?.missing.includes(deleted)
+    // The viewer may have moved on while main was asking or deleting.
+    if (!gone || imageId !== deleted) return
+    if (then === undefined) back()
+    else show(then)
+  }
+
   function onkeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || ownedByAnotherWidget(event.target)) return
     if (event.key === 'ArrowLeft') show(previousId)
     else if (event.key === 'ArrowRight') show(nextId)
     else if (event.key === 'Escape') back()
-    else if (!markWithKey(event)) return
+    else if (event.key === 'Delete' && !event.repeat) {
+      void remove(event.shiftKey ? DeleteMode.Permanent : DeleteMode.Trash)
+    } else if (!markWithKey(event)) return
     event.preventDefault()
   }
 </script>
@@ -141,6 +157,12 @@
         onclick={() => show(nextId)}>›</button
       >
     </div>
+    <button
+      type="button"
+      class="trash"
+      title="Move to trash (Delete; Shift+Delete deletes permanently)"
+      onclick={() => void remove(DeleteMode.Trash)}>Move to trash</button
+    >
   </header>
   <NoticeBar />
   <div class="body">
@@ -209,6 +231,9 @@
     margin-left: auto;
     display: flex;
     gap: var(--space-1);
+  }
+  .trash {
+    color: var(--color-danger);
   }
   .body {
     flex: 1;

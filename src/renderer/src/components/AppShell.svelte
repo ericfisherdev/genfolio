@@ -4,6 +4,7 @@
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import BulkBar from './BulkBar.svelte'
+  import DeleteReportDialog from './DeleteReportDialog.svelte'
   import DetailView from './DetailView.svelte'
   import FilterBar from './FilterBar.svelte'
   import LibraryView from './LibraryView.svelte'
@@ -71,6 +72,8 @@
     {/if}
   </main>
 </div>
+
+<DeleteReportDialog />
 
 <style>
   .shell {

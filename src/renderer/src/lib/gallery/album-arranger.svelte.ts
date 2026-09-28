@@ -5,6 +5,7 @@ import type { AlbumsState } from '../state/albums.svelte'
 import type { GalleryState } from '../state/gallery.svelte'
 import type { SelectionState } from '../state/selection.svelte'
 import { arrangeableAlbum, dropBefore, stepTargets } from './album-arrangement'
+import { actionTargets } from './card-targets'
 
 type Albums = Pick<AlbumsState, 'find' | 'setCover' | 'remove' | 'move'>
 type Results = Pick<GalleryState, 'query' | 'count' | 'indexOf' | 'idAt'>
@@ -109,6 +110,6 @@ export class AlbumArranger {
   }
 
   private targetsOf(imageId: number): number[] {
-    return this.selection.has(imageId) ? this.selection.list() : [imageId]
+    return actionTargets(this.selection, imageId)
   }
 }

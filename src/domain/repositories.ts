@@ -66,6 +66,8 @@ export interface ImageRepository {
    * rows another writer changed since the snapshot survive.
    */
   deleteMany(stats: readonly StoredFileStat[]): void
+  /** Deletes the rows (their user data and generations cascade); returns how many. */
+  deleteByIds(ids: readonly ImageId[]): number
 }
 
 export interface GenerationRepository {
