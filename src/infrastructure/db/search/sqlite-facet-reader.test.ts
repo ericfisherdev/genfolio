@@ -227,3 +227,31 @@ describe('SqliteFacetReader', () => {
     ).toEqual([['red', 2]])
   })
 })
+
+describe('SqliteFacetReader over most of the library', () => {
+  it('counts the library minus the left-out images exactly as it counts directly', () => {
+    const tags = new SqliteTagRepository(library.db)
+    const red = tags.create('red', 1)
+    const blue = tags.create('blue', 1)
+    const image = (n: number): ImageId => library.ids.get(n) ?? (0 as ImageId)
+    tags.apply([red.id], [image(1), image(2), image(4)])
+    tags.apply([blue.id], [image(2), image(6)])
+    const direct = new SqliteFacetReader(
+      library.db,
+      createImageSelector(library.db),
+      Number.POSITIVE_INFINITY
+    )
+    const byComplement = new SqliteFacetReader(library.db, createImageSelector(library.db), 0)
+    const queries: GalleryQuery[] = [
+      query({ keywords: { query: '-blue', scope: KeywordScope.Positive } }),
+      query({ tags: { mode: SetMatchMode.Any, excludeIds: [blue.id] } }),
+      query({ loras: { ids: [library.modelId('lora', 'detail')], mode: SetMatchMode.Any } }),
+      query({ hasMetadata: true, generators: [GeneratorKind.A1111] }),
+      query(
+        { seed: '1' },
+        { kind: GalleryScopeKind.Directory, directoryId: library.folderA, recursive: true }
+      )
+    ]
+    for (const each of queries) expect(byComplement.facets(each)).toEqual(direct.facets(each))
+  })
+})

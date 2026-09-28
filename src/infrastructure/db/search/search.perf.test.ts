@@ -12,6 +12,7 @@ const IMAGES = 100_000
 const FOLDERS = 100
 const CHECKPOINTS = 50
 const LORAS = 500
+const TAGS = 50
 /**
  * Per query, measured on the reference machine (i7-11800H, 8 cores, Node 24 in Electron's
  * runtime). Slower machines scale roughly linearly, so this gate is meaningful there only.
@@ -32,7 +33,10 @@ function seeded(seed: number): () => number {
 
 const WORDS = Array.from({ length: 200 }, (_, index) => `word${index}`)
 
-/** 100k images with generations, 50 checkpoints and 500 LoRAs (1–5 per image). */
+/**
+ * 100k images with generations, 50 checkpoints and 500 LoRAs (1–5 per image), 50 tags (0–3
+ * per image), 5% favourites and ratings spread over 0–5.
+ */
 function buildLibrary(db: Database.Database): void {
   const random = seeded(7)
   const pick = <T>(values: readonly T[]): T => values[Math.floor(random() * values.length)] as T
@@ -63,6 +67,10 @@ function buildLibrary(db: Database.Database): void {
     const link = db.prepare(
       'INSERT OR IGNORE INTO generation_loras (image_id, model_id, position, weight) VALUES (?, ?, ?, ?)'
     )
+    const tag = db.prepare('INSERT INTO tags (id, name, name_key, created_at) VALUES (?, ?, ?, 1)')
+    for (let id = 1; id <= TAGS; id++) tag.run(id, `tag${id}`, `tag${id}`)
+    const tagged = db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)')
+    const mark = db.prepare('UPDATE images SET is_favorite = ?, rating = ? WHERE id = ?')
     for (let id = 1; id <= IMAGES; id++) {
       image.run(id, 2 + (id % FOLDERS), `${id}.png`, id)
       generation.run(
@@ -78,6 +86,10 @@ function buildLibrary(db: Database.Database): void {
         const weight = random() < 0.1 ? null : Math.round(random() * 150) / 100
         link.run(id, CHECKPOINTS + 1 + Math.floor(random() * LORAS), position, weight)
       }
+      // 0–3 tags each; 5% favourites; ratings spread over 0–5.
+      const tagCount = Math.floor(random() * 4)
+      for (let n = 0; n < tagCount; n++) tagged.run(id, 1 + Math.floor(random() * TAGS))
+      mark.run(random() < 0.05 ? 1 : 0, Math.floor(random() * 6), id)
     }
   })()
   db.exec('ANALYZE')
@@ -111,6 +123,16 @@ const CASES: Record<string, SearchFilters> = {
   'exclusion only': { keywords: { query: '-word1', scope: KeywordScope.Positive } },
   generator: { generators: [GeneratorKind.Fooocus] },
   seed: { seed: '42' },
+  'tag any of 2': { tags: { ids: [3, 9], mode: SetMatchMode.Any } },
+  'tag all of 2': { tags: { ids: [3, 9], mode: SetMatchMode.All } },
+  'without a tag': { tags: { mode: SetMatchMode.Any, excludeIds: [3] } },
+  favourites: { favoritesOnly: true },
+  'rating 4+': { minRating: 4 },
+  'favourites + tag + checkpoint': {
+    favoritesOnly: true,
+    tags: { ids: [3], mode: SetMatchMode.Any },
+    checkpointIds: [7]
+  },
   'checkpoint + LoRA + keyword': {
     checkpointIds: [7],
     loras: { ids: [lora(3), lora(9)], mode: SetMatchMode.Any },
