@@ -15,12 +15,24 @@ const tableNames = (db: Database.Database): string[] =>
 
 const version = (db: Database.Database): unknown => db.pragma('user_version', { simple: true })
 
+const LATEST_TABLES = [
+  'directories',
+  'fooocus_logs',
+  'generation_loras',
+  'generations',
+  'images',
+  'library_roots',
+  'metadata_raw',
+  'model_hashes',
+  'models'
+]
+
 describe('MigrationRunner', () => {
   it('migrates a fresh database to the latest version', () => {
     const db = new Database(':memory:')
     expect(new MigrationRunner(db, migrations).migrate()).toBe(migrations.length)
     expect(version(db)).toBe(migrations.length)
-    expect(tableNames(db)).toEqual(['directories', 'images', 'library_roots'])
+    expect(tableNames(db)).toEqual(LATEST_TABLES)
   })
 
   it('is a no-op when already current', () => {
@@ -58,7 +70,7 @@ describe('MigrationRunner', () => {
 
       expect(() => new MigrationRunner(second, migrations).migrate()).not.toThrow()
       expect(version(second)).toBe(migrations.length)
-      expect(tableNames(second)).toEqual(['directories', 'images', 'library_roots'])
+      expect(tableNames(second)).toEqual(LATEST_TABLES)
       first.close()
       second.close()
     } finally {
