@@ -18,7 +18,8 @@ export const userDataMigration: Migration = {
     CREATE TABLE tags (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL CHECK (length(trim(name)) > 0),
-      name_key TEXT NOT NULL UNIQUE,
+      -- Checked on the key, trimmed as the app trims (SQLite's trim() strips only spaces).
+      name_key TEXT NOT NULL UNIQUE CHECK (length(name_key) > 0),
       created_at INTEGER NOT NULL
     ) STRICT;
 
@@ -32,7 +33,8 @@ export const userDataMigration: Migration = {
     CREATE TABLE albums (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL CHECK (length(trim(name)) > 0),
-      name_key TEXT NOT NULL UNIQUE,
+      -- Checked on the key, trimmed as the app trims (SQLite's trim() strips only spaces).
+      name_key TEXT NOT NULL UNIQUE CHECK (length(name_key) > 0),
       kind TEXT NOT NULL CHECK (kind IN ('manual', 'smart')),
       -- Smart albums: StoredSearchFilters (shared/search.ts), which name models by
       -- (kind, identity) and a prompt by its text, never by row id: ids are recycled after
@@ -57,7 +59,8 @@ export const userDataMigration: Migration = {
     CREATE TABLE slideshow_presets (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL CHECK (length(trim(name)) > 0),
-      name_key TEXT NOT NULL UNIQUE,
+      -- Checked on the key, trimmed as the app trims (SQLite's trim() strips only spaces).
+      name_key TEXT NOT NULL UNIQUE CHECK (length(name_key) > 0),
       interval_ms INTEGER NOT NULL CHECK (interval_ms BETWEEN 2000 AND 60000),
       shuffle INTEGER NOT NULL CHECK (shuffle IN (0, 1)),
       loop INTEGER NOT NULL CHECK (loop IN (0, 1)),

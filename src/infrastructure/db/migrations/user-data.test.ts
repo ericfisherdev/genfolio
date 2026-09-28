@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { nameKey } from '@domain/name-key'
 import { storedSearchFiltersSchema } from '@shared/search'
 import { MigrationRunner } from '../migration-runner'
 import { migrations } from '.'
@@ -58,6 +59,9 @@ describe('migration 006: user data', () => {
     tag('Élan', 'élan')
     expect(() => tag('ÉLAN', 'élan')).toThrow(/UNIQUE/)
     expect(() => tag('  ', ' ')).toThrow(/CHECK/)
+    // A tab or no-break space passes SQLite's space-only trim, but its folded key is empty.
+    expect(() => tag('\t', nameKey('\t'))).toThrow(/CHECK/)
+    expect(() => tag('\u00a0', nameKey('\u00a0'))).toThrow(/CHECK/)
     album('Best', 'manual')
     expect(() => album('BEST', 'manual')).toThrow(/UNIQUE/)
   })
