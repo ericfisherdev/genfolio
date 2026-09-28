@@ -1,53 +1,12 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import Database from 'better-sqlite3'
-import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import type { AddRootViaDialogResult } from '../../src/shared/library'
-import type { ScanEvent } from '../../src/shared/scan'
+import { expect, test } from '@playwright/test'
+import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, tempUserData, type LaunchedApp } from './support/launch'
 
-const FIXTURES = resolve(__dirname, '../fixtures/fooocus')
 let launched: LaunchedApp | undefined
 let library: string
-
-/** A library folder holding copies of the committed Fooocus fixture images. */
-function makeLibrary(): string {
-  const root = mkdtempSync(join(tmpdir(), 'genfolio-library-'))
-  const day = join(root, '2026-09-27')
-  mkdirSync(day)
-  for (const name of readdirSync(FIXTURES).filter((n) => /\.(png|webp|jpe?g)$/.test(n))) {
-    copyFileSync(join(FIXTURES, name), join(day, name))
-  }
-  return root
-}
-
-/** Makes the folder picker return `path` (or cancel when undefined). */
-async function stubFolderPicker(app: ElectronApplication, path: string | undefined): Promise<void> {
-  await app.evaluate(({ dialog }, picked) => {
-    dialog.showOpenDialog = (async () =>
-      picked === undefined
-        ? { canceled: true, filePaths: [] }
-        : { canceled: false, filePaths: [picked] }) as unknown as typeof dialog.showOpenDialog
-  }, path)
-}
-
-/** Adds via the dialog and, when a scan starts, waits for its finished event. */
-function addAndAwaitScan(
-  page: Page
-): Promise<{ result: AddRootViaDialogResult; finished: ScanEvent | undefined }> {
-  return page.evaluate(async () => {
-    let resolveFinished: (event: ScanEvent) => void = () => undefined
-    const finished = new Promise<ScanEvent>((resolve) => (resolveFinished = resolve))
-    const off = window.genfolio.onScanEvent((event) => {
-      if (event.type !== 'progress') resolveFinished(event)
-    })
-    const result = await window.genfolio.addRootViaDialog()
-    const event = result.outcome === 'added' ? await finished : undefined
-    off()
-    return { result, finished: event }
-  })
-}
 
 /** The app launched for the current test; beforeEach guarantees it. */
 const current = (): LaunchedApp => {

@@ -1,12 +1,24 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { open, realpath, stat } from 'node:fs/promises'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { ImageFileResolver } from '@application/image-file-resolver'
+import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
+import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
+import { ServiceMethod } from '@shared/service-contract'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { isAppUrl, type RendererEntry } from './app-url'
+import { denyAllPermissions } from './deny-permissions'
 import { pickFolderWithDialog } from './folder-picker'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
+import { createImageRequestHandler } from './protocol/image-request-handler'
+import { streamOpenFile } from './protocol/stream-open-file'
+import {
+  handleImageScheme,
+  registerImageSchemeAsPrivileged
+} from './protocol/register-image-scheme'
 import { broadcastScanEvent } from './scan-event-broadcast'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
@@ -39,6 +51,7 @@ function openMainWindow(): void {
 }
 
 function startApp(): void {
+  registerImageSchemeAsPrivileged()
   app.on('web-contents-created', (_, contents) => guardNavigation(contents, rendererEntry))
   app.whenReady().then(onReady)
   app.on('window-all-closed', () => {
@@ -65,6 +78,19 @@ function onReady(): void {
   )
   const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
+  denyAllPermissions(session.defaultSession)
+  const imageFiles = new ImageFileResolver(
+    new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
+    { open: (path) => open(path, 'r'), realpath, stat }
+  )
+  handleImageScheme(
+    createImageRequestHandler({
+      openImage: (id) => imageFiles.open(id),
+      streamFile: streamOpenFile,
+      renderDisplayCopy: (imageId, maxWidth) =>
+        libraryService.request(ServiceMethod.RenderDisplayCopy, { imageId, maxWidth })
+    })
+  )
 
   openMainWindow()
   app.on('activate', () => {
