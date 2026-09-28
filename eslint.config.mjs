@@ -18,7 +18,7 @@ export default defineConfig(
   tseslint.configs.recommended,
   eslintPluginSvelte.configs['flat/recommended'],
   {
-    files: ['**/*.svelte'],
+    files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: {
       parserOptions: {
         parser: tseslint.parser
@@ -44,6 +44,25 @@ export default defineConfig(
           property,
           message: 'Register IPC handlers through ValidatingIpcRegistry in src/main/ipc.'
         }))
+      ]
+    }
+  },
+  {
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.svelte'],
+    rules: {
+      // These modules pull zod into the bundle; the renderer may only import their types.
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex:
+                '(^@shared/|/shared/)(library|scan|gallery|service-contract|service-health|validation|service-rpc-guards)$',
+              allowTypeImports: true,
+              message: 'Import runtime values from the *-kinds modules; only types from here.'
+            }
+          ]
+        }
       ]
     }
   },

@@ -30,7 +30,8 @@ export default defineConfig({
           name: 'renderer',
           restoreMocks: true,
           environment: 'jsdom',
-          include: ['src/renderer/**/*.test.ts']
+          include: ['src/renderer/**/*.test.ts'],
+          setupFiles: ['src/renderer/src/test-setup.ts']
         }
       }
     ]

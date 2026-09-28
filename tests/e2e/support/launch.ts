@@ -13,7 +13,8 @@ export interface LaunchedApp {
   readonly app: ElectronApplication
   readonly userData: string
   readonly env: NodeJS.ProcessEnv
-  close(): Promise<void>
+  /** Closes the app and removes its userData unless `keepUserData` is set (for relaunching). */
+  close(options?: { keepUserData?: boolean }): Promise<void>
 }
 
 /** Creates a fresh temporary userData directory, for tests that prepare it before launch. */
@@ -43,9 +44,9 @@ export async function launchApp(userData = tempUserData()): Promise<LaunchedApp>
     app,
     userData,
     env,
-    close: async () => {
+    close: async (options) => {
       await app.close()
-      rmSync(userData, { recursive: true, force: true })
+      if (!options?.keepUserData) rmSync(userData, { recursive: true, force: true })
     }
   }
 }

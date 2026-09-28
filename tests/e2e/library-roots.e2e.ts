@@ -80,7 +80,9 @@ test('a database from a newer app is reported instead of crashing', async () => 
   launched = await launchApp(userData)
 
   const page = await current().app.firstWindow()
-  await expect(page.getByRole('alert')).toContainText('Update Genfolio')
+  const library = page.getByRole('region', { name: 'Library contents' })
+  await expect(library.getByRole('alert')).toContainText('Update Genfolio to open it.')
+  await expect(library.getByRole('alert')).not.toContainText('Error invoking remote method')
 })
 
 test('the gallery layout, cards and folder tree reach the renderer', async () => {

@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { ServiceHealth } from '@shared/service-health'
-import { genfolioApiContext } from '../lib/api-context'
-import { fakeGenfolioApi } from '../lib/testing/fake-genfolio-api'
+import { sampleLibrary, testServices } from '../lib/testing/app-services'
 import ServiceStatus from './ServiceStatus.svelte'
 
 const health: ServiceHealth = {
@@ -16,7 +15,7 @@ const health: ServiceHealth = {
 }
 
 function renderWith(api: Partial<GenfolioApi>): void {
-  render(ServiceStatus, { context: genfolioApiContext(fakeGenfolioApi(api)) })
+  render(ServiceStatus, { context: testServices(sampleLibrary(), api).context })
 }
 
 describe('ServiceStatus', () => {
