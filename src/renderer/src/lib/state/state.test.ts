@@ -140,6 +140,16 @@ describe('LibraryState failures', () => {
     expect(services.library.notice).toBe('Could not refresh the library: timed out')
   })
 
+  it('reports file actions that fail or find no file', async () => {
+    const { services } = testServices(sampleLibrary())
+    await services.library.fileAction('copy the path', async () => true)
+    expect(services.library.notice).toBeUndefined()
+    await services.library.fileAction('copy the path', async () => false)
+    expect(services.library.notice).toBe('Could not copy the path: the file is no longer there.')
+    await services.library.fileAction('show the file', () => Promise.reject(new Error('timed out')))
+    expect(services.library.notice).toBe('Could not show the file: timed out')
+  })
+
   it('turns failed actions into notices', async () => {
     const boom = (): Promise<never> => Promise.reject(new Error('timed out'))
     const { services } = testServices(sampleLibrary(), {

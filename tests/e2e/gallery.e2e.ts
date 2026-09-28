@@ -85,6 +85,35 @@ test('the card menu copies the path and reveals the file', async () => {
     .toHaveLength(1)
 })
 
+test('the menu of a short, wide card is fully usable', async () => {
+  const wide = await Transformer.fromRgbaPixels(
+    new Uint8Array(1500 * 300 * 4).fill(140),
+    1500,
+    300
+  ).png()
+  writeFileSync(join(library, '0-wide.png'), wide)
+  const page = await openLibrary()
+  await page.getByRole('combobox', { name: 'Sort by' }).selectOption('file-name')
+  const card = page.getByRole('listitem').first()
+  await expect(card).toHaveAttribute('style', /height: \d{2}px/)
+  await card.hover()
+  await card.getByRole('button', { name: 'Actions for 0-wide.png' }).click()
+  const copy = page.getByRole('menuitem', { name: 'Copy path' })
+  await expect(copy).toBeVisible()
+  // Visible to Playwright is not enough: clipping by the card would leave another element
+  // under the item's centre.
+  const onTop = await copy.evaluate((item) => {
+    const box = item.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return hit === item || item.contains(hit)
+  })
+  expect(onTop).toBe(true)
+  await copy.click()
+  await expect
+    .poll(() => current().app.evaluate(({ clipboard }) => clipboard.readText()))
+    .toContain('0-wide.png')
+})
+
 test('columns follow the window width without horizontal overflow', async () => {
   const page = await openLibrary()
   const overflow = (): Promise<number> =>

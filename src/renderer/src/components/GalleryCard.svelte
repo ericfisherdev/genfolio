@@ -37,7 +37,6 @@
     width: 100%;
     height: 100%;
     border-radius: var(--radius-2);
-    overflow: hidden;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     box-sizing: border-box;
@@ -50,6 +49,8 @@
     border: none;
     background: none;
     cursor: zoom-in;
+    border-radius: inherit;
+    overflow: hidden;
   }
   img {
     display: block;

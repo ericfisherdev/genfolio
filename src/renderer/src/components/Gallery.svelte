@@ -37,8 +37,14 @@
   })
 
   // A changed root list (scan finished, root added or removed) means the results changed.
+  // The first run is the mount itself, where the results were just loaded.
+  let rootsSeen = false
   $effect(() => {
     void library.roots
+    if (!rootsSeen) {
+      rootsSeen = true
+      return
+    }
     untrack(() => void gallery.reload())
   })
 
@@ -87,10 +93,15 @@
 >
   <!-- Measured inside the padding, so columns fill the content box exactly. -->
   <div class="content" bind:clientWidth={width}>
-    {#if gallery.count === 0 && !gallery.loading}
+    {#if gallery.loadError}
+      <div class="empty" role="alert">
+        <p>The images could not be loaded: {gallery.loadError}</p>
+        <button type="button" onclick={() => gallery.reload()}>Retry</button>
+      </div>
+    {:else if gallery.count === 0 && !gallery.loading}
       <p class="empty">
         {scans.isScanning
-          ? 'Scanning… images appear here as soon as they are indexed.'
+          ? 'Scanning… images appear here when the scan finishes.'
           : 'No images here yet.'}
       </p>
     {:else}
@@ -113,8 +124,9 @@
               {imageId}
               card={gallery.card(imageId)}
               onopen={() => open(imageId)}
-              onreveal={() => void api.revealImage(imageId)}
-              oncopypath={() => void api.copyImagePath(imageId)}
+              onreveal={() => library.fileAction('show the file', () => api.revealImage(imageId))}
+              oncopypath={() =>
+                library.fileAction('copy the path', () => api.copyImagePath(imageId))}
             />
           </div>
         {/each}
@@ -143,6 +155,17 @@
     position: absolute;
     top: 0;
     left: 0;
+  }
+  /* Each slot's transform makes a stacking context; lift the one whose menu is open. */
+  .slot:has(:global([aria-expanded='true'])) {
+    z-index: 1;
+  }
+  .empty button {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-1);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
   }
   .empty {
     color: var(--color-text-muted);

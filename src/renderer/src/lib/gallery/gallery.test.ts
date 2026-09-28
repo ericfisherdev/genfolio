@@ -84,4 +84,46 @@ describe('GalleryState', () => {
     await gallery.load({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest })
     expect(gallery.savedScroll()).toBe(420)
   })
+
+  it('records a failed layout instead of rejecting', async () => {
+    const gallery = new GalleryState({
+      getImageLayout: () => Promise.reject(new Error('timed out')),
+      getImages: async () => []
+    })
+    await expect(
+      gallery.load({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest })
+    ).resolves.toBeUndefined()
+    expect(gallery.loadError).toBe('timed out')
+    expect(gallery.loading).toBe(false)
+  })
+
+  it('asks again for cards whose fetch failed', async () => {
+    const getImages = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('busy'))
+      .mockImplementation(async (ids: readonly number[]) => ids.map((id) => ({ id }) as never))
+    const gallery = new GalleryState({ getImageLayout: async () => layout, getImages })
+    await expect(gallery.ensureCards([1, 2])).resolves.toBeUndefined()
+    expect(gallery.card(1)).toBeUndefined()
+    await gallery.ensureCards([1, 2])
+    expect(gallery.card(1)).toEqual({ id: 1 })
+  })
+
+  it('drops cards that arrive after a reload and fetches them again', async () => {
+    let release: (cards: never[]) => void = () => undefined
+    const getImages = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+      .mockImplementation(async (ids: readonly number[]) =>
+        ids.map((id) => ({ id, fresh: true }) as never)
+      )
+    const gallery = new GalleryState({ getImageLayout: async () => layout, getImages })
+    const pending = gallery.ensureCards([1])
+    await gallery.reload()
+    release([{ id: 1, fresh: false } as never])
+    await pending
+    expect(gallery.card(1)).toBeUndefined()
+    await gallery.ensureCards([1])
+    expect(gallery.card(1)).toEqual({ id: 1, fresh: true })
+  })
 })

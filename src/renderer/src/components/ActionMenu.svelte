@@ -33,10 +33,7 @@
     aria-label={label}
     aria-haspopup="menu"
     aria-expanded={open}
-    onclick={(event) => {
-      event.stopPropagation()
-      open = !open
-    }}>⋮</button
+    onclick={() => (open = !open)}>⋮</button
   >
   {#if open}
     <div class="items" role="menu" aria-label={label}>
@@ -45,8 +42,7 @@
           type="button"
           role="menuitem"
           class:danger={action.danger}
-          onclick={(event) => {
-            event.stopPropagation()
+          onclick={() => {
             open = false
             action.onselect()
           }}>{action.label}</button
