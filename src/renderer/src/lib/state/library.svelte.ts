@@ -35,7 +35,10 @@ export class LibraryState {
       this.loaded = true
       this.loadError = undefined
     } catch (error) {
-      if (generation === this.generation) this.loadError = messageOf(error)
+      if (generation !== this.generation) return
+      this.loadError = messageOf(error)
+      // Once loaded, the view keeps showing the library; say the refresh failed instead.
+      if (this.loaded) this.notice = `Could not refresh the library: ${this.loadError}`
     }
   }
 

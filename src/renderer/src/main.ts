@@ -2,6 +2,7 @@ import { mount } from 'svelte'
 import App from './App.svelte'
 import { appServicesContext, type AppServices } from './lib/app-context'
 import { RouterState, windowHashLocation } from './lib/routing/router.svelte'
+import { GalleryState } from './lib/state/gallery.svelte'
 import { LibraryState } from './lib/state/library.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
@@ -18,6 +19,7 @@ const services: AppServices = {
   api,
   router: new RouterState(windowHashLocation(window)),
   library,
+  gallery: new GalleryState(api),
   scans: new ScanProgressState(api, () => void library.refresh()),
   sort: new SortPreference(localPreferenceStore(() => window.localStorage))
 }

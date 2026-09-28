@@ -2,6 +2,7 @@
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import { findDirectory } from '../lib/routing/scope-title'
+  import Gallery from './Gallery.svelte'
 
   const { library, router } = getAppServices()
   const count = new Intl.NumberFormat()
@@ -39,12 +40,24 @@
     </div>
   {:else}
     <p class="summary">{count.format(inScope)} images</p>
+    <Gallery />
   {/if}
 </section>
 
 <style>
   .library-view {
-    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .library-view > :global(p),
+  .library-view > :global(div[role='alert']) {
+    padding: 0 var(--space-5);
+  }
+  .summary {
+    margin: var(--space-3) 0 0;
+    font-size: 0.85rem;
   }
   .muted,
   .summary {

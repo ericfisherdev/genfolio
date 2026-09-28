@@ -17,7 +17,13 @@ function setup(size: { width: number; height: number } | undefined, fileName = '
       closed = true
     }
   } as unknown as FileHandle
-  const file: OpenImageFile | undefined = size && { handle, fileName, mtimeMs: 1, ...size }
+  const file: OpenImageFile | undefined = size && {
+    handle,
+    path: `/lib/${fileName}`,
+    fileName,
+    mtimeMs: 1,
+    ...size
+  }
   const streamFile = vi.fn(
     () =>
       new ReadableStream<Uint8Array>({

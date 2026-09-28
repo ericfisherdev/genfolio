@@ -7,3 +7,13 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
     this.removeAttribute('open')
   }
 }
+
+// jsdom has no ResizeObserver; the virtualizer and Svelte's dimension bindings expect one.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  const noop = (): void => undefined
+  globalThis.ResizeObserver = class {
+    observe = noop
+    unobserve = noop
+    disconnect = noop
+  }
+}

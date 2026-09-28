@@ -10,6 +10,8 @@ import { isInside } from './path-containment'
  */
 export interface OpenImageFile {
   readonly handle: FileHandle
+  /** The verified real path; for revealing or copying only, never for reading. */
+  readonly path: string
   readonly fileName: string
   readonly width: number
   readonly height: number
@@ -58,6 +60,7 @@ export class ImageFileResolver {
       }
       return {
         handle,
+        path: real,
         fileName: location.fileName,
         width: location.width,
         height: location.height,

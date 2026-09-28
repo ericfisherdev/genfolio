@@ -24,7 +24,14 @@ function setup(): Harness {
         closes++
       }
     } as unknown as FileHandle
-    return { handle, fileName: 'big.png', width: 4096, height: 4096, mtimeMs: file.mtimeMs }
+    return {
+      handle,
+      path: '/lib/big.png',
+      fileName: 'big.png',
+      width: 4096,
+      height: 4096,
+      mtimeMs: file.mtimeMs
+    }
   }
   const resizeToWebp = vi.fn(async () => new Uint8Array([1, 2, 3]))
   const copies = new DisplayCopies(

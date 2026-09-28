@@ -128,6 +128,18 @@ describe('LibraryState failures', () => {
     expect(services.library.loaded).toBe(true)
   })
 
+  it('reports a failed refresh after the library has loaded as a notice', async () => {
+    const listRoots = vi
+      .fn()
+      .mockResolvedValueOnce(sampleLibrary().roots)
+      .mockRejectedValueOnce(new Error('timed out'))
+    const { services } = testServices(sampleLibrary(), { listRoots })
+    await services.library.refresh()
+    await services.library.refresh()
+    expect(services.library.loaded).toBe(true)
+    expect(services.library.notice).toBe('Could not refresh the library: timed out')
+  })
+
   it('turns failed actions into notices', async () => {
     const boom = (): Promise<never> => Promise.reject(new Error('timed out'))
     const { services } = testServices(sampleLibrary(), {

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { open, realpath, stat } from 'node:fs/promises'
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, session, shell } from 'electron'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
@@ -10,6 +10,8 @@ import icon from '../../resources/icon.png?asset'
 import { isAppUrl, type RendererEntry } from './app-url'
 import { denyAllPermissions } from './deny-permissions'
 import { pickFolderWithDialog } from './folder-picker'
+import { ImageFileActions } from './image-file-actions'
+import { registerImageChannels } from './ipc/image-channels'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
@@ -82,6 +84,13 @@ function onReady(): void {
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
     { open: (path) => open(path, 'r'), realpath, stat }
+  )
+  registerImageChannels(
+    ipc,
+    new ImageFileActions(imageFiles, {
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+      writeClipboardText: (text) => clipboard.writeText(text)
+    })
   )
   handleImageScheme(
     createImageRequestHandler({
