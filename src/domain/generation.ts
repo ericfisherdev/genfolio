@@ -1,5 +1,6 @@
-import type { GeneratorKind } from '@shared/generation-kinds'
+import type { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
+import type { MetadataRecord } from './metadata-record'
 
 /** A checkpoint (or refiner) as a generation names it. */
 export interface ModelRef {
@@ -39,9 +40,10 @@ export interface ParsedGeneration {
   readonly params: Readonly<Record<string, string>>
 }
 
-/** A parsed generation and the record it came from. */
+/** A parsed generation, the record it came from and the format it was written in. */
 export interface SourcedGeneration {
   readonly origin: MetadataOrigin
+  readonly format: GenerationFormat
   readonly generation: ParsedGeneration
 }
 
@@ -52,6 +54,12 @@ export interface StoredGeneration extends ParsedGeneration {
 
 /** Reads one text format of generation data. */
 export interface GenerationParser {
+  readonly format: GenerationFormat
   /** The generation in `text`, or `undefined` when the text isn't in this format. Never throws. */
   parse(text: string): ParsedGeneration | undefined
+}
+
+/** Every generation an image's raw records describe, one per record that holds one. */
+export interface GenerationSourceParser {
+  parse(records: readonly MetadataRecord[]): SourcedGeneration[]
 }

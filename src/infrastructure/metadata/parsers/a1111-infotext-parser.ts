@@ -1,8 +1,8 @@
 import type { GenerationParser, LoraUse, ModelRef, ParsedGeneration } from '@domain/generation'
 import { generatorFromVersion } from '@domain/generator-version'
 import { modelDisplayName, normalizeHash } from '@domain/model-name'
-import { GeneratorKind } from '@shared/generation-kinds'
-import { LoraCollector } from './lora-collector'
+import { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
+import { LoraCollector } from '@domain/lora-collector'
 import { definedFields, parseDecimal, parseInteger, presentText } from './values'
 
 // Ported from A1111 modules/infotext_utils.py (re_param, re_imagesize, parse_generation_parameters).
@@ -29,6 +29,8 @@ const TRAILING_HASH = /\[([0-9a-fA-F]+)\]$/
  * generation data (a camera's ImageDescription, say), so it is left to other parsers.
  */
 export class A1111InfotextParser implements GenerationParser {
+  readonly format = GenerationFormat.A1111Infotext
+
   parse(text: string): ParsedGeneration | undefined {
     const lines = text.trim().split('\n')
     const lastLine = lines.pop() ?? ''

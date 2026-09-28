@@ -2,7 +2,7 @@ import type { LoraUse, ModelRef, ParsedGeneration } from '@domain/generation'
 import { generatorFromVersion } from '@domain/generator-version'
 import { modelDisplayName, normalizeHash } from '@domain/model-name'
 import { GeneratorKind } from '@shared/generation-kinds'
-import { LoraCollector } from './lora-collector'
+import { LoraCollector } from '@domain/lora-collector'
 import { definedFields, parseDecimal, parseInteger, presentText } from './values'
 
 const RESOLUTION = /^\(\s*(\d+)\s*,\s*(\d+)\s*\)$/

@@ -1,4 +1,8 @@
-import type { GenerationParser, SourcedGeneration } from '@domain/generation'
+import type {
+  GenerationParser,
+  GenerationSourceParser,
+  SourcedGeneration
+} from '@domain/generation'
 import type { MetadataRecord } from '@domain/metadata-record'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 
@@ -10,6 +14,7 @@ function carriesGeneration(record: MetadataRecord): boolean {
     case MetadataOrigin.ExifUserComment:
     case MetadataOrigin.ExifImageDescription:
     case MetadataOrigin.SidecarTxt:
+    case MetadataOrigin.FooocusLog:
       return true
     default:
       return false
@@ -17,21 +22,21 @@ function carriesGeneration(record: MetadataRecord): boolean {
 }
 
 /** Runs each generation-carrying record through the first parser that understands it. */
-export class GenerationRecordParser {
+export class GenerationRecordParser implements GenerationSourceParser {
   /** `parsers` are tried in order, so put the most specific formats first. */
   constructor(private readonly parsers: readonly GenerationParser[]) {}
 
   parse(records: readonly MetadataRecord[]): SourcedGeneration[] {
     return records.filter(carriesGeneration).flatMap((record) => {
-      const generation = this.firstParse(record.value)
-      return generation ? [{ origin: record.origin, generation }] : []
+      const parsed = this.firstParse(record.value)
+      return parsed ? [{ origin: record.origin, ...parsed }] : []
     })
   }
 
-  private firstParse(text: string): SourcedGeneration['generation'] | undefined {
+  private firstParse(text: string): Omit<SourcedGeneration, 'origin'> | undefined {
     for (const parser of this.parsers) {
       const generation = parser.parse(text)
-      if (generation) return generation
+      if (generation) return { format: parser.format, generation }
     }
     return undefined
   }

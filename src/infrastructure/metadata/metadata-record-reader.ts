@@ -1,6 +1,6 @@
 import { constants } from 'node:fs'
 import { open, type FileHandle } from 'node:fs/promises'
-import type { MetadataRecord } from '@domain/metadata-record'
+import type { MetadataReader, MetadataReadOptions, MetadataRecord } from '@domain/metadata-record'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { fileSource, type ByteSource } from './byte-source'
@@ -35,10 +35,14 @@ const exifRecords = (tiff: Uint8Array | undefined): MetadataRecord[] =>
   tiff ? readExifText(tiff) : []
 
 /** Reads an image file's records plus an A1111 `<image>.txt` sidecar next to it, if any. */
-export class MetadataRecordReader {
-  async read(path: string, format: ImageFormat): Promise<MetadataRecord[]> {
+export class MetadataRecordReader implements MetadataReader {
+  async read(
+    path: string,
+    format: ImageFormat,
+    options: MetadataReadOptions = { sidecar: true }
+  ): Promise<MetadataRecord[]> {
     const records = await this.embedded(path, format)
-    const sidecar = await this.sidecar(path)
+    const sidecar = options.sidecar ? await this.sidecar(path) : undefined
     return sidecar ? [...records, sidecar] : records
   }
 

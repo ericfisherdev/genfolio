@@ -1,3 +1,4 @@
+import type { ImageFormat } from '@shared/image-format'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
 
 /** One piece of text an image carries, before any interpretation. */
@@ -10,3 +11,20 @@ export interface MetadataRecord {
 
 /** Records bigger than this are skipped (a generation's text is a few KB). */
 export const MAX_RECORD_BYTES = 16 * 1024 * 1024
+
+export interface MetadataReadOptions {
+  /** Whether to look for an A1111 `<stem>.txt` beside the image. */
+  readonly sidecar: boolean
+}
+
+/** Reads the raw metadata records an image file carries. */
+export interface MetadataReader {
+  /** Never rejects: unreadable or malformed files yield what could be read, or nothing. */
+  read(path: string, format: ImageFormat, options: MetadataReadOptions): Promise<MetadataRecord[]>
+}
+
+/**
+ * Bump when extraction or parsing changes so already-indexed images are re-read: a scan treats
+ * rows indexed at an older version as changed.
+ */
+export const METADATA_INDEX_VERSION = 1

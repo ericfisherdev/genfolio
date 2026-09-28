@@ -1,19 +1,4 @@
-/** Whether a log entry describes a generation or only an upscale of another image. */
-export enum LogEntryKind {
-  Generation = 'generation',
-  /** Fooocus logs a fast upscale as `{"upscale_fast": "2x"}`; it must never replace real data. */
-  Upscale = 'upscale'
-}
-
-/** One image's entry in a Fooocus-family `log.html`. */
-export interface FooocusLogEntry {
-  readonly kind: LogEntryKind
-  /**
-   * The snake_case fields Fooocus logged (`prompt`, `base_model`, `lora_combined_1`, …).
-   * Untrusted text from disk (table values are HTML-unescaped): display it only as text.
-   */
-  readonly fields: Readonly<Record<string, unknown>>
-}
+import { type FooocusLogEntry, type FooocusLogFormat, LogEntryKind } from '@domain/fooocus-log'
 
 const SPLIT_MARKERS = ['<!--fooocus-log-split-->', '<!--unfooocused-log-split-->']
 /** Entries always start a line; prompt text can't, since Fooocus writes its newlines as ` </br> `. */
@@ -49,7 +34,7 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
  * HTML-unescaped, when an entry has no usable payload. Malformed entries are skipped, and the
  * newest entry (first in the file) wins when a name repeats. Never throws.
  */
-export class FooocusLogParser {
+export class FooocusLogParser implements FooocusLogFormat {
   parse(html: string): Map<string, FooocusLogEntry> {
     const entries = new Map<string, FooocusLogEntry>()
     for (const [fileName, body] of entryBodies(logMiddle(html))) {

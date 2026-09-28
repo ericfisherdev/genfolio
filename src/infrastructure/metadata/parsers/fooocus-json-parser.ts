@@ -1,4 +1,5 @@
 import type { GenerationParser, ParsedGeneration } from '@domain/generation'
+import { GenerationFormat } from '@shared/generation-kinds'
 import { generationFromFooocusFields } from './fooocus-fields'
 
 /** Keys only Fooocus's JSON scheme writes; one is enough to tell it from other JSON. */
@@ -8,6 +9,8 @@ const SWARM_ROOT = 'sui_image_params'
 
 /** Fooocus's `fooocus` metadata scheme: a JSON object of snake_case fields. */
 export class FooocusJsonParser implements GenerationParser {
+  readonly format = GenerationFormat.FooocusJson
+
   parse(text: string): ParsedGeneration | undefined {
     const fields = jsonObject(text)
     if (!fields || SWARM_ROOT in fields || !FOOOCUS_KEYS.some((key) => key in fields)) {

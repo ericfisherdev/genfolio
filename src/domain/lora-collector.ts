@@ -1,5 +1,5 @@
-import type { LoraUse } from '@domain/generation'
-import { modelDisplayName, modelIdentity, normalizeHash } from '@domain/model-name'
+import type { LoraUse } from './generation'
+import { modelDisplayName, modelIdentity, normalizeHash } from './model-name'
 
 interface LoraFacts {
   readonly weight?: number | undefined

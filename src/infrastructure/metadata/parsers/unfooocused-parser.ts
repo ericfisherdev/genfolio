@@ -1,5 +1,5 @@
 import type { GenerationParser, ParsedGeneration } from '@domain/generation'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
 import { parseInteger } from './values'
 
 const STEPS_LINE = /^Steps:\s*(\d+)$/
@@ -9,6 +9,8 @@ const STEPS_LINE = /^Steps:\s*(\d+)$/
  * would read all of it as prompt, since the last line has only one pair.
  */
 export class UnFooocusedParser implements GenerationParser {
+  readonly format = GenerationFormat.UnFooocusedText
+
   parse(text: string): ParsedGeneration | undefined {
     const lines = text.trim().split('\n')
     const steps = STEPS_LINE.exec(lines.pop()?.trim() ?? '')?.[1]

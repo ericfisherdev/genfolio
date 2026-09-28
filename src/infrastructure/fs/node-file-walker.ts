@@ -1,6 +1,6 @@
 import type { Dirent } from 'node:fs'
 import { opendir, stat } from 'node:fs/promises'
-import { extname, join } from 'node:path'
+import { extname, join, parse } from 'node:path'
 import type { FileWalker, FoundFile, ScanLogger } from '@domain/scan'
 
 export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -11,6 +11,15 @@ export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
   '.avif',
   '.gif'
 ])
+
+/** Stems of the `.txt` files in a listing (A1111 writes `<image stem>.txt`). */
+function textFileStems(entries: readonly Dirent[]): Set<string> {
+  return new Set(
+    entries
+      .filter((entry) => extname(entry.name).toLowerCase() === '.txt')
+      .map((entry) => parse(entry.name).name)
+  )
+}
 
 /**
  * Iterative depth-first walk. Skips hidden entries and every symlink (no loops, nothing
@@ -32,13 +41,16 @@ export class NodeFileWalker implements FileWalker {
     while (pending.length > 0) {
       signal.throwIfAborted()
       const relDir = pending.pop() as string
-      for (const entry of await this.entriesOf(rootPath, relDir, onSkippedDir)) {
+      const entries = await this.entriesOf(rootPath, relDir, onSkippedDir)
+      const textStems = textFileStems(entries)
+      for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue
         const relPath = relDir === '' ? entry.name : `${relDir}/${entry.name}`
         if (entry.isDirectory()) {
           pending.push(relPath)
         } else if (entry.isFile() && IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
-          const found = await this.describe(rootPath, relDir, entry.name)
+          const hasTextSidecar = textStems.has(parse(entry.name).name)
+          const found = await this.describe(rootPath, relDir, entry.name, hasTextSidecar)
           if (found) yield found
         }
       }
@@ -65,12 +77,19 @@ export class NodeFileWalker implements FileWalker {
   private async describe(
     rootPath: string,
     relDir: string,
-    fileName: string
+    fileName: string,
+    hasTextSidecar: boolean
   ): Promise<FoundFile | undefined> {
     const path = join(rootPath, relDir, fileName)
     try {
       const stats = await stat(path)
-      return { relDir, fileName, sizeBytes: stats.size, mtimeMs: Math.trunc(stats.mtimeMs) }
+      return {
+        relDir,
+        fileName,
+        sizeBytes: stats.size,
+        mtimeMs: Math.trunc(stats.mtimeMs),
+        hasTextSidecar
+      }
     } catch {
       this.logger.warn('Skipping unreadable file', this.fileRef(path))
       return undefined
