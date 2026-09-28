@@ -1,5 +1,5 @@
 import type { GenfolioApi } from '@shared/genfolio-api'
-import type { ScanEvent } from '@shared/scan'
+import type { ScanEvent, ScanReport } from '@shared/scan'
 import { ScanEventType } from '@shared/scan-kinds'
 import type { ScanProgressView } from '../format/scan-progress-text'
 
@@ -31,7 +31,8 @@ export class ScanProgressState {
 
   constructor(
     api: Pick<GenfolioApi, 'onScanEvent'>,
-    private readonly onScanEnded: (rootId: number) => void
+    /** A scan ended; `report` is there when it finished rather than failed. */
+    private readonly onScanEnded: (rootId: number, report?: ScanReport) => void
   ) {
     this.unsubscribe = api.onScanEvent((event) => this.handle(event))
   }
@@ -74,7 +75,7 @@ export class ScanProgressState {
         return
       case ScanEventType.Finished:
         this.active = others
-        this.onScanEnded(event.rootId)
+        this.onScanEnded(event.rootId, event.report)
         return
       case ScanEventType.Failed:
         this.active = others

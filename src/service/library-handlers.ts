@@ -30,6 +30,11 @@ import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-al
 import { SqliteImageHashRepository } from '@infrastructure/db/repositories/sqlite-image-hash-repository'
 import { SqliteSimilarityRepository } from '@infrastructure/db/repositories/sqlite-similarity-repository'
 import { NapiImageHasher } from '@infrastructure/imaging/napi-image-hasher'
+import {
+  describeError,
+  LogLevel,
+  type RotatingFileLog
+} from '@infrastructure/logging/rotating-file-log'
 import { ChokidarFileWatcher } from '@infrastructure/fs/chokidar-file-watcher'
 import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
@@ -58,15 +63,18 @@ const DISPLAY_COPY_CONCURRENCY = 4
 /** Hashing shares that pool in the background, so it leaves room for grid copies. */
 const HASH_CONCURRENCY = 2
 
-const scanLogger: ScanLogger = {
-  warn: (message, ref) => console.warn(`[library-service] ${message} (file ${ref})`)
-}
-
 /** Builds every service handler over an open, migrated library database. */
 export function createLibraryHandlers(
   db: Database.Database,
-  emit: (event: ScanEvent) => void
+  emit: (event: ScanEvent) => void,
+  log: Pick<RotatingFileLog, 'write'>
 ): ServiceHandlers {
+  const scanLogger: ScanLogger = {
+    warn: (message, ref) => {
+      console.warn(`[library-service] ${message} (file ${ref})`)
+      log.write(LogLevel.Warn, `${message} (file ${ref})`)
+    }
+  }
   const now = (): number => Date.now()
   const directories = new SqliteDirectoryRepository(db)
   const images = new SqliteImageRepository(db)
@@ -81,8 +89,10 @@ export function createLibraryHandlers(
   )
   const logFailure =
     (what: string) =>
-    (error: unknown): void =>
+    (error: unknown): void => {
       console.error(`[library-service] ${what} failed`, error)
+      log.write(LogLevel.Error, `${what} failed: ${describeError(error)}`)
+    }
   const hashing = new HashingQueue(
     new HashIndexer(
       new SqliteImageHashRepository(db),

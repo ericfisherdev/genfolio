@@ -100,6 +100,7 @@ export function testServices(
     getImages: async () => [],
     listTags: async () => [],
     listAlbums: async () => [],
+    getDiagnostics: async () => ({ serviceRestarts: 0, serviceStopped: false }),
     listSlideshowPresets: async () => [],
     getSimilarityThreshold: async () => 10,
     listSimilarGroups: async () => ({ total: 0, groups: [] }),

@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import { open, realpath, rm, stat } from 'node:fs/promises'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from 'electron'
 import { ImageDeleter } from '@application/image-deleter'
@@ -16,6 +17,8 @@ import { DialogDeleteConfirmer } from './delete-confirmer'
 import { registerDeletionChannels } from './ipc/deletion-channels'
 import { registerSimilarityChannels } from './ipc/similarity-channels'
 import { registerSlideshowChannels } from './ipc/slideshow-channels'
+import { registerAppChannels } from './ipc/app-channels'
+import { LogLevel, RotatingFileLog } from '@infrastructure/logging/rotating-file-log'
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
@@ -73,17 +76,25 @@ function onReady(): void {
   electronApp.setAppUserModelId('dev.ericfisher.genfolio')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
+  const logsDir = join(app.getPath('userData'), 'logs')
+  const mainLog = new RotatingFileLog(logsDir, 'main')
   const libraryService = new LibraryServiceSupervisor(
     (onExit) =>
-      new LibraryServiceClient(forkLibraryService(libraryDatabasePath()), {
+      new LibraryServiceClient(forkLibraryService(libraryDatabasePath(), logsDir), {
         requestTimeoutMs: 30_000,
         onExit,
         onEvent: broadcastScanEvent
       }),
     { maxRestarts: 3, windowMs: 60_000 },
     {
-      warn: (message) => console.warn(`[main] ${message}`),
-      error: (message) => console.error(`[main] ${message}`)
+      warn: (message) => {
+        console.warn(`[main] ${message}`)
+        mainLog.write(LogLevel.Warn, message)
+      },
+      error: (message) => {
+        console.error(`[main] ${message}`)
+        mainLog.write(LogLevel.Error, message)
+      }
     }
   )
   const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
@@ -93,6 +104,18 @@ function onReady(): void {
   registerAlbumChannels(ipc, libraryService)
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
+  registerAppChannels(ipc, {
+    openLogs: async () => {
+      mkdirSync(logsDir, { recursive: true })
+      // shell.openPath resolves an error message, or '' when the folder opened.
+      return (await shell.openPath(logsDir)) === ''
+    },
+    logRendererError: (name) => mainLog.write(LogLevel.Error, `renderer: ${name}`),
+    diagnostics: () => ({
+      serviceRestarts: libraryService.restarts,
+      serviceStopped: libraryService.stopped
+    })
+  })
   denyAllPermissions(session.defaultSession)
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),

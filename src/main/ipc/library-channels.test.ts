@@ -66,7 +66,10 @@ describe('registerLibraryChannels', () => {
       IpcChannel.SimilarityThreshold,
       IpcChannel.SetSimilarityThreshold,
       IpcChannel.SimilarGroups,
-      IpcChannel.SimilarGroupMembers
+      IpcChannel.SimilarGroupMembers,
+      IpcChannel.OpenLogs,
+      IpcChannel.ReportRendererError,
+      IpcChannel.Diagnostics
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

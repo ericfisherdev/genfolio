@@ -23,6 +23,10 @@ export interface SupervisorLogger {
 export class LibraryServiceSupervisor implements ServiceRequester {
   private current: ServiceRequester
   private restartTimes: number[] = []
+  /** Restarts since launch, for diagnostics. */
+  restarts = 0
+  /** Whether the supervisor gave up after a crash loop. */
+  stopped = false
 
   constructor(
     private readonly createClient: ServiceClientFactory,
@@ -52,9 +56,11 @@ export class LibraryServiceSupervisor implements ServiceRequester {
         `Library service exited with code ${exitCode}; ${this.restartTimes.length} restarts ` +
           `within ${this.policy.windowMs} ms, not restarting again`
       )
+      this.stopped = true
       return
     }
     this.restartTimes.push(now)
+    this.restarts++
     this.logger.warn(`Library service exited with code ${exitCode}; restarting`)
     this.current = this.start()
   }
