@@ -7,6 +7,9 @@ export enum IpcChannel {
 
 /** API exposed to the renderer as `window.genfolio` by the preload script. */
 export interface GenfolioApi {
-  /** Rejects when the library service is unavailable or its health probe fails. */
+  /**
+   * Rejects when the health probe fails, the service does not answer within 30 s,
+   * or the service has exited and could not be restarted.
+   */
   getServiceHealth(): Promise<ServiceHealth>
 }

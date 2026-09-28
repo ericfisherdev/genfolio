@@ -8,6 +8,7 @@ import type { RendererEntry } from './app-url'
 import { guardNavigation } from './navigation-guard'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
+import { LibraryServiceSupervisor } from './service/library-service-supervisor'
 import { createMainWindow } from './window'
 
 // Composition root of the main process.
@@ -32,7 +33,15 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('dev.ericfisher.genfolio')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
-  const libraryService = new LibraryServiceClient(forkLibraryService())
+  const libraryService = new LibraryServiceSupervisor(
+    (onExit) =>
+      new LibraryServiceClient(forkLibraryService(), { requestTimeoutMs: 30_000, onExit }),
+    { maxRestarts: 3, windowMs: 60_000 },
+    {
+      warn: (message) => console.warn(`[main] ${message}`),
+      error: (message) => console.error(`[main] ${message}`)
+    }
+  )
   ipcMain.handle(IpcChannel.ServiceHealth, () => libraryService.request(ServiceMethod.Health))
 
   openMainWindow()

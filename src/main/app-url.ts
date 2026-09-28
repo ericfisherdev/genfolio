@@ -19,5 +19,5 @@ export function isAppUrl(url: string, entry: RendererEntry): boolean {
   }
   const app = new URL(rendererEntryUrl(entry))
   if (entry.kind === 'dev-server') return target.origin === app.origin
-  return target.protocol === 'file:' && target.pathname === app.pathname
+  return target.protocol === 'file:' && target.host === app.host && target.pathname === app.pathname
 }

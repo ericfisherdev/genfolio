@@ -22,10 +22,16 @@ export class ImageCodecProbe implements HealthProbe {
     return { decodableFormats: PROBED_FORMATS.filter((_, index) => results[index]) }
   }
 
+  /** A codec that throws counts as not decodable; one missing format must not fail the report. */
   private async roundTrip(pixels: Uint8Array, format: ProbedFormat): Promise<boolean> {
-    const encoded = await this.encode(this.transformer.fromRgbaPixels(pixels, 4, 4), format)
-    const metadata = await new this.transformer(encoded).metadata()
-    return metadata.width === 4 && metadata.height === 4
+    try {
+      const encoded = await this.encode(this.transformer.fromRgbaPixels(pixels, 4, 4), format)
+      const metadata = await new this.transformer(encoded).metadata()
+      return metadata.width === 4 && metadata.height === 4
+    } catch (error) {
+      console.error(`[library-service] codec round trip failed for ${format}`, error)
+      return false
+    }
   }
 
   private encode(source: Transformer, format: ProbedFormat): Promise<Buffer> {

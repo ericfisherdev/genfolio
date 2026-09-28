@@ -23,6 +23,12 @@ describe('isAppUrl', () => {
     expect(isAppUrl('file:///opt/genfolio/out/renderer/index.html#/x', bundled)).toBe(true)
   })
 
+  it('blocks a remote file host serving the same path as the bundled document', () => {
+    expect(
+      isAppUrl('file://attacker.example.com/opt/genfolio/out/renderer/index.html', bundled)
+    ).toBe(false)
+  })
+
   it.each([
     'https://example.com/',
     'http://localhost:5174/',

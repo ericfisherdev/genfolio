@@ -21,6 +21,29 @@ export class ServiceRequestError extends Error {
   }
 }
 
+/** The library service did not answer within the request deadline. */
+export class ServiceTimeoutError extends Error {
+  constructor(readonly method: ServiceMethod) {
+    super(`Library service did not answer ${method} in time`)
+    this.name = 'ServiceTimeoutError'
+  }
+}
+
+/** Anything that can forward a request to the library service. */
+export interface ServiceRequester {
+  /**
+   * Rejects with {@link ServiceRequestError}, {@link ServiceTimeoutError}
+   * or {@link ServiceExitedError}.
+   */
+  request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]>
+}
+
+export interface LibraryServiceClientOptions {
+  readonly requestTimeoutMs: number
+  /** Called once when the process exits, after outstanding requests were rejected. */
+  readonly onExit?: (exitCode: number) => void
+}
+
 interface PendingRequest {
   readonly method: ServiceMethod
   resolve(result: unknown): void
@@ -30,30 +53,39 @@ interface PendingRequest {
 export type ServiceProcess = Pick<UtilityProcess, 'postMessage' | 'on'>
 
 /** Request/response client over the utility process parent port. */
-export class LibraryServiceClient {
+export class LibraryServiceClient implements ServiceRequester {
   private nextId = 1
   private exitCode: number | undefined
   private readonly pending = new Map<number, PendingRequest>()
 
-  constructor(private readonly child: ServiceProcess) {
+  constructor(
+    private readonly child: ServiceProcess,
+    private readonly options: LibraryServiceClientOptions
+  ) {
     child.on('message', (message: unknown) => this.settle(message))
     child.on('exit', (code: number) => this.failAll(code))
   }
 
-  /**
-   * Rejects with {@link ServiceRequestError} when the service reports a failure,
-   * or {@link ServiceExitedError} when the service process is gone.
-   */
   request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]> {
     if (this.exitCode !== undefined) {
       return Promise.reject(new ServiceExitedError(this.exitCode))
     }
     const id = this.nextId++
     return new Promise((resolve, reject) => {
+      const deadline = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new ServiceTimeoutError(method))
+      }, this.options.requestTimeoutMs)
       this.pending.set(id, {
         method,
-        resolve: (result) => resolve(result as ServiceResults[M]),
-        reject
+        resolve: (result) => {
+          clearTimeout(deadline)
+          resolve(result as ServiceResults[M])
+        },
+        reject: (error) => {
+          clearTimeout(deadline)
+          reject(error)
+        }
       })
       this.child.postMessage({ id, method })
     })
@@ -76,5 +108,6 @@ export class LibraryServiceClient {
     const error = new ServiceExitedError(code)
     for (const pending of this.pending.values()) pending.reject(error)
     this.pending.clear()
+    this.options.onExit?.(code)
   }
 }
