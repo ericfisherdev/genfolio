@@ -1,6 +1,9 @@
 const INTEGER = /^-?\d+$/
-/** Plain decimal notation only: Number() would also take `0x10`, `0b1` and `Infinity`. */
-const DECIMAL = /^-?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i
+/**
+ * Plain decimal notation only: Number() would also take `0x10`, `0b1` and `Infinity`. The
+ * fraction depends on the dot, so a digit run can't be split two ways (quadratic on failure).
+ */
+const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i
 
 export function parseInteger(text: string | undefined): number | undefined {
   const value = text?.trim()

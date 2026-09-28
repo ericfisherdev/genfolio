@@ -14,8 +14,11 @@ const PARAM = /([\p{L}\p{N}_][\p{L}\p{N}_ \-/]{1,127}):\s*("(?:\\.|[^\\"])+"|[^,
 const IMAGE_SIZE = /^(\d+)x(\d+)$/
 const NEGATIVE_PREFIX = 'Negative prompt:'
 const MIN_PARAMS_ON_LAST_LINE = 3
-/** Bounded parts, so many unclosed `<lora:` prefixes can't make matching quadratic. */
-const LORA_TAG = /<lora:([^:>]{1,256})(?::([^:>]{0,32}))?(?::[^:>]{0,32})?>/g
+/**
+ * Bounded parts, so many unclosed `<lora:` prefixes can't make matching quadratic. The tail
+ * may hold further arguments (`:te:unet:dyn`, `te=0.5:unet=0.8`, `lbw=…`).
+ */
+const LORA_TAG = /<lora:([^:>]{1,256})(?::([^:>]{0,32}))?(?::[^>]{0,512})?>/g
 /** Only the trailing `[hash]`; the name is sliced off before it (a lazy name group backtracks). */
 const TRAILING_HASH = /\[([0-9a-fA-F]+)\]$/
 

@@ -99,6 +99,18 @@ describe('A1111InfotextParser', () => {
     expect(tagged?.prompt).toBe('p <lora:detail:0.8> <lora:bare>')
   })
 
+  it('reads tags with further arguments after the multiplier', () => {
+    for (const tag of [
+      '<lora:detail:0.8:0.5:lbw=OUTALL>',
+      '<lora:detail:0.8:lbw=1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1>',
+      '<lora:detail:0.8:te=0.5:unet=0.8>'
+    ]) {
+      expect(a1111.parse(`p ${tag}\nSteps: 1, Seed: 2, CFG scale: 3`)?.loras).toEqual([
+        { name: 'detail', weight: 0.8, hash: null }
+      ])
+    }
+  })
+
   it('prefers Lora weights, then legacy three-part hashes, over prompt tags', () => {
     const generation = a1111.parse(
       `p <lora:a:0.1> <lora:b:0.1>\n${PARAMS}, Lora hashes: "a: 0123456789, b: 9876543210: 0.7", Lora weights: "a: 0.5"`
@@ -222,6 +234,7 @@ describe('robustness', () => {
     a1111.parse(`p\n${' '.repeat(300_000)}x`)
     a1111.parse(`p\nSteps: 1, Seed: 2, Model: a${' '.repeat(200_000)}x]`)
     fooocusJson.parse(JSON.stringify({ base_model: 'm', styles: "'\\".repeat(100_000) }))
+    a1111.parse(`p\nSteps: 1, Seed: 2, CFG scale: ${'1'.repeat(100_000)}x`)
     a1111.parse(`${'<lora:a'.repeat(30_000)}\nSteps: 1, Seed: 2, CFG scale: 3`)
     expect(performance.now() - started).toBeLessThan(1000)
   })
