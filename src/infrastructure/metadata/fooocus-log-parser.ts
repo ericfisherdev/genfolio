@@ -87,11 +87,11 @@ function fileNameFromDivId(id: string): string | undefined {
   return at > 0 ? `${id.slice(0, at)}.${id.slice(at + 1)}` : undefined
 }
 
-/** The copy button follows the (unescaped) table, so its payload is the last one in the entry. */
 /** Log payloads are untrusted; `__proto__` would re-prototype any object these fields are assigned into. */
 const withoutProtoKeys = (key: string, value: unknown): unknown =>
   key === '__proto__' ? undefined : value
 
+/** The copy button follows the (unescaped) table, so its payload is the last one in the entry. */
 function payloadFields(body: string): Record<string, unknown> | undefined {
   const payload = [...body.matchAll(CLIPBOARD_PAYLOAD)].at(-1)?.[1]
   if (payload === undefined) return undefined
