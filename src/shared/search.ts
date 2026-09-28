@@ -24,6 +24,11 @@ export const searchFiltersSchema = z
         maxWeight: z.number().finite().optional()
       })
       .strict()
+      .refine(
+        ({ minWeight, maxWeight }) =>
+          minWeight === undefined || maxWeight === undefined || minWeight <= maxWeight,
+        { message: 'minWeight must not exceed maxWeight' }
+      )
       .optional(),
     keywords: z
       .object({ query: z.string().max(1000), scope: z.enum(KeywordScope) })

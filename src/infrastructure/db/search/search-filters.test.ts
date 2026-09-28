@@ -163,6 +163,7 @@ describe('search filters', () => {
     expect(search(keywords('cyber*'))).toEqual([1, 4])
     expect(search(keywords('red -car'))).toEqual([1, 4])
     expect(search(keywords('-red'))).toEqual([3, 5, 6])
+    expect(search(keywords('-car -sky'))).toEqual([1, 4, 5, 6])
     expect(search(keywords('cafe'))).toEqual([6])
     expect(search(keywords('  ( ) " '))).toEqual([1, 2, 3, 4, 5, 6])
   })
@@ -203,8 +204,16 @@ describe('search filters', () => {
     const alpha = modelId('checkpoint', 'alpha')
     const beta = modelId('checkpoint', 'beta')
     const prepare = vi.spyOn(db, 'prepare')
-    search({ checkpointIds: [alpha], seed: "1' OR 1=1 --" })
-    search({ checkpointIds: [beta, 999], seed: '2' })
+    search({
+      checkpointIds: [alpha],
+      seed: "1' OR 1=1 --",
+      keywords: { query: "girl's -car", scope: KeywordScope.Positive }
+    })
+    search({
+      checkpointIds: [beta, 999],
+      seed: '2',
+      keywords: { query: 'sky -road', scope: KeywordScope.Positive }
+    })
     expect(prepare).toHaveBeenCalledTimes(1)
     const sql = String(prepare.mock.calls[0]?.[0])
     expect(sql).not.toContain('OR 1=1')
@@ -220,6 +229,8 @@ describe('searchFiltersSchema', () => {
     expect(query({ loras: { ids: [1, 2], mode: 'all', minWeight: 0.5 } })).toBe(true)
     expect(query({ loras: { ids: [], mode: 'all' } })).toBe(false)
     expect(query({ loras: { ids: [1], mode: 'most' } })).toBe(false)
+    expect(query({ loras: { ids: [1], mode: 'any', minWeight: 1, maxWeight: 0.5 } })).toBe(false)
+    expect(query({ loras: { ids: [1], mode: 'any', minWeight: 0.5, maxWeight: 0.5 } })).toBe(true)
     expect(query({ checkpointIds: [0] })).toBe(false)
     expect(query({ keywords: { query: 'x'.repeat(1001), scope: 'both' } })).toBe(false)
     expect(query({ generators: ['comfy'] })).toBe(false)
