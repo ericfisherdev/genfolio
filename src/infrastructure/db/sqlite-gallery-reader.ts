@@ -56,6 +56,8 @@ interface CardRow {
   added_at: number
   is_favorite: number
   rating: number
+  similar_group_id: number | null
+  similar_count: number
 }
 
 interface DirectoryRow {
@@ -81,7 +83,11 @@ export class SqliteGalleryReader implements GalleryReader {
       SELECT images.id, directories.root_id, images.directory_id, images.file_name,
              directories.rel_path, images.format, images.width, images.height,
              images.size_bytes, images.created_at, images.added_at, images.is_favorite,
-             images.rating
+             images.rating, images.similar_group_id,
+             CASE WHEN images.similar_group_id IS NULL THEN 0 ELSE (
+               SELECT COUNT(*) - 1 FROM images peers
+               WHERE peers.similar_group_id = images.similar_group_id
+             ) END AS similar_count
       FROM images JOIN directories ON directories.id = images.directory_id
       WHERE images.id IN (SELECT value FROM json_each(?))
     `)
@@ -121,7 +127,9 @@ export class SqliteGalleryReader implements GalleryReader {
       createdAt: row.created_at,
       addedAt: row.added_at,
       favorite: row.is_favorite === 1,
-      rating: row.rating
+      rating: row.rating,
+      similarGroupId: row.similar_group_id,
+      similarCount: row.similar_count
     }))
   }
 

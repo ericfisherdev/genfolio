@@ -4,6 +4,7 @@ import type { StoredSearchFilters } from '@shared/search'
 import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
 import type { StoredGeneration } from './generation'
 import type { ImageHashes } from './image-hashes'
+import type { SimilarPair } from './similarity'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
 
@@ -259,4 +260,28 @@ export interface ImageHashRepository {
    * mtime. Returns false, writing nothing, otherwise.
    */
   store(version: ImageVersion, hashes: ImageHashes | null, hashVersion: number): boolean
+}
+
+/** An image's stored hashes, for comparing it with the others. */
+export interface StoredHashes {
+  readonly id: ImageId
+  readonly sha256: Uint8Array | null
+  readonly dhash: bigint
+  readonly phash: bigint
+}
+
+/** Similar pairs, groups and the grouping threshold. */
+export interface SimilarityRepository {
+  /** Every image with perceptual hashes. */
+  hashed(): StoredHashes[]
+  /** Those of `ids` that have perceptual hashes. */
+  hashesOf(ids: readonly ImageId[]): StoredHashes[]
+  /** Replaces every pair involving `ids` with `pairs`, in one transaction. */
+  replacePairs(ids: readonly ImageId[], pairs: readonly SimilarPair[]): void
+  pairsWithin(distance: number): SimilarPair[]
+  /** Sets each image's group (image id → group id); every other image gets none. */
+  writeGroups(groups: ReadonlyMap<number, number>): void
+  /** A stored setting, or undefined. */
+  setting(key: string): string | undefined
+  saveSetting(key: string, value: string): void
 }

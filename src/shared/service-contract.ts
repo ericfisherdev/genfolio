@@ -12,6 +12,7 @@ import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
+import { MAX_SIMILARITY_DISTANCE } from './similarity-kinds'
 import { presetNameSchema, slideshowPresetSchema, slideshowSettingsSchema } from './slideshow'
 import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
@@ -52,7 +53,9 @@ export enum ServiceMethod {
   AlbumsMove = 'albums.move',
   PresetsList = 'slideshow.presets-list',
   PresetsSave = 'slideshow.presets-save',
-  PresetsDelete = 'slideshow.presets-delete'
+  PresetsDelete = 'slideshow.presets-delete',
+  SimilarityThreshold = 'similarity.threshold',
+  SetSimilarityThreshold = 'similarity.set-threshold'
 }
 
 const noParams = z.object({}).strict()
@@ -63,6 +66,10 @@ const tagId = z.number().int().positive()
 const tagIds = z.array(tagId).min(1).max(200)
 const albumId = z.number().int().positive()
 const changed = z.object({ changed: z.number().int().nonnegative() })
+
+const similarityThresholdSchema = z
+  .object({ threshold: z.number().int().min(0).max(MAX_SIMILARITY_DISTANCE) })
+  .strict()
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -174,6 +181,12 @@ export const serviceContract = {
   [ServiceMethod.PresetsDelete]: {
     params: z.object({ id: z.number().int().positive() }).strict(),
     result: z.object({ deleted: z.boolean() })
+  },
+  [ServiceMethod.SimilarityThreshold]: { params: noParams, result: similarityThresholdSchema },
+  [ServiceMethod.SetSimilarityThreshold]: {
+    /** Regroups every image at the new threshold before resolving. */
+    params: similarityThresholdSchema,
+    result: similarityThresholdSchema
   },
   [ServiceMethod.GalleryImages]: {
     params: z
