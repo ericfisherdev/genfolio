@@ -40,6 +40,9 @@ export function registerLibraryChannels(
   ipc.register(IpcChannel.GalleryLayout, z.tuple([galleryQuerySchema]), (query) =>
     service.request(ServiceMethod.GalleryLayout, { query })
   )
+  ipc.register(IpcChannel.SearchFacets, z.tuple([galleryQuerySchema]), (query) =>
+    service.request(ServiceMethod.SearchFacets, { query })
+  )
   ipc.register(
     IpcChannel.GalleryImages,
     z.tuple([z.array(z.number().int().positive()).max(MAX_IMAGES_PER_REQUEST)]),

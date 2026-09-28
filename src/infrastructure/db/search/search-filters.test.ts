@@ -1,113 +1,24 @@
 import type Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StoredGeneration } from '@domain/generation'
 import type { DirectoryId, ImageId } from '@domain/library'
 import { galleryQuerySchema, GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { GeneratorKind } from '@shared/generation-kinds'
-import { ImageFormat } from '@shared/image-format'
-import { MetadataOrigin } from '@shared/metadata-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
-import { SqliteDirectoryRepository } from '../repositories/sqlite-directory-repository'
-import { SqliteGenerationRepository } from '../repositories/sqlite-generation-repository'
-import { SqliteImageRepository } from '../repositories/sqlite-image-repository'
-import { SqliteImageVersionCheck } from '../repositories/sqlite-image-version-check'
-import { SqliteLibraryRootRepository } from '../repositories/sqlite-library-root-repository'
-import { SqliteModelCatalog } from '../repositories/sqlite-model-catalog'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
-import { migratedMemoryDb } from '../testing/migrated-memory-db'
+import { searchLibrary, type SearchLibrary } from '../testing/search-library'
 import { createSearchFilters } from './filters'
 
 let db: Database.Database
 let reader: SqliteGalleryReader
 let folderB: DirectoryId
-const ids = new Map<number, ImageId>()
-
-const generation = (fields: Partial<StoredGeneration>): StoredGeneration => ({
-  generator: GeneratorKind.A1111,
-  origin: MetadataOrigin.PngText,
-  params: {},
-  ...fields
-})
-
-/** Six images: 1–3 in folder a, 4–6 in folder b; image 5 has no generation data. */
-const LIBRARY: Record<number, StoredGeneration | null> = {
-  1: generation({
-    prompt: 'red hair girl, cyberpunk city',
-    negativePrompt: 'blurry',
-    seed: '1',
-    checkpoint: { name: 'alpha', hash: null },
-    loras: [
-      { name: 'detail', weight: 0.8, hash: null },
-      { name: 'style', weight: 1, hash: null }
-    ]
-  }),
-  2: generation({
-    generator: GeneratorKind.Fooocus,
-    prompt: 'red car on a road',
-    negativePrompt: 'low quality',
-    seed: '2',
-    checkpoint: { name: 'alpha', hash: null },
-    loras: [{ name: 'detail', weight: 0.3, hash: null }]
-  }),
-  3: generation({
-    generator: GeneratorKind.Fooocus,
-    prompt: 'blue sky',
-    negativePrompt: 'red',
-    seed: '1',
-    checkpoint: { name: 'beta', hash: null },
-    loras: [{ name: 'style', weight: null, hash: null }]
-  }),
-  4: generation({
-    prompt: 'red hair girl, cyberpunk city',
-    seed: '3',
-    checkpoint: { name: 'beta', hash: null }
-  }),
-  5: null,
-  6: generation({
-    prompt: 'café table',
-    checkpoint: { name: 'beta', hash: null },
-    refiner: { name: 'alpha', hash: null }
-  })
-}
+let ids: ReadonlyMap<number, ImageId>
+let modelId: SearchLibrary['modelId']
 
 beforeEach(() => {
-  db = migratedMemoryDb()
-  const root = new SqliteLibraryRootRepository(db).add('/lib', 1)
-  const directories = new SqliteDirectoryRepository(db)
-  const folderA = directories.ensure(root.id, 'a')
-  folderB = directories.ensure(root.id, 'b')
-  const images = new SqliteImageRepository(db)
-  const versions = new SqliteImageVersionCheck(db)
-  const generations = new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions)
-  for (const [key, stored] of Object.entries(LIBRARY)) {
-    const n = Number(key)
-    const [version] = images.upsertMany(
-      [
-        {
-          directoryId: n <= 3 ? folderA : folderB,
-          fileName: `${n}.png`,
-          format: ImageFormat.Png,
-          sizeBytes: 1,
-          mtimeMs: 1,
-          width: 10,
-          height: 10,
-          createdAt: n
-        }
-      ],
-      1
-    )
-    if (!version) throw new Error('no version')
-    ids.set(n, version.id)
-    generations.replace(version, stored)
-  }
+  const library = searchLibrary()
+  ;({ db, ids, folderB, modelId } = library)
   reader = new SqliteGalleryReader(db, createSearchFilters())
 })
-
-const modelId = (kind: string, name: string): number =>
-  db
-    .prepare('SELECT id FROM models WHERE kind = ? AND display_name = ?')
-    .pluck()
-    .get(kind, name) as number
 
 /** The fixture numbers (1–6) the query returns, in display order. */
 function search(filters: SearchFilters, query: Partial<GalleryQuery> = {}): number[] {

@@ -10,6 +10,7 @@ const api: GenfolioApi = {
   rescanRoot: (rootId) => ipcRenderer.invoke(IpcChannel.RescanRoot, rootId),
   getImageLayout: (query) => ipcRenderer.invoke(IpcChannel.GalleryLayout, query),
   getImages: (ids) => ipcRenderer.invoke(IpcChannel.GalleryImages, ids),
+  getFacets: (query) => ipcRenderer.invoke(IpcChannel.SearchFacets, query),
   getDirectoryTree: (rootId) => ipcRenderer.invoke(IpcChannel.DirectoryTree, rootId),
   revealImage: (imageId) => ipcRenderer.invoke(IpcChannel.RevealImage, imageId),
   copyImagePath: (imageId) => ipcRenderer.invoke(IpcChannel.CopyImagePath, imageId),

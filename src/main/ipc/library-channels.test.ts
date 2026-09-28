@@ -49,6 +49,17 @@ describe('registerLibraryChannels', () => {
     )
   })
 
+  it('forwards a validated facet query to the service', async () => {
+    const facets = { checkpoints: [], loras: [], generators: [], withoutMetadata: 0 }
+    const { request, invoke } = setup(async () => undefined, {
+      [ServiceMethod.SearchFacets]: facets
+    })
+    const query = { scope: { kind: 'all' }, sort: 'newest', filters: { seed: '1' } }
+    await expect(invoke(IpcChannel.SearchFacets, query)).resolves.toBe(facets)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.SearchFacets, { query })
+    expect(() => invoke(IpcChannel.SearchFacets, { ...query, filters: { seed: '' } })).toThrow()
+  })
+
   it('returns cancelled without calling the service when the picker is dismissed', async () => {
     const { request, invoke } = setup(async () => undefined)
     await expect(invoke(IpcChannel.AddRootViaDialog)).resolves.toEqual({

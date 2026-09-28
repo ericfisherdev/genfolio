@@ -20,6 +20,7 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createSearchFilters } from '@infrastructure/db/search/filters'
+import { SqliteFacetReader } from '@infrastructure/db/search/sqlite-facet-reader'
 import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
@@ -60,7 +61,9 @@ export function createLibraryHandlers(
     transact: (work) => db.transaction(work)(),
     now
   })
-  const gallery = new SqliteGalleryReader(db, createSearchFilters())
+  const searchFilters = createSearchFilters()
+  const gallery = new SqliteGalleryReader(db, searchFilters)
+  const facets = new SqliteFacetReader(db, searchFilters)
   const versions = new SqliteImageVersionCheck(db)
   const generationDetails = new GenerationDetailsReader(
     new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions),
@@ -92,6 +95,7 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.GalleryLayout]: async ({ query }) => gallery.layout(query),
     [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
+    [ServiceMethod.SearchFacets]: async ({ query }) => facets.facets(query),
     [ServiceMethod.DirectoryTree]: async ({ rootId }) =>
       gallery.directoryTree(rootId as RootId) ?? null,
     [ServiceMethod.ImageGeneration]: async ({ imageId }) =>

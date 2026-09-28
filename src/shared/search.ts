@@ -43,3 +43,28 @@ export const searchFiltersSchema = z
   .strict()
 
 export type SearchFilters = z.infer<typeof searchFiltersSchema>
+
+const facetValue = z
+  .object({ id, name: z.string(), count: z.number().int().nonnegative() })
+  .strict()
+
+/**
+ * What the filter pickers offer, with image counts within the query's scope and its other
+ * filters: a facet ignores its own selection so more values stay selectable.
+ */
+export const searchFacetsSchema = z
+  .object({
+    /** Checkpoints, counted as model or refiner. */
+    checkpoints: z.array(facetValue).readonly(),
+    loras: z.array(facetValue).readonly(),
+    generators: z
+      .array(
+        z.object({ kind: z.enum(GeneratorKind), count: z.number().int().nonnegative() }).strict()
+      )
+      .readonly(),
+    withoutMetadata: z.number().int().nonnegative()
+  })
+  .strict()
+
+export type SearchFacets = z.infer<typeof searchFacetsSchema>
+export type FacetValue = z.infer<typeof facetValue>
