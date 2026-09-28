@@ -12,7 +12,9 @@ export enum IpcChannel {
   RescanRoot = 'library:rescan-root',
   GalleryLayout = 'gallery:layout',
   GalleryImages = 'gallery:images',
-  DirectoryTree = 'gallery:directory-tree'
+  DirectoryTree = 'gallery:directory-tree',
+  RevealImage = 'image:reveal',
+  CopyImagePath = 'image:copy-path'
 }
 
 /** Main → renderer push channels. */
@@ -40,6 +42,10 @@ export interface GenfolioApi {
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */
   getDirectoryTree(rootId: number): Promise<DirectoryNode | null>
+  /** Shows the image in the system file manager; false when it cannot be found. */
+  revealImage(imageId: number): Promise<boolean>
+  /** Copies the image's full path to the clipboard; false when it cannot be found. */
+  copyImagePath(imageId: number): Promise<boolean>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
 }

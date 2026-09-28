@@ -35,7 +35,10 @@ export class LibraryState {
       this.loaded = true
       this.loadError = undefined
     } catch (error) {
-      if (generation === this.generation) this.loadError = messageOf(error)
+      if (generation !== this.generation) return
+      this.loadError = messageOf(error)
+      // Once loaded, the view keeps showing the library; say the refresh failed instead.
+      if (this.loaded) this.notice = `Could not refresh the library: ${this.loadError}`
     }
   }
 
@@ -58,6 +61,18 @@ export class LibraryState {
 
   async rescan(rootId: number): Promise<void> {
     await this.act('rescan the folder', () => this.api.rescanRoot(rootId))
+  }
+
+  /**
+   * Runs a file action (show in folder, copy path) and reports failure as a notice: `false`
+   * means the file is no longer where the library recorded it.
+   */
+  async fileAction(description: string, action: () => Promise<boolean>): Promise<void> {
+    try {
+      if (!(await action())) this.notice = `Could not ${description}: the file is no longer there.`
+    } catch (error) {
+      this.notice = `Could not ${description}: ${messageOf(error)}`
+    }
   }
 
   dismissNotice(): void {

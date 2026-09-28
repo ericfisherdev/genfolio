@@ -4,6 +4,7 @@ import type { RootSummary } from '@shared/library'
 import type { ScanEvent } from '@shared/scan'
 import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
+import { GalleryState } from '../state/gallery.svelte'
 import { LibraryState } from '../state/library.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
 import { SortPreference, type PreferenceStore } from '../state/sort-preference.svelte'
@@ -78,6 +79,8 @@ export function testServices(
     }),
     listRoots: async () => library.roots,
     getDirectoryTree: async (rootId) => library.trees[rootId] ?? null,
+    getImageLayout: async () => new Int32Array(0),
+    getImages: async () => [],
     onScanEvent: (listener) => {
       scanListener = listener
       return () => undefined
@@ -90,6 +93,7 @@ export function testServices(
     api,
     router: new RouterState(hash),
     library: libraryState,
+    gallery: new GalleryState(api),
     scans: new ScanProgressState(api, () => void libraryState.refresh()),
     sort: new SortPreference(memoryStore())
   }

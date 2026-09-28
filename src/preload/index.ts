@@ -11,6 +11,8 @@ const api: GenfolioApi = {
   getImageLayout: (query) => ipcRenderer.invoke(IpcChannel.GalleryLayout, query),
   getImages: (ids) => ipcRenderer.invoke(IpcChannel.GalleryImages, ids),
   getDirectoryTree: (rootId) => ipcRenderer.invoke(IpcChannel.DirectoryTree, rootId),
+  revealImage: (imageId) => ipcRenderer.invoke(IpcChannel.RevealImage, imageId),
+  copyImagePath: (imageId) => ipcRenderer.invoke(IpcChannel.CopyImagePath, imageId),
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)

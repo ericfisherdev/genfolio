@@ -218,4 +218,27 @@ describe('LibraryView', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Add folder' }))
     expect(addRootViaDialog).toHaveBeenCalledOnce()
   })
+
+  it('reloads stale results when the gallery mounts again after the roots changed', async () => {
+    let layout = new Int32Array([7, 100, 100, 8, 100, 100])
+    const getImageLayout = vi.fn(async () => layout)
+    const listRoots = vi.fn(async () => sampleLibrary().roots)
+    const harness = testServices(sampleLibrary(), { listRoots, getImageLayout })
+    await harness.services.library.refresh()
+    render(LibraryView, { context: harness.context })
+    await waitFor(() => expect(harness.services.gallery.count).toBe(2))
+
+    listRoots.mockResolvedValue([])
+    await harness.services.library.refresh()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Your library is empty' })).toBeTruthy()
+    )
+
+    layout = new Int32Array([9, 100, 100])
+    listRoots.mockResolvedValue(sampleLibrary().roots)
+    await harness.services.library.refresh()
+    await waitFor(() =>
+      expect(harness.services.gallery.layout).toEqual(new Int32Array([9, 100, 100]))
+    )
+  })
 })
