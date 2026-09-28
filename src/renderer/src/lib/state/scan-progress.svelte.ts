@@ -8,6 +8,16 @@ function without<V>(record: Readonly<Record<number, V>>, key: number): Record<nu
   return Object.fromEntries(Object.entries(record).filter(([k]) => Number(k) !== key))
 }
 
+/** `record` limited to `keep`, or undefined when nothing would be removed. */
+function keepOnly<V>(
+  record: Readonly<Record<number, V>>,
+  keep: readonly number[]
+): Record<number, V> | undefined {
+  const entries = Object.entries(record)
+  const kept = entries.filter(([key]) => keep.includes(Number(key)))
+  return kept.length === entries.length ? undefined : Object.fromEntries(kept)
+}
+
 /** Live progress of running scans, keyed by root id; finished or failed scans drop out. */
 export class ScanProgressState {
   active: Readonly<Record<number, ScanProgressView>> = $state({})
@@ -28,6 +38,18 @@ export class ScanProgressState {
 
   dispose(): void {
     this.unsubscribe()
+  }
+
+  /**
+   * Drops entries for roots no longer in the library. A cancelled scan (root removed or
+   * merged into a parent) emits no end event, so this is the only way its entry leaves.
+   */
+  retain(rootIds: Iterable<number>): void {
+    const keep = [...rootIds]
+    const active = keepOnly(this.active, keep)
+    if (active) this.active = active
+    const failures = keepOnly(this.failures, keep)
+    if (failures) this.failures = failures
   }
 
   private handle(event: ScanEvent): void {

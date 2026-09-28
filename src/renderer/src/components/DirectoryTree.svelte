@@ -20,7 +20,17 @@
     expanded.add(tree.id)
   })
 
-  const effectiveFocus = $derived(focusedId ?? selectedId ?? tree.id)
+  /** Ids rendered right now: the root plus the children of expanded folders. */
+  const visibleIds = $derived.by(() => {
+    const collect = (node: DirectoryNode): number[] =>
+      expanded.has(node.id) ? [node.id, ...node.children.flatMap(collect)] : [node.id]
+    return collect(tree)
+  })
+
+  /** Exactly one tabbable item: the focused or selected folder if rendered here, else the root. */
+  const effectiveFocus = $derived(
+    [focusedId, selectedId].find((id) => id !== undefined && visibleIds.includes(id)) ?? tree.id
+  )
 
   function toggle(id: number): void {
     if (expanded.has(id)) expanded.delete(id)

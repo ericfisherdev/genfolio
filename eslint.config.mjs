@@ -56,7 +56,8 @@ export default defineConfig(
         {
           patterns: [
             {
-              regex: '^@shared/(library|scan|gallery|service-contract|service-health|validation)$',
+              regex:
+                '(^@shared/|/shared/)(library|scan|gallery|service-contract|service-health|validation|service-rpc-guards)$',
               allowTypeImports: true,
               message: 'Import runtime values from the *-kinds modules; only types from here.'
             }

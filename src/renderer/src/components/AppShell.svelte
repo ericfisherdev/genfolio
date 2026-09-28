@@ -1,8 +1,18 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
+  import { getAppServices } from '../lib/app-context'
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
   import TopBar from './TopBar.svelte'
+
+  const { library, scans } = getAppServices()
+
+  // Cancelled scans send no end event; forget progress for roots that are gone.
+  $effect(() => {
+    const ids = library.roots.map((root) => root.id)
+    untrack(() => scans.retain(ids))
+  })
 </script>
 
 <div class="shell">

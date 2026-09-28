@@ -6,6 +6,11 @@
   const { library, router } = getAppServices()
   const count = new Intl.NumberFormat()
 
+  const directoryExists = $derived(
+    router.route.kind !== RouteKind.Directory ||
+      findDirectory(library.roots, library.trees, router.route.directoryId) !== undefined
+  )
+
   const inScope = $derived.by(() => {
     const route = router.route
     if (route.kind !== RouteKind.Directory) return library.totalImages
@@ -16,8 +21,16 @@
 </script>
 
 <section class="library-view" aria-label="Library contents">
-  {#if !library.loaded}
+  {#if !library.loaded && library.loadError}
+    <div class="empty" role="alert">
+      <h2>The library could not be loaded</h2>
+      <p>{library.loadError}</p>
+      <button type="button" class="primary" onclick={() => library.refresh()}>Retry</button>
+    </div>
+  {:else if !library.loaded}
     <p class="muted">Loading library…</p>
+  {:else if router.route.kind === RouteKind.Directory && !directoryExists}
+    <p class="muted">This folder is no longer in the library.</p>
   {:else if library.roots.length === 0}
     <div class="empty">
       <h2>Your library is empty</h2>

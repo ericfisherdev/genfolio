@@ -86,6 +86,78 @@ describe('ScanProgressState', () => {
   })
 })
 
+describe('ScanProgressState.retain', () => {
+  it('forgets progress and failures of roots that are gone', () => {
+    let listener: (event: ScanEvent) => void = () => undefined
+    const scans = new ScanProgressState(
+      {
+        onScanEvent: (subscriber) => {
+          listener = subscriber
+          return () => undefined
+        }
+      },
+      () => undefined
+    )
+    listener({
+      type: ScanEventType.Progress,
+      rootId: 1,
+      phase: ScanPhase.Indexing,
+      done: 1,
+      total: 9
+    })
+    listener({ type: ScanEventType.Failed, rootId: 2, reason: 'gone' })
+    scans.retain([3])
+    expect(scans.isScanning).toBe(false)
+    expect(scans.active[1]).toBeUndefined()
+    expect(scans.failures[2]).toBeUndefined()
+  })
+})
+
+describe('LibraryState failures', () => {
+  it('records a failed load instead of rejecting, and clears it on success', async () => {
+    const listRoots = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('service unavailable'))
+      .mockResolvedValueOnce([])
+    const { services } = testServices(sampleLibrary(), { listRoots })
+    await expect(services.library.refresh()).resolves.toBeUndefined()
+    expect(services.library.loadError).toBe('service unavailable')
+    expect(services.library.loaded).toBe(false)
+    await services.library.refresh()
+    expect(services.library.loadError).toBeUndefined()
+    expect(services.library.loaded).toBe(true)
+  })
+
+  it('turns failed actions into notices', async () => {
+    const boom = (): Promise<never> => Promise.reject(new Error('timed out'))
+    const { services } = testServices(sampleLibrary(), {
+      removeRoot: boom,
+      rescanRoot: boom,
+      addRootViaDialog: boom
+    })
+    await expect(services.library.remove(1)).resolves.toBeUndefined()
+    expect(services.library.notice).toBe('Could not remove the folder: timed out')
+    await services.library.rescan(1)
+    expect(services.library.notice).toBe('Could not rescan the folder: timed out')
+    await expect(services.library.addFolder()).resolves.toBeUndefined()
+    expect(services.library.notice).toBe('Could not add the folder: timed out')
+  })
+
+  it('ignores a refresh that finishes after a newer one', async () => {
+    let releaseSlow: (roots: never[]) => void = () => undefined
+    const listRoots = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => (releaseSlow = resolve)))
+      .mockImplementationOnce(async () => sampleLibrary().roots)
+    const { services } = testServices(sampleLibrary(), { listRoots })
+    const slow = services.library.refresh()
+    await services.library.refresh()
+    releaseSlow([])
+    await slow
+    expect(services.library.roots).toHaveLength(1)
+  })
+})
+
 describe('SortPreference', () => {
   it('defaults to newest, restores a saved order and ignores unknown values', () => {
     expect(new SortPreference(memoryStore()).current).toBe(SortOrder.Newest)

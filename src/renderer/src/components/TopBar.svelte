@@ -12,7 +12,11 @@
       ? findDirectory(library.roots, library.trees, router.route.directoryId)
       : undefined
   )
-  const title = $derived(directory ? directoryTitle(directory) : 'All Photos')
+  const title = $derived.by(() => {
+    if (directory) return directoryTitle(directory)
+    if (router.route.kind === RouteKind.Directory && library.loaded) return 'Folder not found'
+    return 'All Photos'
+  })
 
   function setRecursive(recursive: boolean): void {
     if (router.route.kind === RouteKind.Directory) router.navigate({ ...router.route, recursive })

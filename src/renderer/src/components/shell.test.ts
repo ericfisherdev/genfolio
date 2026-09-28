@@ -5,6 +5,7 @@ import { AddRootOutcome } from '@shared/library-kinds'
 import { RouteKind } from '../lib/routing/route'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
+import AppShell from './AppShell.svelte'
 import DirectoryTree from './DirectoryTree.svelte'
 import LibraryView from './LibraryView.svelte'
 import Sidebar from './Sidebar.svelte'
@@ -110,6 +111,31 @@ describe('DirectoryTree keyboard', () => {
   })
 })
 
+describe('DirectoryTree roving focus', () => {
+  it('keeps the root tabbable when the selected folder is in another tree', () => {
+    const tree = sampleLibrary().trees[1]!
+    render(DirectoryTree, {
+      props: { tree, rootLabel: 'outputs', selectedId: 999, onselect: vi.fn() }
+    })
+    expect(
+      screen.getByRole('treeitem', { name: 'outputs, 8 images' }).getAttribute('tabindex')
+    ).toBe('0')
+  })
+
+  it('keeps one tabbable item after the focused folder is collapsed away', async () => {
+    const tree = sampleLibrary().trees[1]!
+    render(DirectoryTree, {
+      props: { tree, rootLabel: 'outputs', selectedId: 11, onselect: vi.fn() }
+    })
+    const root = screen.getByRole('treeitem', { name: 'outputs, 8 images' })
+    await fireEvent.click(root.querySelector('.toggle') as Element)
+    const tabbable = screen
+      .getAllByRole('treeitem')
+      .filter((item) => item.getAttribute('tabindex') === '0')
+    expect(tabbable).toEqual([root])
+  })
+})
+
 describe('SortMenu', () => {
   it('changes and persists the sort order', async () => {
     const { context, services } = await loaded()
@@ -136,7 +162,53 @@ describe('TopBar', () => {
   })
 })
 
+describe('stale scan progress', () => {
+  it('disappears once the scanning root is no longer in the library', async () => {
+    const listRoots = vi.fn(async () => sampleLibrary().roots)
+    const harness = await loaded({ listRoots })
+    render(AppShell, { context: harness.context })
+    harness.emitScan({ type: 'progress', rootId: 1, phase: 'indexing', done: 3, total: 9 } as never)
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Scan progress' }).textContent).toContain(
+        'Indexing'
+      )
+    )
+
+    listRoots.mockResolvedValue([])
+    await harness.services.library.refresh()
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Scan progress' }).textContent?.trim()).toBe('')
+    )
+  })
+})
+
 describe('LibraryView', () => {
+  it('shows a load failure with Retry', async () => {
+    const listRoots = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('service unavailable'))
+      .mockResolvedValue(sampleLibrary().roots)
+    const harness = testServices(sampleLibrary(), { listRoots })
+    await harness.services.library.refresh()
+    render(LibraryView, { context: harness.context })
+    expect(screen.getByRole('alert').textContent).toContain('service unavailable')
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.getByText('8 images')).toBeTruthy())
+  })
+
+  it('says so when the routed folder no longer exists', async () => {
+    const harness = await loaded()
+    harness.services.router.navigate({
+      kind: RouteKind.Directory,
+      directoryId: 999,
+      recursive: true
+    })
+    render(LibraryView, { context: harness.context })
+    render(TopBar, { context: harness.context })
+    expect(screen.getByText('This folder is no longer in the library.')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Folder not found')
+  })
+
   it('offers to add a folder when the library is empty', async () => {
     const addRootViaDialog = vi.fn(async () => ({ outcome: AddRootOutcome.Cancelled as const }))
     const harness = testServices({ roots: [], trees: {} }, { addRootViaDialog })
