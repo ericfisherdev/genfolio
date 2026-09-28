@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 import type { GenerationDetails } from '@shared/generation'
-import { CopyVariant, GeneratorKind, ResourceKind } from '@shared/generation-kinds'
+import {
+  CopyVariant,
+  GenerationFormat,
+  GeneratorKind,
+  ResourceKind
+} from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import GalleryCard from './GalleryCard.svelte'
 import GenerationPanel from './GenerationPanel.svelte'
@@ -46,6 +51,7 @@ const FIXTURE: GenerationDetails = {
       weightSource: null
     }
   ],
+  paramsFormat: GenerationFormat.FooocusJson,
   params: {},
   sources: [
     { origin: MetadataOrigin.PngText, records: [{ key: 'parameters', value: 'raw text' }] },

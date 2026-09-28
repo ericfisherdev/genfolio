@@ -43,6 +43,8 @@
 
   $effect(() => {
     const id = imageId
+    // A finished scan or rescan (a new root list) can change this image's generation data.
+    void library.roots
     if (id > 0) untrack(() => void generation.load(id))
   })
 

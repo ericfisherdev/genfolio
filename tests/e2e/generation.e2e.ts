@@ -143,7 +143,7 @@ test('the detail page shows the generation panel and copies from it', async () =
     '0.6'
   )
   await panel.getByRole('button', { name: 'Copy negative prompt' }).click()
-  await expect.poll(readClipboard).toContain('watermark, "signature"')
+  await expect.poll(readClipboard).toBe('blurry, lowres, (text:1.3), watermark, "signature"')
   await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toContainText(
     'Copied the negative prompt.'
   )

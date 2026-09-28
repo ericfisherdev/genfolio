@@ -3,9 +3,10 @@ import type { GenerationDetails } from '@shared/generation'
 import { userMessage } from '../format/user-message'
 
 /**
- * The generation data of the image on screen. `details` is undefined while loading and null
- * when the image carries none. Never rejects: failures become `loadError`, and a load that
- * finishes after a newer one is ignored.
+ * The generation data of the image on screen. `details` is undefined until the first load
+ * resolves and null when the image carries none; while a later load runs, the previous
+ * details stay on screen so stepping between images doesn't flash "Loading". Never rejects:
+ * failures become `loadError`, and a load that finishes after a newer one is ignored.
  */
 export class GenerationDetailsState {
   details: GenerationDetails | null | undefined = $state(undefined)
@@ -18,11 +19,11 @@ export class GenerationDetailsState {
   async load(imageId: number): Promise<void> {
     const generation = ++this.generation
     this.imageId = imageId
-    this.details = undefined
-    this.loadError = undefined
     try {
       const details = await this.api.getGeneration(imageId)
-      if (generation === this.generation) this.details = details
+      if (generation !== this.generation) return
+      this.details = details
+      this.loadError = undefined
     } catch (error) {
       if (generation === this.generation) this.loadError = userMessage(error)
     }
