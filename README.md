@@ -45,6 +45,9 @@ with the third-party licences in `resources/THIRD_PARTY_LICENSES.txt`. The icon 
 Logs (no file paths or prompts) are in `~/.config/Genfolio/logs`, also reachable from
 Help → Open Logs Folder.
 
+Development builds (`npm run dev`, `npm start`) keep their library in `~/.config/Genfolio-dev`,
+so they never open, migrate or lock the library of an installed Genfolio.
+
 ## License
 
 [MIT](LICENSE)
