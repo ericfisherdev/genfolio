@@ -27,7 +27,8 @@
     marks,
     selection,
     albums,
-    deletion
+    deletion,
+    similarity
   } = getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
@@ -135,6 +136,11 @@
   }
 
   function similarActions(imageId: number): MenuAction[] {
+    const scope = gallery.query?.scope
+    if (scope?.kind === GalleryScopeKind.Similar) {
+      const groupId = scope.groupId
+      return [{ label: 'Keep this one', onselect: () => similarity.keep(groupId, imageId) }]
+    }
     return gallery.card(imageId)?.similarGroupId
       ? [{ label: 'Find similar', onselect: () => openSimilar(imageId) }]
       : []
@@ -180,6 +186,8 @@
       <p class="empty">
         {#if gallery.query?.scope.kind === GalleryScopeKind.Album}
           This album is empty. Add images to it with “Add to album…” on a card or a selection.
+        {:else if gallery.query?.scope.kind === GalleryScopeKind.Similar}
+          No look-alikes left in this group.
         {:else if scans.isScanning}
           Scanning… images appear here when the scan finishes.
         {:else}

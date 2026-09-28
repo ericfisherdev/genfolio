@@ -39,6 +39,7 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     getSimilarityThreshold: unexpected('getSimilarityThreshold'),
     setSimilarityThreshold: unexpected('setSimilarityThreshold'),
     listSimilarGroups: unexpected('listSimilarGroups'),
+    listSimilarGroupMembers: unexpected('listSimilarGroupMembers'),
     saveSlideshowPreset: unexpected('saveSlideshowPreset'),
     deleteSlideshowPreset: unexpected('deleteSlideshowPreset'),
     getDirectoryTree: unexpected('getDirectoryTree'),

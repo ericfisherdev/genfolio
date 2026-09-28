@@ -21,6 +21,9 @@ export function registerSimilarityChannels(
     async (threshold) =>
       (await service.request(ServiceMethod.SetSimilarityThreshold, { threshold })).threshold
   )
+  ipc.register(IpcChannel.SimilarGroupMembers, z.tuple([z.number().int().positive()]), (groupId) =>
+    service.request(ServiceMethod.SimilarGroupMembers, { groupId })
+  )
   ipc.register(
     IpcChannel.SimilarGroups,
     z.tuple([z.number().int().nonnegative(), z.number().int().min(1).max(MAX_GROUPS_PER_PAGE)]),

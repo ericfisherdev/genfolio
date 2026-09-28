@@ -1,6 +1,10 @@
 <script lang="ts">
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
-  import { MAX_SIMILARITY_DISTANCE, NEAR_IDENTICAL_DISTANCE } from '@shared/similarity'
+  import {
+    MAX_SIMILARITY_DISTANCE,
+    NEAR_IDENTICAL_DISTANCE,
+    type SimilarGroup
+  } from '@shared/similarity'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
 
@@ -22,6 +26,12 @@
         ? 'similar images'
         : 'loosely similar images'
   )
+
+  /** The user's chosen keeper when it is among the shown members, else the suggestion. */
+  const keeperOf = (group: SimilarGroup): number | undefined => {
+    const chosen = similarity.chosenKeepers.get(group.groupId)
+    return chosen !== undefined && group.imageIds.includes(chosen) ? chosen : group.imageIds[0]
+  }
 
   const open = (groupId: number): void => router.navigate({ kind: RouteKind.SimilarGroup, groupId })
 </script>
@@ -49,21 +59,29 @@
     <p class="summary">{count.format(similarity.total)} groups</p>
     <ul aria-label="Groups">
       {#each similarity.groups as group (group.groupId)}
-        <li>
+        {@const keeper = keeperOf(group)}
+        <li class="row">
           <button
             type="button"
             class="group"
             aria-label={`Open group of ${images(group.count)}`}
             onclick={() => open(group.groupId)}
           >
-            {#each group.imageIds as imageId, index (imageId)}
-              <span class="thumb" class:keeper={index === 0}>
+            {#each group.imageIds as imageId (imageId)}
+              <span class="thumb" class:keeper={imageId === keeper}>
                 <img src={imageUrl(imageId, ImageDisplay.Grid)} alt="" loading="lazy" />
-                {#if index === 0}<span class="badge">Keeper</span>{/if}
+                {#if imageId === keeper}<span class="badge">Keeper</span>{/if}
               </span>
             {/each}
             <span class="count">{images(group.count)}</span>
           </button>
+          <button
+            type="button"
+            class="trash"
+            aria-label={`Move all but the keeper of this group of ${images(group.count)} to trash`}
+            onclick={() => void similarity.trashAllButKeeper(group.groupId)}
+            >Trash all but keeper</button
+          >
         </li>
       {/each}
     </ul>
@@ -151,6 +169,20 @@
   .count {
     margin-left: auto;
     font-weight: 600;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .trash {
+    flex: none;
+    color: var(--color-danger);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-1);
+    padding: var(--space-1) var(--space-3);
+    cursor: pointer;
   }
   .more {
     margin-top: var(--space-3);

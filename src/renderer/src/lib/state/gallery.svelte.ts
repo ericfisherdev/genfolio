@@ -62,12 +62,22 @@ export class GalleryState {
     }
   }
 
-  /** Reloads the current query and forgets cached cards (after a scan changed the library). */
+  /** Reloads the current query and forgets cached cards (after a failed load). */
   async reload(): Promise<void> {
     this.cardGeneration++
     this.cards.clear()
     this.requested = {}
     if (this.query) await this.load(this.query)
+  }
+
+  /**
+   * Reloads the layout and fetches fresh copies of the cards already loaded, keeping the old
+   * ones on screen until they arrive (after scans, deletions or regrouping changed the
+   * library). Cards of images that are gone are dropped; a failed fetch keeps the old cards.
+   */
+  async refresh(): Promise<void> {
+    const loaded = [...this.cards.keys()]
+    await Promise.all([this.query ? this.load(this.query) : undefined, this.refetch(loaded)])
   }
 
   /** Remembers the scroll offset of the current query, to restore when it is shown again. */
@@ -140,6 +150,27 @@ export class GalleryState {
    * Fetches cards not yet loaded or requested, at most 500 per request. A failed batch is
    * released so its ids are asked for again; results that arrive after a reload are dropped.
    */
+  private async refetch(ids: readonly number[]): Promise<void> {
+    const generation = this.cardGeneration
+    for (let start = 0; start < ids.length; start += MAX_IMAGES_PER_REQUEST) {
+      const batch = ids.slice(start, start + MAX_IMAGES_PER_REQUEST)
+      let fresh: readonly ImageCard[]
+      try {
+        fresh = await this.api.getImages(batch)
+      } catch {
+        continue
+      }
+      if (generation !== this.cardGeneration) return
+      // Plain bookkeeping, deliberately not reactive.
+      const kept: Record<number, true> = {}
+      for (const card of fresh) {
+        this.cards.set(card.id, card)
+        kept[card.id] = true
+      }
+      for (const id of batch) if (!kept[id]) this.cards.delete(id)
+    }
+  }
+
   async ensureCards(ids: readonly number[]): Promise<void> {
     const generation = this.cardGeneration
     const missing = ids.filter((id) => !this.cards.has(id) && !this.requested[id])

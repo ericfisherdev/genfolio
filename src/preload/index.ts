@@ -35,6 +35,7 @@ const api: GenfolioApi = {
   getSimilarityThreshold: () => ipcRenderer.invoke(IpcChannel.SimilarityThreshold),
   setSimilarityThreshold: (threshold) =>
     ipcRenderer.invoke(IpcChannel.SetSimilarityThreshold, threshold),
+  listSimilarGroupMembers: (groupId) => ipcRenderer.invoke(IpcChannel.SimilarGroupMembers, groupId),
   listSimilarGroups: (offset, limit) => ipcRenderer.invoke(IpcChannel.SimilarGroups, offset, limit),
   listSlideshowPresets: () => ipcRenderer.invoke(IpcChannel.ListPresets),
   saveSlideshowPreset: (name, settings) =>

@@ -60,7 +60,8 @@ export enum ServiceMethod {
   PresetsDelete = 'slideshow.presets-delete',
   SimilarityThreshold = 'similarity.threshold',
   SetSimilarityThreshold = 'similarity.set-threshold',
-  SimilarGroups = 'similarity.groups'
+  SimilarGroups = 'similarity.groups',
+  SimilarGroupMembers = 'similarity.group-members'
 }
 
 const noParams = z.object({}).strict()
@@ -199,6 +200,10 @@ export const serviceContract = {
       })
       .strict(),
     result: similarGroupsPageSchema
+  },
+  [ServiceMethod.SimilarGroupMembers]: {
+    params: z.object({ groupId: z.number().int().positive() }).strict(),
+    result: z.array(z.number().int().positive()).readonly()
   },
   [ServiceMethod.GalleryImages]: {
     params: z

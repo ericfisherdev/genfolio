@@ -110,3 +110,57 @@ describe('the look-alikes view', () => {
     expect(await screen.findByText(/No look-alikes at this threshold/)).toBeTruthy()
   })
 })
+
+describe('cleaning up a group', () => {
+  it('moves every member but the keeper to the trash from the groups view', async () => {
+    const deleteImages = vi.fn(async (ids: readonly number[]) => ({
+      cancelled: false,
+      deleted: [...ids],
+      missing: [],
+      failed: []
+    }))
+    const harness = testServices(sampleLibrary(), {
+      listSimilarGroups: async () => ({
+        total: 1,
+        groups: [{ groupId: 4, count: 3, imageIds: [9, 4, 5] }]
+      }),
+      listSimilarGroupMembers: async () => [9, 4, 5],
+      deleteImages,
+      listRoots: async () => sampleLibrary().roots
+    })
+    await harness.services.library.refresh()
+    harness.services.router.navigate({ kind: RouteKind.SimilarGroups })
+    render(AppShell, { context: harness.context })
+    await fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Move all but the keeper of this group of 3 images to trash'
+      })
+    )
+    await waitFor(() => expect(deleteImages).toHaveBeenCalledWith([4, 5], 'trash'))
+  })
+
+  it('keeps the member the user chose instead of the suggestion', async () => {
+    const deleteImages = vi.fn(async (ids: readonly number[]) => ({
+      cancelled: false,
+      deleted: [...ids],
+      missing: [],
+      failed: []
+    }))
+    const harness = testServices(sampleLibrary(), {
+      listSimilarGroupMembers: async () => [9, 4, 5],
+      getImageLayout: async () => new Int32Array([9, 1, 1, 4, 1, 1, 5, 1, 1]),
+      getImages: async (ids) => ids.map((id) => card({ id, fileName: `image-${id}.png` })),
+      deleteImages
+    })
+    await harness.services.library.refresh()
+    harness.services.router.navigate({ kind: RouteKind.SimilarGroup, groupId: 4 })
+    render(AppShell, { context: harness.context })
+    const bar = await screen.findByRole('region', { name: 'Keeper' })
+    await waitFor(() => expect(bar.textContent).toContain('image-9.png'))
+    harness.services.similarity.keep(4, 5)
+    await waitFor(() => expect(bar.textContent).toContain('image-5.png'))
+    expect(bar.textContent).toContain('your choice')
+    await fireEvent.click(within(bar).getByRole('button', { name: 'Move the other 2 to trash' }))
+    await waitFor(() => expect(deleteImages).toHaveBeenCalledWith([9, 4], 'trash'))
+  })
+})

@@ -1,8 +1,10 @@
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
+import { askedToDelete, stubTrashAndDialogs } from './support/trash'
 import { launchApp, type LaunchedApp } from './support/launch'
 
 let launched: LaunchedApp | undefined
@@ -31,38 +33,9 @@ test.afterEach(async () => {
   }
 })
 
-/**
- * Replaces the system trash with a folder, failing for file names in `refuse`, and answers
- * main's confirmation dialogs with `answer` (0 Cancel, 1 Delete permanently), recording them.
- */
-async function stubTrashAndDialogs(
-  app: ElectronApplication,
-  options: { refuse?: string[]; answer: number }
-): Promise<void> {
-  await app.evaluate(
-    ({ shell, dialog }, { trashDir, refuse, answer }) => {
-      const fs = process.getBuiltinModule('node:fs')
-      const path = process.getBuiltinModule('node:path')
-      shell.trashItem = async (file: string) => {
-        if (refuse.includes(path.basename(file))) {
-          throw Object.assign(new Error('trash unavailable'), { code: 'EXDEV' })
-        }
-        fs.renameSync(file, path.join(trashDir, path.basename(file)))
-      }
-      const asked: string[] = []
-      ;(globalThis as { askedToDelete?: string[] }).askedToDelete = asked
-      dialog.showMessageBox = (async (...args: unknown[]) => {
-        const options = args.at(-1) as { message: string }
-        asked.push(options.message)
-        return { response: answer, checkboxChecked: false }
-      }) as unknown as typeof dialog.showMessageBox
-    },
-    { trashDir: trash, refuse: options.refuse ?? [], answer: options.answer }
-  )
-}
-
-const asked = (app: ElectronApplication): Promise<string[]> =>
-  app.evaluate(() => (globalThis as { askedToDelete?: string[] }).askedToDelete ?? [])
+const stubTrash = (options: { refuse?: string[]; answer: number }): Promise<void> =>
+  stubTrashAndDialogs(current().app, trash, options)
+const asked = (app: ElectronApplication): Promise<string[]> => askedToDelete(app)
 
 async function openGallery(): Promise<Page> {
   const page = await current().app.firstWindow()
@@ -74,20 +47,11 @@ async function openGallery(): Promise<Page> {
   return page
 }
 
-const cards = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Images' }).getByRole('listitem')
-
-function cardNames(page: Page): Promise<string[]> {
-  return cards(page)
-    .getByRole('article')
-    .evaluateAll((articles) => articles.map((article) => article.getAttribute('aria-label') ?? ''))
-}
-
 test('a bulk delete trashes the files, forgets missing ones and reports the one it could not delete', async () => {
   const page = await openGallery()
   const [trashed, locked, missing] = await cardNames(page)
   if (!trashed || !locked || !missing) throw new Error('not enough images')
-  await stubTrashAndDialogs(current().app, { refuse: [locked], answer: 0 })
+  await stubTrash({ refuse: [locked], answer: 0 })
   unlinkSync(join(day(), missing))
 
   for (const name of [trashed, locked, missing]) {
@@ -119,14 +83,14 @@ test('a permanent delete needs the confirmation in main, and declining keeps the
   const [first, second] = await cardNames(page)
   if (!first || !second) throw new Error('not enough images')
 
-  await stubTrashAndDialogs(current().app, { answer: 0 })
+  await stubTrash({ answer: 0 })
   await page.getByRole('button', { name: `Actions for ${first}` }).click()
   await page.getByRole('menuitem', { name: 'Delete permanently…' }).click()
   await expect.poll(() => asked(current().app)).toEqual(['Delete 1 image file permanently?'])
   expect(existsSync(join(day(), first))).toBe(true)
   await expect(cards(page)).toHaveCount(6)
 
-  await stubTrashAndDialogs(current().app, { answer: 1 })
+  await stubTrash({ answer: 1 })
   await page.getByRole('button', { name: `Actions for ${second}` }).click()
   await page.getByRole('menuitem', { name: 'Delete permanently…' }).click()
   await expect(cards(page)).toHaveCount(5)
@@ -138,7 +102,7 @@ test('Delete on the detail page trashes the image and shows the next one', async
   const page = await openGallery()
   const [first, second] = await cardNames(page)
   if (!first || !second) throw new Error('not enough images')
-  await stubTrashAndDialogs(current().app, { answer: 0 })
+  await stubTrash({ answer: 0 })
   await page.getByRole('button', { name: `Open ${first}` }).click()
   const details = page.getByRole('complementary', { name: 'File details' })
   await expect(details).toContainText(first)

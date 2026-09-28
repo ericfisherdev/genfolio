@@ -11,6 +11,13 @@ interface HashRow {
   phash: bigint
 }
 
+/**
+ * The suggested keeper comes first: most pixels, then the largest file, then the oldest, then
+ * the smallest id (a total order, so the suggestion is stable).
+ */
+const KEEPER_ORDER =
+  'images.width * images.height DESC, images.size_bytes DESC, images.created_at ASC, images.id ASC'
+
 interface GroupRow {
   group_id: number
   count: number
@@ -34,6 +41,7 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
   private readonly setGroup: Database.Statement<[number, number]>
   private readonly selectGroups: Database.Statement<[number, number, number], GroupRow>
   private readonly countGroups: Database.Statement<[], { count: number }>
+  private readonly selectMembers: Database.Statement<[number], { id: number }>
   private readonly selectSetting: Database.Statement<[string], { value: string }>
   private readonly upsertSetting: Database.Statement<[string, string]>
 
@@ -62,8 +70,7 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
       'UPDATE images SET similar_group_id = NULL WHERE similar_group_id IS NOT NULL'
     )
     this.setGroup = db.prepare('UPDATE images SET similar_group_id = ? WHERE id = ?')
-    // A page of groups, largest first, then each group's first members in keeper order:
-    // most pixels, largest file, oldest, smallest id.
+    // A page of groups, largest first, then each group's first members in keeper order.
     this.selectGroups = db.prepare(`
       WITH page AS (
         SELECT similar_group_id AS group_id, COUNT(*) AS count FROM images
@@ -71,11 +78,7 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
         GROUP BY similar_group_id ORDER BY count DESC, group_id LIMIT ? OFFSET ?
       ), ranked AS (
         SELECT page.group_id, page.count, images.id,
-          ROW_NUMBER() OVER (
-            PARTITION BY page.group_id
-            ORDER BY images.width * images.height DESC, images.size_bytes DESC,
-              images.created_at ASC, images.id ASC
-          ) AS rank
+          ROW_NUMBER() OVER (PARTITION BY page.group_id ORDER BY ${KEEPER_ORDER}) AS rank
         FROM page JOIN images ON images.similar_group_id = page.group_id
       )
       SELECT group_id, count, json_group_array(id ORDER BY rank) AS ids
@@ -83,6 +86,9 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
       GROUP BY group_id ORDER BY count DESC, group_id`)
     this.countGroups = db.prepare(
       'SELECT COUNT(DISTINCT similar_group_id) AS count FROM images WHERE similar_group_id IS NOT NULL'
+    )
+    this.selectMembers = db.prepare(
+      `SELECT id FROM images WHERE similar_group_id = ? ORDER BY ${KEEPER_ORDER}`
     )
     this.selectSetting = db.prepare('SELECT value FROM app_settings WHERE key = ?')
     this.upsertSetting = db.prepare(`
@@ -123,6 +129,10 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
       count: row.count,
       imageIds: JSON.parse(row.ids) as number[]
     }))
+  }
+
+  members(groupId: number): ImageId[] {
+    return this.selectMembers.all(groupId).map((row) => row.id as ImageId)
   }
 
   groupCount(): number {

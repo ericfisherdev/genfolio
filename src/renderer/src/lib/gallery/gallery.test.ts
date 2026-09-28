@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
+import type { ImageCard } from '@shared/gallery'
+import { ImageFormat } from '@shared/image-format'
 import { RouteKind } from '../routing/route'
 import { GalleryState } from '../state/gallery.svelte'
 import { cardHeight, gridGeometry } from './grid-geometry'
@@ -149,5 +151,46 @@ describe('GalleryState', () => {
     expect(gallery.card(1)).toBeUndefined()
     await gallery.ensureCards([1])
     expect(gallery.card(1)).toEqual({ id: 1, fresh: true })
+  })
+})
+
+describe('GalleryState.refresh', () => {
+  it('keeps loaded cards on screen until fresh ones arrive, and drops cards of gone images', async () => {
+    const cardOf = (id: number, rating: number): ImageCard => ({
+      id,
+      rootId: 1,
+      directoryId: 1,
+      fileName: `${id}.png`,
+      relDir: '',
+      format: ImageFormat.Png,
+      width: 1,
+      height: 1,
+      sizeBytes: 1,
+      createdAt: 1,
+      addedAt: 1,
+      favorite: false,
+      rating,
+      similarGroupId: null,
+      similarCount: 0
+    })
+    let rating = 0
+    let release: () => void = () => undefined
+    const gallery = new GalleryState({
+      getImageLayout: async () => new Int32Array([7, 1, 1]),
+      getImages: async (ids) => {
+        if (rating > 0) await new Promise<void>((resolve) => (release = resolve))
+        return ids.filter((id) => id === 7).map((id) => cardOf(id, rating))
+      }
+    })
+    await gallery.load({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest })
+    await gallery.ensureCards([7, 8])
+    rating = 3
+    const refreshing = gallery.refresh()
+    await Promise.resolve()
+    expect(gallery.card(7)?.rating).toBe(0)
+    release()
+    await refreshing
+    expect(gallery.card(7)?.rating).toBe(3)
+    expect(gallery.card(8)).toBeUndefined()
   })
 })

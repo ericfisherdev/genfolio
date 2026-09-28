@@ -1,12 +1,23 @@
-import { copyFileSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
+import { stubTrashAndDialogs } from './support/trash'
 
 let launched: LaunchedApp | undefined
 let library: string
+let trash: string | undefined
 
 const current = (): LaunchedApp => {
   if (!launched) throw new Error('app was not launched')
@@ -18,6 +29,7 @@ test.afterEach(async () => {
     await launched?.close()
   } finally {
     rmSync(library, { recursive: true, force: true })
+    if (trash) rmSync(trash, { recursive: true, force: true })
   }
 })
 
@@ -52,9 +64,6 @@ async function libraryWithCopies(): Promise<string[]> {
   return originals
 }
 
-const cards = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Images' }).getByRole('listitem')
-
 /** Waits for hashing and grouping to settle at `groups` groups. */
 async function awaitGroups(page: Page, groups: number): Promise<void> {
   await expect
@@ -67,7 +76,7 @@ async function awaitGroups(page: Page, groups: number): Promise<void> {
     .toBe(groups)
 }
 
-test('copies are grouped as look-alikes, with badges, a groups view and a threshold', async () => {
+async function openWithCopies(): Promise<{ page: Page; originals: string[] }> {
   const originals = await libraryWithCopies()
   launched = await launchApp()
   const page = await current().app.firstWindow()
@@ -75,6 +84,11 @@ test('copies are grouped as look-alikes, with badges, a groups view and a thresh
   await stubFolderPicker(current().app, library)
   await addAndAwaitScan(page)
   await awaitGroups(page, 3)
+  return { page, originals }
+}
+
+test('copies are grouped as look-alikes, with badges, a groups view and a threshold', async () => {
+  const { page, originals } = await openWithCopies()
   await page.evaluate(() => (location.hash = '#/'))
   await expect(cards(page)).toHaveCount(9)
 
@@ -95,4 +109,40 @@ test('copies are grouped as look-alikes, with badges, a groups view and a thresh
   await page.getByRole('button', { name: /^All Photos/ }).click()
   await expect(page.getByRole('button', { name: `1 look-alike of ${originals[1]}` })).toBeVisible()
   await expect(page.getByRole('button', { name: `1 look-alike of ${originals[2]}` })).toHaveCount(0)
+})
+
+test('trash all but keeper leaves the keeper, and a chosen keeper wins', async () => {
+  const { page } = await openWithCopies()
+  trash = mkdtempSync(join(tmpdir(), 'genfolio-trash-'))
+  await stubTrashAndDialogs(current().app, trash, { answer: 0 })
+  await page.evaluate(() => (location.hash = '#/similar'))
+  const groups = page.getByRole('list', { name: 'Groups' })
+  await expect(groups.getByRole('listitem')).toHaveCount(3)
+
+  // The half-size copy has fewer pixels, so the original is the suggested keeper.
+  await groups
+    .getByRole('button', { name: /^Move all but the keeper/ })
+    .first()
+    .click()
+  await expect(groups.getByRole('listitem')).toHaveCount(2)
+  expect(readdirSync(trash)).toHaveLength(1)
+
+  // In a group, the user can keep the copy instead of the suggestion.
+  await groups
+    .getByRole('button', { name: /^Open group/ })
+    .first()
+    .click()
+  const bar = page.getByRole('region', { name: 'Keeper' })
+  await expect(bar).toContainText('suggested')
+  const names = await cardNames(page)
+  const [, second] = names
+  if (!second) throw new Error('the group has one image')
+  await page.getByRole('button', { name: `Actions for ${second}` }).click()
+  await page.getByRole('menuitem', { name: 'Keep this one' }).click()
+  await expect(bar).toContainText(second)
+  await bar.getByRole('button', { name: /^Move the other/ }).click()
+  // The keeper is left on its own, so the group dissolves.
+  await expect.poll(() => readdirSync(trash ?? '').length).toBe(2)
+  await expect(cards(page)).toHaveCount(0)
+  expect(readdirSync(trash)).not.toContain(second)
 })

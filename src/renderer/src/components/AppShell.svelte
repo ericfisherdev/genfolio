@@ -7,6 +7,7 @@
   import DeleteReportDialog from './DeleteReportDialog.svelte'
   import DetailView from './DetailView.svelte'
   import FilterBar from './FilterBar.svelte'
+  import KeeperBar from './KeeperBar.svelte'
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
@@ -28,7 +29,7 @@
       return
     }
     untrack(() => {
-      void gallery.reload()
+      void gallery.refresh()
       if (gallery.query) void facets.load(gallery.query)
     })
   })
@@ -58,7 +59,7 @@
     if (wasHashing && !hashing) {
       untrack(() => {
         void similarity.load()
-        void gallery.reload()
+        void gallery.refresh()
       })
     }
     wasHashing = hashing
@@ -87,6 +88,9 @@
       <DetailView />
     {:else}
       <TopBar />
+      {#if router.route.kind === RouteKind.SimilarGroup}
+        <KeeperBar groupId={router.route.groupId} />
+      {/if}
       {#if selection.count > 0}
         <BulkBar />
       {:else}

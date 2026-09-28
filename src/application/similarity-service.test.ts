@@ -113,4 +113,16 @@ describe('SimilarityService', () => {
     })
     expect(similarity.groups(1, 10).groups.map((group) => group.groupId)).toEqual([image(5)])
   })
+
+  it('lists every member of a group with the keeper first: most pixels, largest, oldest', async () => {
+    hash(1, 0)
+    hash(2, 1)
+    hash(3, 2)
+    library.db.prepare('UPDATE images SET size_bytes = 5 WHERE id = ?').run(image(2))
+    await similarity.index([1, 2, 3].map(image))
+    expect(similarity.members(image(1))).toEqual([image(2), image(1), image(3)])
+    library.db.prepare('UPDATE images SET width = 30 WHERE id = ?').run(image(3))
+    expect(similarity.members(image(1))[0]).toBe(image(3))
+    expect(similarity.members(999)).toEqual([])
+  })
 })

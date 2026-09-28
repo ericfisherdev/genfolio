@@ -1,5 +1,6 @@
 import { rmSync } from 'node:fs'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
 
@@ -33,16 +34,6 @@ async function openGallery(): Promise<Page> {
   await page.evaluate(() => (location.hash = '#/'))
   await expect(cards(page)).toHaveCount(6)
   return page
-}
-
-const cards = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Images' }).getByRole('listitem')
-
-/** File names of the cards in display order. */
-function cardNames(page: Page): Promise<string[]> {
-  return cards(page)
-    .getByRole('article')
-    .evaluateAll((articles) => articles.map((article) => article.getAttribute('aria-label') ?? ''))
 }
 
 /** Rescans every root and waits for the scans to finish. */
