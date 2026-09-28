@@ -104,11 +104,19 @@ test('a manual album is filled, arranged, kept through a rescan, renamed and del
   await expect.poll(() => cardNames(page)).toEqual([third, first, second])
 
   // Dragging the first card onto the far half of the last one moves it to the end.
-  const from = cards(page).first()
-  const to = cards(page).last()
-  const box = await to.boundingBox()
-  if (!box) throw new Error('no box for the last card')
-  await from.dragTo(to, { targetPosition: { x: box.width * 0.9, y: box.height / 2 } })
+  // Explicit steps: a native drag starts only after the pointer moves with the button down,
+  // and a busy page can miss a single move, so the target is entered twice.
+  const fromBox = await cards(page).first().boundingBox()
+  const toBox = await cards(page).last().boundingBox()
+  if (!fromBox || !toBox) throw new Error('no box for a card')
+  const dropX = toBox.x + toBox.width * 0.9
+  const dropY = toBox.y + toBox.height / 2
+  await page.mouse.move(fromBox.x + fromBox.width / 2, fromBox.y + fromBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(dropX - 10, dropY, { steps: 5 })
+  await page.mouse.move(dropX, dropY, { steps: 5 })
+  await expect(cards(page).last()).toHaveClass(/drop-after/)
+  await page.mouse.up()
   await expect.poll(() => cardNames(page)).toEqual([first, second, third])
 
   // Membership and order survive a rescan.
