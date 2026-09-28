@@ -46,6 +46,32 @@ describe('SqliteFacetReader', () => {
     expect(facets.checkpoints[0]?.id).toBe(library.modelId('checkpoint', 'alpha'))
   })
 
+  it('counts a folder holding the whole library exactly as All Photos', () => {
+    const rootFolder = library.db
+      .prepare("SELECT id FROM directories WHERE rel_path = ''")
+      .pluck()
+      .get() as number
+    const everything = reader.facets(query())
+    expect(
+      reader.facets(
+        query(undefined, {
+          kind: GalleryScopeKind.Directory,
+          directoryId: rootFolder,
+          recursive: true
+        })
+      )
+    ).toEqual(everything)
+    // Not recursive, the root folder itself holds no images.
+    const flat = reader.facets(
+      query(undefined, {
+        kind: GalleryScopeKind.Directory,
+        directoryId: rootFolder,
+        recursive: false
+      })
+    )
+    expect(flat).toEqual({ checkpoints: [], loras: [], generators: [], withoutMetadata: 0 })
+  })
+
   it('counts within a folder', () => {
     const facets = reader.facets(
       query(undefined, {

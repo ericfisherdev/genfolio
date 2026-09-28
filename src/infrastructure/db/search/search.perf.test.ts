@@ -12,6 +12,10 @@ const IMAGES = 100_000
 const FOLDERS = 100
 const CHECKPOINTS = 50
 const LORAS = 500
+/**
+ * Per query, measured on the reference machine (i7-11800H, 8 cores, Node 24 in Electron's
+ * runtime). Slower machines scale roughly linearly, so this gate is meaningful there only.
+ */
 const BUDGET_MS = 200
 
 /** mulberry32: deterministic, so every run builds the same library, and well mixed. */
@@ -171,9 +175,19 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('search performance at 100
       sort: SortOrder.FileName,
       filters: CASES['checkpoint + LoRA + keyword'] ?? {}
     }
-    const folderMs = timeMs(() => gallery.layout(folder))
-    rows.push(`${'recursive root + 3 filters'.padEnd(30)} layout ${folderMs.toFixed(1)} ms`)
-    if (folderMs >= BUDGET_MS) slow.push('recursive root + 3 filters')
+    const rootOnly: GalleryQuery = { scope: folder.scope, sort: SortOrder.FileName }
+    for (const [name, scoped] of [
+      ['recursive root, no filters', rootOnly],
+      ['recursive root + 3 filters', folder]
+    ] as const) {
+      const layoutMs = timeMs(() => gallery.layout(scoped))
+      const facetMs = timeMs(() => facets.facets(scoped))
+      rows.push(
+        `${name.padEnd(32)} ${''.padStart(13)}  layout ${layoutMs.toFixed(1).padStart(6)} ms  facets ${facetMs.toFixed(1).padStart(6)} ms`
+      )
+      if (layoutMs >= BUDGET_MS) slow.push(`${name} layout`)
+      if (facetMs >= BUDGET_MS) slow.push(`${name} facets`)
+    }
     console.info(`[perf] search at ${IMAGES} images (* not budgeted)\n${rows.join('\n')}`)
     expect(slow).toEqual([])
   }, 600_000)

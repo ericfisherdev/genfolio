@@ -4,7 +4,10 @@ import type { GeneratorKind } from '@shared/generation-kinds'
 import { SetMatchMode } from '@shared/search-kinds'
 import type { FacetValue, SearchFacets, SearchFilters } from '@shared/search'
 import type { CriteriaFilter } from './criteria-filter'
-import { selectImages } from './image-selection'
+import { selectImages, type ImageSelection } from './image-selection'
+
+const hasFilters = (query: GalleryQuery): boolean =>
+  query.filters !== undefined && Object.keys(query.filters).length > 0
 
 /** The query's filters without one of them, so that facet counts what else could be picked. */
 function without(query: GalleryQuery, key: keyof SearchFilters): GalleryQuery {
@@ -69,10 +72,15 @@ export class SqliteFacetReader {
     })()
   }
 
-  /** Evaluates a selection once per facets() call; the whole library isn't materialized. */
+  /**
+   * Evaluates a selection once per facets() call. The whole library isn't materialized, nor
+   * is a folder scope without filters that holds every image (a library's only root), which
+   * is the view opened most; checking that is a cheap count on the directory index.
+   */
   private counted(scope: GalleryQuery, cache: Map<string, Counted>): Counted {
     const selection = selectImages(scope, this.filters)
     if (!selection.prefix && !selection.where) return { all: true }
+    if (!hasFilters(scope) && this.coversEveryImage(selection)) return { all: true }
     const key = `${selection.prefix}${selection.where}\0${JSON.stringify(selection.params)}`
     const cached = cache.get(key)
     if (cached) return cached
@@ -114,12 +122,15 @@ export class SqliteFacetReader {
    */
   private loras(counted: Counted, min: number | null, max: number | null): FacetValue[] {
     return this.all<FacetValue>(
-      `SELECT models.id, models.display_name AS name, COUNT(*) AS count
-       FROM generation_loras links ${restrict(counted, 'links', 'image_id')}
-       JOIN models ON models.id = links.model_id
-       WHERE (? IS NULL OR links.weight >= ?) AND (? IS NULL OR links.weight <= ?)
-       GROUP BY models.id
-       ORDER BY count DESC, name COLLATE NOCASE, models.id`,
+      // Grouped by model id first, so names are looked up once per LoRA, not once per link.
+      `SELECT models.id, models.display_name AS name, used.count
+       FROM (
+         SELECT links.model_id, COUNT(*) AS count
+         FROM generation_loras links ${restrict(counted, 'links', 'image_id')}
+         WHERE (? IS NULL OR links.weight >= ?) AND (? IS NULL OR links.weight <= ?)
+         GROUP BY links.model_id
+       ) used JOIN models ON models.id = used.model_id
+       ORDER BY used.count DESC, name COLLATE NOCASE, models.id`,
       [min, min, max, max]
     )
   }
@@ -140,6 +151,16 @@ export class SqliteFacetReader {
       []
     )
     return row?.count ?? 0
+  }
+
+  private coversEveryImage(selection: ImageSelection): boolean {
+    const [row] = this.all<{ every: number }>(
+      `${selection.prefix}
+       SELECT (SELECT COUNT(*) FROM images ${selection.where}) = (SELECT COUNT(*) FROM images)
+         AS every`,
+      selection.params
+    )
+    return row?.every === 1
   }
 
   private all<T>(sql: string, params: readonly unknown[]): T[] {
