@@ -3,6 +3,7 @@ import type { AlbumKind } from '@shared/album-kinds'
 import type { StoredSearchFilters } from '@shared/search'
 import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
 import type { StoredGeneration } from './generation'
+import type { ImageHashes } from './image-hashes'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
 
@@ -244,4 +245,18 @@ export interface SlideshowPresetRepository {
   save(name: string, settings: SlideshowSettings): SlideshowPreset
   /** Returns false when the preset was already gone. */
   delete(id: number): boolean
+}
+
+/** Content and perceptual hashes of images, written by the hashing pass. */
+export interface ImageHashRepository {
+  /** How many images still need hashing at `hashVersion`. */
+  pendingCount(hashVersion: number): number
+  /** Up to `limit` images needing hashing at `hashVersion`, by id, after `afterId`. */
+  pending(hashVersion: number, afterId: number, limit: number): ImageVersion[]
+  /**
+   * Stores the hashes (null: the file could not be hashed, so it isn't retried) and marks
+   * the image hashed at `hashVersion`, only while the row still has `version`'s size and
+   * mtime. Returns false, writing nothing, otherwise.
+   */
+  store(version: ImageVersion, hashes: ImageHashes | null, hashVersion: number): boolean
 }

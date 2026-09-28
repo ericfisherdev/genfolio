@@ -54,7 +54,10 @@ function rescanAll(page: Page): Promise<void> {
         (root) =>
           new Promise<void>((resolve) => {
             const off = window.genfolio.onScanEvent((event) => {
-              if (event.type !== 'progress' && event.rootId === root.id) {
+              if (
+                (event.type === 'finished' || event.type === 'failed') &&
+                event.rootId === root.id
+              ) {
                 off()
                 resolve()
               }

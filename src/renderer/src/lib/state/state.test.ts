@@ -47,6 +47,24 @@ describe('LibraryState', () => {
 })
 
 describe('ScanProgressState', () => {
+  it('shows background hashing until the pass ends, without counting it as a scan', () => {
+    let listener: (event: ScanEvent) => void = () => undefined
+    const scans = new ScanProgressState(
+      {
+        onScanEvent: (subscriber) => {
+          listener = subscriber
+          return () => undefined
+        }
+      },
+      vi.fn()
+    )
+    listener({ type: ScanEventType.Hashing, done: 3, total: 10 })
+    expect(scans.hashing).toEqual({ done: 3, total: 10 })
+    expect(scans.isScanning).toBe(false)
+    listener({ type: ScanEventType.Hashing, done: 10, total: 10 })
+    expect(scans.hashing).toBeUndefined()
+  })
+
   it('tracks progress per root, records failures and reports scan ends', () => {
     const ended = vi.fn()
     let listener: (event: ScanEvent) => void = () => undefined

@@ -23,6 +23,8 @@ export class ScanProgressState {
   active: Readonly<Record<number, ScanProgressView>> = $state({})
   /** Last failure reason per root, shown until the next scan of that root starts. */
   failures: Readonly<Record<number, string>> = $state({})
+  /** Background hashing for look-alikes while it runs. */
+  hashing: { readonly done: number; readonly total: number } | undefined = $state()
   private readonly unsubscribe: () => void
 
   constructor(
@@ -53,6 +55,10 @@ export class ScanProgressState {
   }
 
   private handle(event: ScanEvent): void {
+    if (event.type === ScanEventType.Hashing) {
+      this.hashing = event.done < event.total ? { done: event.done, total: event.total } : undefined
+      return
+    }
     const others = without(this.active, event.rootId)
     const otherFailures = without(this.failures, event.rootId)
     switch (event.type) {

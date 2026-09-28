@@ -4,6 +4,7 @@
   import { scanProgressText } from '../lib/format/scan-progress-text'
 
   const { scans, library } = getAppServices()
+  const count = new Intl.NumberFormat()
 
   const nameOf = (rootId: number): string => {
     const root = library.roots.find((candidate) => candidate.id === rootId)
@@ -15,6 +16,11 @@
   {#each Object.entries(scans.active) as [rootId, progress] (rootId)}
     <span class="running">{nameOf(Number(rootId))}: {scanProgressText(progress)}</span>
   {/each}
+  {#if scans.hashing}
+    <span class="running">
+      Finding look-alikes {count.format(scans.hashing.done)} / {count.format(scans.hashing.total)}
+    </span>
+  {/if}
   {#each Object.entries(scans.failures) as [rootId, reason] (rootId)}
     <span class="failed">Scan of {nameOf(Number(rootId))} failed: {reason}</span>
   {/each}
