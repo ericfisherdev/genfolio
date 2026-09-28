@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { StoredGeneration } from '@domain/generation'
 import type { DirectoryId, ImageId } from '@domain/library'
+import type { ImageVersion } from '@domain/repositories'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
@@ -12,6 +13,7 @@ import { SqliteDirectoryRepository } from './sqlite-directory-repository'
 import { SqliteFooocusLogRepository } from './sqlite-fooocus-log-repository'
 import { SqliteGenerationRepository } from './sqlite-generation-repository'
 import { SqliteImageRepository } from './sqlite-image-repository'
+import { SqliteImageVersionCheck } from './sqlite-image-version-check'
 import { SqliteLibraryRootRepository } from './sqlite-library-root-repository'
 import { SqliteMetadataRecordRepository } from './sqlite-metadata-record-repository'
 import { SqliteModelCatalog } from './sqlite-model-catalog'
@@ -24,13 +26,14 @@ let directory: DirectoryId
 
 beforeEach(() => {
   db = migratedMemoryDb()
-  generations = new SqliteGenerationRepository(db, new SqliteModelCatalog(db))
-  records = new SqliteMetadataRecordRepository(db)
+  const versions = new SqliteImageVersionCheck(db)
+  generations = new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions)
+  records = new SqliteMetadataRecordRepository(db, versions)
   roots = new SqliteLibraryRootRepository(db)
   directory = new SqliteDirectoryRepository(db).ensure(roots.add('/lib', 1).id, 'day')
 })
 
-function addImage(fileName: string): ImageId {
+function addImage(fileName: string): ImageVersion {
   new SqliteImageRepository(db).upsertMany(
     [
       {
@@ -49,7 +52,7 @@ function addImage(fileName: string): ImageId {
   const row = db.prepare('SELECT id FROM images WHERE file_name = ?').get(fileName) as {
     id: number
   }
-  return row.id as ImageId
+  return { id: row.id as ImageId, sizeBytes: 1, mtimeMs: 1 }
 }
 
 const FULL: StoredGeneration = {
@@ -95,7 +98,7 @@ describe('SqliteGenerationRepository', () => {
   it('stores and reads back every field', () => {
     const image = addImage('a.png')
     generations.replace(image, FULL)
-    expect(generations.find(image)).toEqual(FULL)
+    expect(generations.find(image.id)).toEqual(FULL)
   })
 
   it('stores a sparse generation without inventing fields', () => {
@@ -107,7 +110,7 @@ describe('SqliteGenerationRepository', () => {
       params: {}
     }
     generations.replace(image, sparse)
-    expect(generations.find(image)).toEqual(sparse)
+    expect(generations.find(image.id)).toEqual(sparse)
   })
 
   it('replacing twice leaves no orphan links and reuses models by name identity', () => {
@@ -133,7 +136,10 @@ describe('SqliteGenerationRepository', () => {
       { hash: '0d9bd1b873', hash_kind: 'autov2' },
       { hash: 'c23324c71c', hash_kind: 'autov2' }
     ])
-    expect(generations.find(second)?.checkpoint).toEqual({ name: 'intorealism_sdxlV4', hash: null })
+    expect(generations.find(second.id)?.checkpoint).toEqual({
+      name: 'intorealism_sdxlV4',
+      hash: null
+    })
   })
 
   it('keeps the first position when two LoRA names share an identity', () => {
@@ -145,14 +151,29 @@ describe('SqliteGenerationRepository', () => {
         { name: 'Detail.safetensors', weight: 0.9, hash: null }
       ]
     })
-    expect(generations.find(image)?.loras).toEqual([{ name: 'detail', weight: 0.5, hash: null }])
+    expect(generations.find(image.id)?.loras).toEqual([{ name: 'detail', weight: 0.5, hash: null }])
+  })
+
+  it('writes nothing and returns false when the image changed or vanished since it was read', () => {
+    const image = addImage('a.png')
+    expect(generations.replace(image, FULL)).toBe(true)
+    const stale = { ...image, mtimeMs: 0 }
+    expect(generations.replace(stale, null)).toBe(false)
+    expect(records.replace(stale, [{ origin: MetadataOrigin.PngText, key: 'k', value: 'v' }])).toBe(
+      false
+    )
+    expect(generations.find(image.id)).toEqual(FULL)
+    expect(records.list(image.id)).toEqual([])
+    db.prepare('DELETE FROM images WHERE id = ?').run(image.id)
+    expect(generations.replace(image, FULL)).toBe(false)
+    expect(records.replace(image, [])).toBe(false)
   })
 
   it('null removes the generation and its links', () => {
     const image = addImage('a.png')
     generations.replace(image, FULL)
     generations.replace(image, null)
-    expect(generations.find(image)).toBeUndefined()
+    expect(generations.find(image.id)).toBeUndefined()
     expect(count('generation_loras')).toBe(0)
   })
 
@@ -175,7 +196,7 @@ describe('cascades', () => {
     const image = addImage('a.png')
     generations.replace(image, FULL)
     records.replace(image, [{ origin: MetadataOrigin.PngText, key: 'parameters', value: 'x' }])
-    db.prepare('DELETE FROM images WHERE id = ?').run(image)
+    db.prepare('DELETE FROM images WHERE id = ?').run(image.id)
     expect([count('generations'), count('generation_loras'), count('metadata_raw')]).toEqual([
       0, 0, 0
     ])
@@ -198,7 +219,7 @@ describe('SqliteMetadataRecordRepository', () => {
       { origin: MetadataOrigin.ExifUserComment, key: 'UserComment', value: '{}' }
     ]
     records.replace(image, next)
-    expect(records.list(image)).toEqual(next)
+    expect(records.list(image.id)).toEqual(next)
   })
 })
 
@@ -209,5 +230,11 @@ describe('SqliteFooocusLogRepository', () => {
     logs.save(directory, { sizeBytes: 10, mtimeMs: 20 })
     logs.save(directory, { sizeBytes: 11, mtimeMs: 21 })
     expect(logs.find(directory)).toEqual({ sizeBytes: 11, mtimeMs: 21 })
+  })
+
+  it('stores a fractional fs mtime truncated to whole milliseconds', () => {
+    const logs = new SqliteFooocusLogRepository(db)
+    logs.save(directory, { sizeBytes: 10, mtimeMs: 1790573219728.0945 })
+    expect(logs.find(directory)).toEqual({ sizeBytes: 10, mtimeMs: 1790573219728 })
   })
 })

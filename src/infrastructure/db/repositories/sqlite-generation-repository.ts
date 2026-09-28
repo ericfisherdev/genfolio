@@ -1,9 +1,10 @@
 import type Database from 'better-sqlite3'
 import type { LoraUse, ModelRef, StoredGeneration } from '@domain/generation'
 import type { ImageId } from '@domain/library'
-import type { GenerationRepository } from '@domain/repositories'
+import type { GenerationRepository, ImageVersion } from '@domain/repositories'
 import { type GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
+import type { SqliteImageVersionCheck } from './sqlite-image-version-check'
 import type { SqliteModelCatalog } from './sqlite-model-catalog'
 
 type GenerationParams = [
@@ -68,7 +69,8 @@ export class SqliteGenerationRepository implements GenerationRepository {
 
   constructor(
     private readonly db: Database.Database,
-    private readonly models: SqliteModelCatalog
+    private readonly models: SqliteModelCatalog,
+    private readonly versions: SqliteImageVersionCheck
   ) {
     this.deleteGeneration = db.prepare('DELETE FROM generations WHERE image_id = ?')
     this.insertGeneration = db.prepare(`
@@ -98,10 +100,12 @@ export class SqliteGenerationRepository implements GenerationRepository {
     `)
   }
 
-  replace(imageId: ImageId, generation: StoredGeneration | null): void {
-    this.db.transaction(() => {
-      this.deleteGeneration.run(imageId)
-      if (generation) this.insert(imageId, generation)
+  replace(version: ImageVersion, generation: StoredGeneration | null): boolean {
+    return this.db.transaction(() => {
+      if (!this.versions.holds(version)) return false
+      this.deleteGeneration.run(version.id)
+      if (generation) this.insert(version.id, generation)
+      return true
     })()
   }
 

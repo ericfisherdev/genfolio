@@ -32,13 +32,17 @@ export interface DirectoryRepository {
   pruneEmpty(rootId: RootId): number
 }
 
-/** What a scan compares against: the stored size and mtime of each file. */
-export interface StoredFileStat {
+/** An image row as of one read: writes derived from that read apply only while it still holds. */
+export interface ImageVersion {
   readonly id: ImageId
-  readonly relDir: string
-  readonly fileName: string
   readonly sizeBytes: number
   readonly mtimeMs: number
+}
+
+/** What a scan compares against: the stored size and mtime of each file. */
+export interface StoredFileStat extends ImageVersion {
+  readonly relDir: string
+  readonly fileName: string
 }
 
 export interface ImageRepository {
@@ -57,17 +61,22 @@ export interface GenerationRepository {
   /**
    * In one transaction: upserts the checkpoint, refiner and LoRA models (reused by name
    * identity, collecting new hashes) and replaces the image's generation and LoRA links.
-   * `null` removes the generation.
+   * `null` removes the generation. Writes only while the image row still has `version`'s
+   * size and mtime; returns false, writing nothing, when the image is gone or another writer
+   * changed it since the metadata was read.
    */
-  replace(imageId: ImageId, generation: StoredGeneration | null): void
+  replace(version: ImageVersion, generation: StoredGeneration | null): boolean
   find(imageId: ImageId): StoredGeneration | undefined
   /** Deletes models no generation uses any more. Returns how many. */
   pruneUnusedModels(): number
 }
 
 export interface MetadataRecordRepository {
-  /** Replaces every raw record stored for the image, in one transaction. */
-  replace(imageId: ImageId, records: readonly MetadataRecord[]): void
+  /**
+   * Replaces every raw record stored for the image, in one transaction, only while the image
+   * row still has `version`'s size and mtime; returns false, writing nothing, otherwise.
+   */
+  replace(version: ImageVersion, records: readonly MetadataRecord[]): boolean
   /** The image's records in the order they were stored. */
   list(imageId: ImageId): MetadataRecord[]
 }
@@ -75,6 +84,7 @@ export interface MetadataRecordRepository {
 /** When a directory's `log.html` was last read, to skip unchanged logs. */
 export interface FileStamp {
   readonly sizeBytes: number
+  /** Whole milliseconds; repositories truncate, so compare truncated values. */
   readonly mtimeMs: number
 }
 

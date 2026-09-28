@@ -27,6 +27,7 @@ export class SqliteFooocusLogRepository implements FooocusLogRepository {
   }
 
   save(directoryId: DirectoryId, stamp: FileStamp): void {
-    this.upsert.run(directoryId, stamp.sizeBytes, stamp.mtimeMs)
+    // Node's mtimeMs is fractional; the STRICT INTEGER column refuses a lossy REAL.
+    this.upsert.run(directoryId, stamp.sizeBytes, Math.trunc(stamp.mtimeMs))
   }
 }
