@@ -4,6 +4,7 @@ import type { DirectoryId, ImageId } from '@domain/library'
 import { galleryQuerySchema, GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
+import { SqliteImageMarkRepository } from '../repositories/sqlite-image-mark-repository'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
 import { createSearchFilters } from './filters'
@@ -132,6 +133,42 @@ describe('search filters', () => {
   })
 })
 
+describe('favourites and ratings', () => {
+  function mark(favorites: number[], ratings: Record<number, number>): void {
+    const marks = new SqliteImageMarkRepository(db)
+    marks.setFavorite(
+      favorites.map((n) => ids.get(n) ?? (0 as ImageId)),
+      true
+    )
+    for (const [n, rating] of Object.entries(ratings)) {
+      marks.setRating([ids.get(Number(n)) ?? (0 as ImageId)], rating)
+    }
+  }
+
+  it('sets marks on existing images only and reports how many', () => {
+    const marks = new SqliteImageMarkRepository(db)
+    const one = ids.get(1) ?? (0 as ImageId)
+    expect(marks.setFavorite([one, 999_999 as ImageId], true)).toBe(1)
+    expect(marks.setRating([one], 4)).toBe(1)
+    expect(marks.setRating([one], 0)).toBe(1)
+  })
+
+  it('filters favourites and a minimum rating, alone and with other filters', () => {
+    mark([2, 5], { 1: 5, 2: 3, 4: 1 })
+    expect(search({ favoritesOnly: true })).toEqual([2, 5])
+    expect(search({ minRating: 3 })).toEqual([1, 2])
+    expect(search({ minRating: 3, favoritesOnly: true })).toEqual([2])
+    expect(
+      search({ minRating: 1, keywords: { query: 'red', scope: KeywordScope.Positive } })
+    ).toEqual([1, 2, 4])
+  })
+
+  it('sorts by rating, then newest', () => {
+    mark([], { 1: 5, 2: 3, 4: 3 })
+    expect(search({}, { sort: SortOrder.Rating })).toEqual([1, 4, 2, 6, 5, 3])
+  })
+})
+
 describe('searchFiltersSchema', () => {
   const query = (filters: unknown): boolean =>
     galleryQuerySchema.safeParse({ scope: { kind: 'all' }, sort: 'newest', filters }).success
@@ -145,6 +182,10 @@ describe('searchFiltersSchema', () => {
     expect(query({ checkpointIds: [0] })).toBe(false)
     expect(query({ keywords: { query: 'x'.repeat(1001), scope: 'both' } })).toBe(false)
     expect(query({ generators: ['comfy'] })).toBe(false)
+    expect(query({ favoritesOnly: false })).toBe(false)
+    expect(query({ minRating: 6 })).toBe(false)
+    expect(query({ minRating: 0 })).toBe(false)
+    expect(query({ favoritesOnly: true, minRating: 5 })).toBe(true)
     expect(query({ unknown: true })).toBe(false)
   })
 })

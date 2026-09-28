@@ -38,7 +38,9 @@ describe('routes with filters', () => {
     generators: [GeneratorKind.Fooocus],
     seed: '42',
     samePromptAs: 7,
-    hasMetadata: true
+    hasMetadata: true,
+    favoritesOnly: true,
+    minRating: 3
   }
 
   it.each<Route>([

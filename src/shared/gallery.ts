@@ -1,9 +1,16 @@
 import { z } from 'zod'
 import { ImageFormat } from './image-format'
 import { searchFiltersSchema } from './search'
-import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder } from './gallery-kinds'
+import { GalleryScopeKind, LAYOUT_STRIDE, MAX_RATING, SortOrder } from './gallery-kinds'
 
-export { GalleryScopeKind, LAYOUT_STRIDE, MAX_IMAGES_PER_REQUEST, SortOrder } from './gallery-kinds'
+export {
+  GalleryScopeKind,
+  LAYOUT_STRIDE,
+  MAX_IDS_PER_MARK,
+  MAX_IMAGES_PER_REQUEST,
+  MAX_RATING,
+  SortOrder
+} from './gallery-kinds'
 
 const id = z.number().int().positive()
 
@@ -48,7 +55,9 @@ export const imageCardSchema = z
     height: z.number().int().positive(),
     sizeBytes: z.number().int().nonnegative(),
     createdAt: z.number(),
-    addedAt: z.number()
+    addedAt: z.number(),
+    favorite: z.boolean(),
+    rating: z.number().int().min(0).max(MAX_RATING)
   })
   .readonly()
 

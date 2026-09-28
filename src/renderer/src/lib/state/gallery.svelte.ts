@@ -5,6 +5,17 @@ import type { GalleryQuery, ImageCard } from '@shared/gallery'
 import { queryKey } from '../gallery/gallery-query'
 import { userMessage } from '../format/user-message'
 
+type MarkFields = Partial<Pick<ImageCard, 'favorite' | 'rating'>>
+
+/** One optimistic change to cached cards, which can be undone if the write fails. */
+export interface CardPatch {
+  /**
+   * Puts back each patched field of these images (default: all patched), unless a later
+   * change or a reload has replaced the value this patch wrote.
+   */
+  revert(ids?: readonly number[]): void
+}
+
 /**
  * The current result set: its layout (ids and sizes, loaded whole) and the cards fetched so
  * far for the images that have been visible. Stale responses from older queries are ignored.
@@ -17,6 +28,8 @@ export class GalleryState {
   loading = $state(false)
   /** Why the last layout request failed; cleared by the next successful one. */
   loadError: string | undefined = $state(undefined)
+  /** Marks changed the results while they were being stepped through; reload when shown. */
+  layoutStale = $state(false)
   readonly count = $derived(this.layout.length / LAYOUT_STRIDE)
   private readonly cards = new SvelteMap<number, ImageCard>()
   /** Ids already asked for (plain bookkeeping, deliberately not reactive). */
@@ -35,6 +48,7 @@ export class GalleryState {
   async load(query: GalleryQuery): Promise<void> {
     const generation = ++this.generation
     this.query = query
+    this.layoutStale = false
     this.loading = true
     try {
       const layout = await this.api.getImageLayout(query)
@@ -86,6 +100,43 @@ export class GalleryState {
   }
 
   /**
+   * Changes cached cards in place (an optimistic update); cards not cached yet are fetched
+   * fresh later anyway.
+   */
+  patchCards(ids: readonly number[], patch: MarkFields): CardPatch {
+    const generation = this.cardGeneration
+    // Plain bookkeeping for the revert, deliberately not reactive.
+    const previous: Record<number, ImageCard> = {}
+    for (const id of ids) {
+      const card = this.cards.get(id)
+      if (!card) continue
+      previous[id] = card
+      this.cards.set(id, { ...card, ...patch })
+    }
+    return {
+      revert: (only = ids) => {
+        // A reload refetched every card from the database, which never saw this patch.
+        if (generation !== this.cardGeneration) return
+        for (const id of only) {
+          const before = previous[id]
+          const now = this.cards.get(id)
+          if (before && now) this.cards.set(id, revertedFields(now, before, patch))
+        }
+      }
+    }
+  }
+
+  /** Loads the current query's layout again, keeping cached cards (after marks changed). */
+  async refreshLayout(): Promise<void> {
+    if (this.query) await this.load(this.query)
+  }
+
+  /** Asks for the layout to be reloaded the next time the grid is shown (see layoutStale). */
+  markLayoutStale(): void {
+    this.layoutStale = true
+  }
+
+  /**
    * Fetches cards not yet loaded or requested, at most 500 per request. A failed batch is
    * released so its ids are asked for again; results that arrive after a reload are dropped.
    */
@@ -106,4 +157,14 @@ export class GalleryState {
       for (const card of cards) this.cards.set(card.id, card)
     }
   }
+}
+
+/** `now` with each field `patch` wrote set back to `before`'s, where `now` still has it. */
+function revertedFields(now: ImageCard, before: ImageCard, patch: MarkFields): ImageCard {
+  const reverted = { ...now }
+  if (patch.favorite !== undefined && now.favorite === patch.favorite) {
+    reverted.favorite = before.favorite
+  }
+  if (patch.rating !== undefined && now.rating === patch.rating) reverted.rating = before.rating
+  return reverted
 }

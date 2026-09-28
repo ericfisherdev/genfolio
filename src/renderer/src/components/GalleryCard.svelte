@@ -3,6 +3,7 @@
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
   import { CopyVariant } from '@shared/generation-kinds'
   import ActionMenu from './ActionMenu.svelte'
+  import RatingStars from './RatingStars.svelte'
 
   interface Props {
     imageId: number
@@ -14,9 +15,21 @@
     oncopy: (variant: CopyVariant) => void
     /** Shows every image with this image's prompt. */
     onsameprompt: () => void
+    onfavorite: (favorite: boolean) => void
+    onrate: (rating: number) => void
   }
 
-  let { imageId, card, onopen, onreveal, oncopypath, oncopy, onsameprompt }: Props = $props()
+  let {
+    imageId,
+    card,
+    onopen,
+    onreveal,
+    oncopypath,
+    oncopy,
+    onsameprompt,
+    onfavorite,
+    onrate
+  }: Props = $props()
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
 </script>
 
@@ -42,6 +55,20 @@
       onclick={(event) => oncopy(event.shiftKey ? CopyVariant.All : CopyVariant.Prompt)}>⧉</button
     >
   </div>
+  {#if card}
+    <!-- Always shown once the image is a favourite or rated; otherwise on hover or focus. -->
+    <div class="footer" class:marked={card.favorite || card.rating > 0}>
+      <button
+        type="button"
+        class="favorite"
+        class:on={card.favorite}
+        aria-pressed={card.favorite}
+        aria-label={`Favourite ${name}`}
+        onclick={() => onfavorite(!card.favorite)}>{card.favorite ? '♥' : '♡'}</button
+      >
+      <RatingStars rating={card.rating} {onrate} label={`Rating of ${name}`} />
+    </div>
+  {/if}
 </article>
 
 <style>
@@ -98,6 +125,37 @@
   .copy:hover,
   .copy:focus-visible {
     background: rgb(0 0 0 / 80%);
+  }
+  .footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-2) var(--space-1);
+    border-radius: 0 0 var(--radius-2) var(--radius-2);
+    background: linear-gradient(transparent, rgb(0 0 0 / 65%));
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .footer.marked,
+  .card:hover .footer,
+  .card:focus-within .footer {
+    opacity: 1;
+  }
+  .favorite {
+    padding: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .favorite.on {
+    color: #ff6b8b;
   }
   .card:hover .actions,
   .card:focus-within .actions {

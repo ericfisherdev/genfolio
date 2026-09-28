@@ -169,6 +169,18 @@ describe('FilterBar', () => {
     expect(filters(harness)?.loras).toEqual({ ids: [2, 5], mode: SetMatchMode.All, minWeight: 0.8 })
   })
 
+  it('filters favourites and a minimum rating', async () => {
+    const harness = await renderBar()
+    await fireEvent.click(screen.getByRole('button', { name: '♥ Favourites' }))
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Minimum rating' }), {
+      target: { value: '3' }
+    })
+    expect(filters(harness)).toEqual({ favoritesOnly: true, minRating: 3 })
+    expect(harness.hash.current).toBe('#/?fav=1&rmin=3')
+    const active = screen.getByRole('list', { name: 'Active filters' })
+    expect(active.textContent).toContain('★★★ or more')
+  })
+
   it('toggles generators', async () => {
     const harness = await renderBar()
     const fooocus = screen.getByRole('button', { name: 'Fooocus' })

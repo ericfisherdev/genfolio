@@ -8,7 +8,7 @@
   import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api, copier, facets } = getAppServices()
+  const { gallery, router, sort, library, scans, api, copier, facets, marks } = getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
@@ -30,7 +30,10 @@
       sort.current,
       untrack(() => gallery.query)
     )
-    if (!query || queryKey(query) === untrack(() => gallery.key)) return
+    if (!query) return
+    // A mark made on the detail page may have changed which images these results hold.
+    const stale = untrack(() => gallery.layoutStale)
+    if (!stale && queryKey(query) === untrack(() => gallery.key)) return
     untrack(() => {
       onscroll()
       void gallery.load(query)
@@ -134,6 +137,8 @@
                 library.fileAction('copy the path', () => api.copyImagePath(imageId))}
               oncopy={(variant) => copier.copy(imageId, variant)}
               onsameprompt={() => router.navigate(samePromptRoute(imageId))}
+              onfavorite={(favorite) => marks.setFavorite([imageId], favorite)}
+              onrate={(rating) => marks.setRating([imageId], rating)}
             />
           </div>
         {/each}

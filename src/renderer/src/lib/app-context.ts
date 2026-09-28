@@ -4,6 +4,7 @@ import type { RouterState } from './routing/router.svelte'
 import type { FacetsState } from './state/facets.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
+import type { ImageMarks } from './state/image-marks'
 import type { GenerationDetailsState } from './state/generation-details.svelte'
 import type { LibraryState } from './state/library.svelte'
 import type { ScanProgressState } from './state/scan-progress.svelte'
@@ -20,6 +21,7 @@ export interface AppServices {
   readonly generation: GenerationDetailsState
   readonly copier: GenerationCopier
   readonly facets: FacetsState
+  readonly marks: ImageMarks
 }
 
 const APP_SERVICES = Symbol('app-services')

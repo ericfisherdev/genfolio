@@ -8,6 +8,7 @@ import { GalleryState } from '../state/gallery.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
+import { ImageMarks } from '../state/image-marks'
 import { LibraryState } from '../state/library.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
 import { SortPreference, type PreferenceStore } from '../state/sort-preference.svelte'
@@ -96,16 +97,19 @@ export function testServices(
   })
   const hash = memoryHash()
   const libraryState = new LibraryState(api)
+  const gallery = new GalleryState(api)
+  const facets = new FacetsState(api)
   const services: AppServices = {
     api,
     router: new RouterState(hash),
     library: libraryState,
-    gallery: new GalleryState(api),
+    gallery,
     scans: new ScanProgressState(api, () => void libraryState.refresh()),
     sort: new SortPreference(memoryStore()),
     generation: new GenerationDetailsState(api),
     copier: new GenerationCopier(api, libraryState),
-    facets: new FacetsState(api)
+    facets,
+    marks: new ImageMarks(api, gallery, facets, libraryState)
   }
   return {
     services,

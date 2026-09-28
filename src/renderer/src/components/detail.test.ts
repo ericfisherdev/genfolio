@@ -47,7 +47,9 @@ const cardFor = (id: number): ImageCard => ({
   height: 1024,
   sizeBytes: 1_234_567,
   createdAt: Date.UTC(2026, 8, 27, 12),
-  addedAt: Date.UTC(2026, 8, 28, 9)
+  addedAt: Date.UTC(2026, 8, 28, 9),
+  favorite: false,
+  rating: 0
 })
 
 async function openDetail(
@@ -104,6 +106,25 @@ describe('DetailView', () => {
     expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
     await fireEvent.click(screen.getByRole('button', { name: 'Same seed' }))
     expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+  })
+
+  it('favourites with F and rates with 0–5', async () => {
+    const setFavorite = vi.fn(async () => 1)
+    const setRating = vi.fn(async () => 1)
+    await openDetail(8, { setFavorite, setRating, getGeneration: async () => null })
+    await screen.findByRole('complementary', { name: 'File details' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /Favourite/ })).toBeTruthy())
+    await fireEvent.keyDown(window, { key: 'f' })
+    await fireEvent.keyDown(window, { key: '4' })
+    await fireEvent.keyDown(window, { key: '4', ctrlKey: true })
+    expect(setFavorite).toHaveBeenCalledWith([8], true)
+    expect(setRating).toHaveBeenCalledTimes(1)
+    expect(setRating).toHaveBeenCalledWith([8], 4)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '4 stars' }).getAttribute('aria-pressed')).toBe(
+        'true'
+      )
+    )
   })
 
   it('steps with the arrow keys and stops at the ends', async () => {
@@ -187,5 +208,59 @@ describe('library changes while an image is open', () => {
     await harness.services.library.refresh()
 
     await waitFor(() => expect(getImageLayout.mock.calls.length).toBeGreaterThan(callsBefore))
+  })
+})
+
+describe('marks on the detail page of a favourites view', () => {
+  const FAVOURITES = { favoritesOnly: true as const }
+
+  async function openFavourite(imageId: number): Promise<{
+    harness: TestServices
+    getImageLayout: ReturnType<typeof vi.fn<() => Promise<Int32Array>>>
+    setFavorite: ReturnType<typeof vi.fn<() => Promise<number>>>
+  }> {
+    let favourites = layout
+    const getImageLayout = vi.fn(async () => favourites)
+    const setFavorite = vi.fn(async () => {
+      favourites = new Int32Array([7, 832, 1216, 9, 1024, 1024])
+      return 1
+    })
+    const harness = testServices(sampleLibrary(), {
+      getImageLayout,
+      setFavorite,
+      getImages: async (ids) => ids.map((id) => ({ ...cardFor(id), favorite: true })),
+      getGeneration: async () => null
+    })
+    await harness.services.library.refresh()
+    harness.services.router.navigate({ kind: RouteKind.All, filters: FAVOURITES })
+    render(AppShell, { context: harness.context })
+    await waitFor(() => expect(harness.services.gallery.count).toBe(3))
+    harness.services.router.navigate({ kind: RouteKind.Image, imageId })
+    await screen.findByRole('button', { name: /Favourite/ })
+    return { harness, getImageLayout, setFavorite }
+  }
+
+  it('keep stepping through the results the viewer opened', async () => {
+    const { harness, setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f' })
+    await waitFor(() => expect(setFavorite).toHaveBeenCalledWith([8], false))
+    await fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(harness.services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+  })
+
+  it('reload the results when the grid is shown again', async () => {
+    const { harness, getImageLayout, setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f' })
+    await waitFor(() => expect(setFavorite).toHaveBeenCalled())
+    const callsBefore = getImageLayout.mock.calls.length
+    harness.services.router.navigate({ kind: RouteKind.All, filters: FAVOURITES })
+    await waitFor(() => expect(harness.services.gallery.count).toBe(2))
+    expect(getImageLayout.mock.calls.length).toBe(callsBefore + 1)
+  })
+
+  it('ignore a held key', async () => {
+    const { setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f', repeat: true })
+    expect(setFavorite).not.toHaveBeenCalled()
   })
 })

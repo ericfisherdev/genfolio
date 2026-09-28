@@ -143,6 +143,12 @@
     if (filters.samePromptAs !== undefined) {
       list.push({ label: 'Same prompt', remove: without('samePromptAs') })
     }
+    if (filters.favoritesOnly) {
+      list.push({ label: 'Favourites', remove: without('favoritesOnly') })
+    }
+    if (filters.minRating !== undefined) {
+      list.push({ label: `${'★'.repeat(filters.minRating)} or more`, remove: without('minRating') })
+    }
     if (filters.hasMetadata !== undefined) {
       list.push({
         label: filters.hasMetadata ? 'With generation data' : 'Without generation data',
@@ -231,6 +237,27 @@
           </label>
         </div>
       </FacetPicker>
+      <button
+        type="button"
+        class="chip-toggle"
+        aria-pressed={filters.favoritesOnly === true}
+        onclick={() =>
+          apply({ ...filters, favoritesOnly: filters.favoritesOnly ? undefined : true })}
+        >♥ Favourites</button
+      >
+      <select
+        aria-label="Minimum rating"
+        value={String(filters.minRating ?? 0)}
+        onchange={(event) => {
+          const rating = Number(event.currentTarget.value)
+          apply({ ...filters, minRating: rating > 0 ? rating : undefined })
+        }}
+      >
+        <option value="0">Any rating</option>
+        {#each [1, 2, 3, 4, 5] as rating (rating)}
+          <option value={String(rating)}>{'★'.repeat(rating)} or more</option>
+        {/each}
+      </select>
       {#each generators as kind (kind)}
         <button
           type="button"

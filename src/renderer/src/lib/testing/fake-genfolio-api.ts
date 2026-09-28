@@ -15,6 +15,8 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     getImageLayout: unexpected('getImageLayout'),
     getImages: unexpected('getImages'),
     getFacets: unexpected('getFacets'),
+    setFavorite: unexpected('setFavorite'),
+    setRating: unexpected('setRating'),
     getDirectoryTree: unexpected('getDirectoryTree'),
     revealImage: unexpected('revealImage'),
     copyImagePath: unexpected('copyImagePath'),

@@ -1,3 +1,4 @@
+import { MAX_RATING } from '@shared/gallery-kinds'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from '@shared/search-kinds'
 import type { SearchFilters } from '@shared/search'
@@ -52,6 +53,7 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
   const seed = params.get('seed')
   const same = params.get('same')
   const meta = params.get('meta')
+  const minRating = Number(params.get('rmin'))
   const filters = defined<SearchFilters>([
     ['checkpointIds', idList(params.get('ckpt'))],
     [
@@ -77,7 +79,14 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
     ['generators', generators && generators.length > 0 ? [...new Set(generators)] : undefined],
     ['seed', seed && seed.length <= MAX_SEED_LENGTH ? seed : undefined],
     ['samePromptAs', same !== null && POSITIVE_INT.test(same) ? Number(same) : undefined],
-    ['hasMetadata', meta === '1' ? true : meta === '0' ? false : undefined]
+    ['hasMetadata', meta === '1' ? true : meta === '0' ? false : undefined],
+    ['favoritesOnly', params.get('fav') === '1' ? true : undefined],
+    [
+      'minRating',
+      Number.isInteger(minRating) && minRating >= 1 && minRating <= MAX_RATING
+        ? minRating
+        : undefined
+    ]
   ])
   return Object.keys(filters).length > 0 ? filters : undefined
 }
@@ -99,6 +108,8 @@ export function writeFilters(filters: SearchFilters | undefined, params: URLSear
   set('seed', filters.seed)
   set('same', filters.samePromptAs)
   set('meta', filters.hasMetadata === undefined ? undefined : filters.hasMetadata ? 1 : 0)
+  set('fav', filters.favoritesOnly ? 1 : undefined)
+  set('rmin', filters.minRating)
 }
 
 /** A canonical text for the filters (empty when there are none), for keys and comparisons. */

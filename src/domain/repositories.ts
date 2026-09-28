@@ -112,3 +112,11 @@ export interface ModelDirectory {
    */
   idOfDisplayName(kind: ModelKind, displayName: string): number | undefined
 }
+
+/** The user's marks on images: favourite and a 0–5 rating. Never touched by indexing. */
+export interface ImageMarkRepository {
+  /** Returns how many of the images exist (and so were set). */
+  setFavorite(ids: readonly ImageId[], favorite: boolean): number
+  /** `rating` is 0 (unrated) to 5. Returns how many of the images exist. */
+  setRating(ids: readonly ImageId[], rating: number): number
+}
