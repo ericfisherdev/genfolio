@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { GenerationDetails, GenerationResource } from '@shared/generation'
 import { ResourceKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode } from '@shared/search-kinds'
-import { filtersToFind, FindKind } from './find-similar'
+import { RouteKind } from '../routing/route'
+import { filtersToFind, FindKind, samePromptRoute } from './find-similar'
 
 const resource = (kind: ResourceKind, modelId: number | null): GenerationResource => ({
   kind,
@@ -46,6 +47,9 @@ describe('filtersToFind', () => {
   it('filters by seed, prompt and selected text as one phrase', () => {
     expect(filtersToFind({ kind: FindKind.SameSeed }, 1, details)).toEqual({ seed: '42' })
     expect(
+      filtersToFind({ kind: FindKind.SameSeed }, 1, { seed: '9'.repeat(41) } as GenerationDetails)
+    ).toBeUndefined()
+    expect(
       filtersToFind({ kind: FindKind.SameSeed }, 1, { seed: null } as GenerationDetails)
     ).toBeUndefined()
     expect(filtersToFind({ kind: FindKind.SamePrompt }, 7, details)).toEqual({ samePromptAs: 7 })
@@ -55,5 +59,9 @@ describe('filtersToFind', () => {
       keywords: { query: '"red hair girl"', scope: KeywordScope.Positive }
     })
     expect(filtersToFind({ kind: FindKind.Keywords, text: ' " ' }, 1, details)).toBeUndefined()
+  })
+
+  it('routes Same prompt to All Photos for that image', () => {
+    expect(samePromptRoute(12)).toEqual({ kind: RouteKind.All, filters: { samePromptAs: 12 } })
   })
 })

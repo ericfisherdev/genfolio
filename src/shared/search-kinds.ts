@@ -12,3 +12,6 @@ export enum SetMatchMode {
   All = 'all',
   Any = 'any'
 }
+
+/** Longest seed a filter accepts; longer metadata values can't be searched for. */
+export const MAX_SEED_LENGTH = 40

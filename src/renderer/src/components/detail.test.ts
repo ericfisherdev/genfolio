@@ -2,12 +2,37 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { ImageCard } from '@shared/gallery'
+import type { GenerationDetails } from '@shared/generation'
+import { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
+import { MetadataOrigin } from '@shared/metadata-kinds'
 import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
 import DetailView from './DetailView.svelte'
+
+/** Just enough generation data for the panel to offer Same seed. */
+const FIND_DETAILS = {
+  generator: GeneratorKind.A1111,
+  origin: MetadataOrigin.PngText,
+  prompt: 'a cat',
+  negativePrompt: null,
+  seed: '1',
+  steps: null,
+  cfgScale: null,
+  sampler: null,
+  scheduler: null,
+  width: null,
+  height: null,
+  vae: null,
+  styles: null,
+  performance: null,
+  resources: [],
+  paramsFormat: GenerationFormat.A1111Infotext,
+  params: {},
+  sources: []
+} satisfies GenerationDetails
 
 const layout = new Int32Array([7, 832, 1216, 8, 1024, 1024, 9, 1024, 1024])
 
@@ -64,6 +89,21 @@ describe('DetailView', () => {
     await services.library.refresh()
     await waitFor(() => expect(getGeneration).toHaveBeenCalledTimes(2))
     expect(getGeneration).toHaveBeenLastCalledWith(8)
+  })
+
+  it('ignores find actions while the next image is still loading', async () => {
+    const details = { seed: '111' } as GenerationDetails
+    const getGeneration = vi.fn((id: number) =>
+      id === 8
+        ? Promise.resolve({ ...FIND_DETAILS, ...details })
+        : new Promise<never>(() => undefined)
+    )
+    const { services } = await openDetail(8, { getGeneration })
+    await screen.findByRole('button', { name: 'Same seed' })
+    await fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+    await fireEvent.click(screen.getByRole('button', { name: 'Same seed' }))
+    expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
   })
 
   it('steps with the arrow keys and stops at the ends', async () => {

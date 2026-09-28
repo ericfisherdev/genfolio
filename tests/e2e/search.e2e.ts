@@ -137,9 +137,9 @@ test('resource rows and Same seed / Same prompt open the matching images', async
   await card.hover()
   await card.getByRole('button', { name: /^Actions for / }).click()
   await page.getByRole('menuitem', { name: 'Same prompt' }).click()
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Same prompt')
   // Every fixture was generated from the same prompt.
   await expect(cards(page)).toHaveCount(6)
-  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Same prompt')
 })
 
 test('selected prompt text can be searched as a phrase', async () => {
@@ -155,7 +155,6 @@ test('selected prompt text can be searched as a phrase', async () => {
     range.setEnd(text, start + 'snail on a wooden'.length)
     document.getSelection()?.removeAllRanges()
     document.getSelection()?.addRange(range)
-    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
   })
   await page.getByRole('button', { name: 'Search for “snail on a wooden”' }).click()
   await expect(page.getByRole('searchbox', { name: 'Search prompts' })).toHaveValue(

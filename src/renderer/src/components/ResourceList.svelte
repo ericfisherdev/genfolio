@@ -9,9 +9,11 @@
     limit?: number
     /** Opens the gallery filtered to a stored model; rows without a model id aren't links. */
     onpick: (resource: GenerationResource) => void
+    /** While the panel shows the previous image's data, links wait for the new one. */
+    disabled?: boolean
   }
 
-  let { resources, limit = 5, onpick }: Props = $props()
+  let { resources, limit = 5, onpick, disabled = false }: Props = $props()
   let showAll = $state(false)
   const shown = $derived(showAll ? resources : resources.slice(0, limit))
 
@@ -29,6 +31,7 @@
         <button
           type="button"
           class="name link"
+          {disabled}
           title={`Show images made with ${resource.name}`}
           onclick={() => onpick(resource)}>{resource.name}</button
         >

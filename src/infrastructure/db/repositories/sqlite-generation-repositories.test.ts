@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { StoredGeneration } from '@domain/generation'
 import type { DirectoryId, ImageId } from '@domain/library'
 import type { ImageVersion } from '@domain/repositories'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { MigrationRunner } from '../migration-runner'
@@ -236,5 +236,16 @@ describe('SqliteFooocusLogRepository', () => {
     const logs = new SqliteFooocusLogRepository(db)
     logs.save(directory, { sizeBytes: 10, mtimeMs: 1790573219728.0945 })
     expect(logs.find(directory)).toEqual({ sizeBytes: 10, mtimeMs: 1790573219728 })
+  })
+})
+
+describe('SqliteModelCatalog.idOfDisplayName', () => {
+  it('finds a model by its stored display name without stripping another extension', () => {
+    const catalog = new SqliteModelCatalog(db)
+    const withInnerExtension = catalog.ensure(ModelKind.Lora, 'loras/foo.pt.safetensors', null)
+    const plain = catalog.ensure(ModelKind.Lora, 'foo.safetensors', null)
+    expect(catalog.idOfDisplayName(ModelKind.Lora, 'foo.pt')).toBe(withInnerExtension)
+    expect(catalog.idOfDisplayName(ModelKind.Lora, 'FOO')).toBe(plain)
+    expect(catalog.idOfDisplayName(ModelKind.Checkpoint, 'foo')).toBeUndefined()
   })
 })

@@ -3,6 +3,7 @@
   import { tick, untrack } from 'svelte'
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
+  import { samePromptRoute } from '../lib/gallery/find-similar'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
   import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
   import GalleryCard from './GalleryCard.svelte'
@@ -132,8 +133,7 @@
               oncopypath={() =>
                 library.fileAction('copy the path', () => api.copyImagePath(imageId))}
               oncopy={(variant) => copier.copy(imageId, variant)}
-              onsameprompt={() =>
-                router.navigate({ kind: RouteKind.All, filters: { samePromptAs: imageId } })}
+              onsameprompt={() => router.navigate(samePromptRoute(imageId))}
             />
           </div>
         {/each}

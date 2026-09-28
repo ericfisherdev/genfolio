@@ -1,7 +1,8 @@
 import type { GenerationDetails, GenerationResource } from '@shared/generation'
 import { ResourceKind } from '@shared/generation-kinds'
-import { KeywordScope, SetMatchMode } from '@shared/search-kinds'
+import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from '@shared/search-kinds'
 import type { SearchFilters } from '@shared/search'
+import { RouteKind, type GalleryRoute } from '../routing/route'
 
 /** What the detail page can look for across the library. */
 export enum FindKind {
@@ -16,6 +17,11 @@ export type FindSimilar =
   | { readonly kind: FindKind.SameSeed }
   | { readonly kind: FindKind.SamePrompt }
   | { readonly kind: FindKind.Keywords; readonly text: string }
+
+/** Whether a seed can be searched for (filters cap its length). */
+export function canFindSeed(seed: string | null): seed is string {
+  return seed !== null && seed !== '' && seed.length <= MAX_SEED_LENGTH
+}
 
 /**
  * The filters that find images like this one, or `undefined` when there is nothing to look
@@ -35,7 +41,7 @@ export function filtersToFind(
         : { checkpointIds: [id] }
     }
     case FindKind.SameSeed:
-      return details.seed ? { seed: details.seed } : undefined
+      return canFindSeed(details.seed) ? { seed: details.seed } : undefined
     case FindKind.SamePrompt:
       return { samePromptAs: imageId }
     case FindKind.Keywords: {
@@ -46,4 +52,9 @@ export function filtersToFind(
         : undefined
     }
   }
+}
+
+/** All Photos showing every image whose prompt equals this image's. */
+export function samePromptRoute(imageId: number): GalleryRoute {
+  return { kind: RouteKind.All, filters: { samePromptAs: imageId } }
 }

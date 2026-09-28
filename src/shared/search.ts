@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { GeneratorKind } from './generation-kinds'
-import { KeywordScope, SetMatchMode } from './search-kinds'
+import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from './search-kinds'
 
-export { KeywordScope, SetMatchMode } from './search-kinds'
+export { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from './search-kinds'
 
 const id = z.number().int().positive()
+
 const ids = z.array(id).min(1).max(200)
 
 /**
@@ -35,7 +36,7 @@ export const searchFiltersSchema = z
       .strict()
       .optional(),
     generators: z.array(z.enum(GeneratorKind)).min(1).max(10).optional(),
-    seed: z.string().min(1).max(40).optional(),
+    seed: z.string().min(1).max(MAX_SEED_LENGTH).optional(),
     /** Images whose prompt equals this image's prompt. */
     samePromptAs: id.optional(),
     hasMetadata: z.boolean().optional()

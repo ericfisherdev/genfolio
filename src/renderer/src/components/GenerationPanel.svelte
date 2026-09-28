@@ -2,7 +2,7 @@
   import type { GenerationDetails } from '@shared/generation'
   import { CopyVariant } from '@shared/generation-kinds'
   import { generatorLabel, originDescription, originLabel } from '../lib/format/generation-labels'
-  import { FindKind, type FindSimilar } from '../lib/gallery/find-similar'
+  import { canFindSeed, FindKind, type FindSimilar } from '../lib/gallery/find-similar'
   import ClampedText from './ClampedText.svelte'
   import ResourceList from './ResourceList.svelte'
 
@@ -23,9 +23,24 @@
   /** Text selected in the prompt, offered as a search. */
   let selection = $state('')
   const MAX_SELECTION = 200
+  let promptElement: HTMLElement | undefined = $state()
 
+  // A new image's prompt starts with nothing selected.
+  $effect.pre(() => {
+    void details
+    selection = ''
+  })
+
+  /** Only a selection that starts and ends inside the prompt text counts. */
   function readSelection(): void {
-    const text = document.getSelection()?.toString().trim() ?? ''
+    const current = document.getSelection()
+    const inside =
+      current !== null &&
+      current.rangeCount > 0 &&
+      promptElement !== undefined &&
+      promptElement.contains(current.anchorNode) &&
+      promptElement.contains(current.focusNode)
+    const text = inside ? current.toString().trim() : ''
     selection = text.length <= MAX_SELECTION ? text : ''
   }
   let collapsed = $state(false)
@@ -53,6 +68,8 @@
     )
   })
 </script>
+
+<svelte:document onselectionchange={readSelection} />
 
 <section class="generation" aria-labelledby="generation-heading" aria-busy={busy}>
   <header>
@@ -85,6 +102,7 @@
         <h3>Resources used</h3>
         <ResourceList
           resources={details.resources}
+          disabled={busy}
           onpick={(resource) => onfind({ kind: FindKind.Resource, resource })}
         />
       {/if}
@@ -97,7 +115,11 @@
             {originLabel(details.origin)}
           </span>
           <span class="actions">
-            <button type="button" onclick={() => onfind({ kind: FindKind.SamePrompt })}>
+            <button
+              type="button"
+              disabled={busy}
+              onclick={() => onfind({ kind: FindKind.SamePrompt })}
+            >
               Same prompt
             </button>
             <button type="button" onclick={() => oncopy(CopyVariant.Prompt)}>Copy prompt</button>
@@ -108,13 +130,14 @@
             >
           </span>
         </div>
-        <div class="prompt" role="presentation" onmouseup={readSelection} onkeyup={readSelection}>
+        <div class="prompt" bind:this={promptElement}>
           <ClampedText text={details.prompt} />
         </div>
         {#if selection}
           <button
             type="button"
             class="search-selection"
+            disabled={busy}
             onclick={() => onfind({ kind: FindKind.Keywords, text: selection })}
             >Search for “{selection.length > 40 ? `${selection.slice(0, 40)}…` : selection}”</button
           >
@@ -136,10 +159,12 @@
       {#if chips.length > 0}
         <h3>Other metadata</h3>
         <ul class="chips" aria-label="Other metadata">
-          {#if details.seed}
+          {#if canFindSeed(details.seed)}
             <li class="find">
-              <button type="button" onclick={() => onfind({ kind: FindKind.SameSeed })}
-                >Same seed</button
+              <button
+                type="button"
+                disabled={busy}
+                onclick={() => onfind({ kind: FindKind.SameSeed })}>Same seed</button
               >
             </li>
           {/if}

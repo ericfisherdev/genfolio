@@ -68,7 +68,8 @@
   /** Opens All Photos filtered to images sharing what was picked with this one. */
   function find(similar: FindSimilar): void {
     const details = generation.details
-    if (!details) return
+    // While the next image loads, the panel still shows the previous one's data.
+    if (!details || generation.loadedImageId !== imageId) return
     const filters = filtersToFind(similar, imageId, details)
     if (filters) router.navigate({ kind: RouteKind.All, filters })
   }

@@ -61,7 +61,7 @@ function resourcesOf(
   models: ModelDirectory
 ): GenerationResource[] {
   const checkpointId = (name: string): number | null =>
-    models.idOf(ModelKind.Checkpoint, name) ?? null
+    models.idOfDisplayName(ModelKind.Checkpoint, name) ?? null
   const model = (kind: ResourceKind, ref: StoredGeneration['checkpoint']): GenerationResource[] =>
     ref
       ? [
@@ -80,7 +80,7 @@ function resourcesOf(
     ...model(ResourceKind.Refiner, generation.refiner),
     ...(generation.loras ?? []).map((lora) => ({
       kind: ResourceKind.Lora,
-      modelId: models.idOf(ModelKind.Lora, lora.name) ?? null,
+      modelId: models.idOfDisplayName(ModelKind.Lora, lora.name) ?? null,
       name: lora.name,
       hash: lora.hash,
       weight: lora.weight,

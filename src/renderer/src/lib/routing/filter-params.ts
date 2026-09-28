@@ -1,5 +1,5 @@
 import { GeneratorKind } from '@shared/generation-kinds'
-import { KeywordScope, SetMatchMode } from '@shared/search-kinds'
+import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from '@shared/search-kinds'
 import type { SearchFilters } from '@shared/search'
 
 // Search filters as hash query parameters, e.g. `?ckpt=4,9&lora=2&lmode=all&q=red+hair`.
@@ -7,7 +7,6 @@ import type { SearchFilters } from '@shared/search'
 
 const MAX_IDS = 200
 const MAX_QUERY = 1000
-const MAX_SEED = 40
 const POSITIVE_INT = /^[1-9]\d{0,9}$/
 const GENERATORS = new Set<string>(Object.values(GeneratorKind))
 const SCOPES = new Set<string>(Object.values(KeywordScope))
@@ -76,7 +75,7 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
         : undefined
     ],
     ['generators', generators && generators.length > 0 ? [...new Set(generators)] : undefined],
-    ['seed', seed && seed.length <= MAX_SEED ? seed : undefined],
+    ['seed', seed && seed.length <= MAX_SEED_LENGTH ? seed : undefined],
     ['samePromptAs', same !== null && POSITIVE_INT.test(same) ? Number(same) : undefined],
     ['hasMetadata', meta === '1' ? true : meta === '0' ? false : undefined]
   ])

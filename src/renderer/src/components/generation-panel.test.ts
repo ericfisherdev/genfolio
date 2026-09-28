@@ -202,6 +202,26 @@ describe('GenerationPanel', () => {
   })
 })
 
+describe('GalleryCard menu', () => {
+  it('offers Same prompt', async () => {
+    const onsameprompt = vi.fn()
+    render(GalleryCard, {
+      props: {
+        imageId: 7,
+        card: undefined,
+        onopen: vi.fn(),
+        onreveal: vi.fn(),
+        oncopypath: vi.fn(),
+        oncopy: vi.fn(),
+        onsameprompt
+      }
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Actions for Image 7' }))
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Same prompt' }))
+    expect(onsameprompt).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('GalleryCard copy button', () => {
   it('copies the prompt on click and everything on Shift-click', async () => {
     const oncopy = vi.fn()
@@ -260,8 +280,75 @@ describe('finding similar images from the panel', () => {
     range.setEnd(node, 16)
     document.getSelection()?.removeAllRanges()
     document.getSelection()?.addRange(range)
-    await fireEvent.mouseUp(text)
+    // jsdom doesn't fire selectionchange on addRange; browsers do.
+    await fireEvent(document, new Event('selectionchange'))
     await fireEvent.click(screen.getByRole('button', { name: 'Search for “ceramic teapot”' }))
     expect(onfind).toHaveBeenCalledWith({ kind: FindKind.Keywords, text: 'ceramic teapot' })
+  })
+})
+
+describe('selection search boundaries', () => {
+  function select(node: Node, start: number, end: number, endNode: Node = node): void {
+    const range = document.createRange()
+    range.setStart(node, start)
+    range.setEnd(endNode, end)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+  }
+
+  it('ignores a selection that starts outside the prompt', async () => {
+    renderPanel(FIXTURE)
+    const heading = screen.getByRole('heading', { name: 'Prompt' }).firstChild as Text
+    const prompt = screen.getByText(/ceramic teapot/).firstChild as Text
+    select(heading, 0, 10, prompt)
+    await Promise.resolve()
+    expect(screen.queryByRole('button', { name: /^Search for/ })).toBeNull()
+  })
+
+  it('forgets the selection when the image changes', async () => {
+    const onfind = vi.fn()
+    const { rerender } = render(GenerationPanel, {
+      props: {
+        details: FIXTURE,
+        loadError: undefined,
+        busy: false,
+        oncopy: vi.fn(),
+        onretry: vi.fn(),
+        onfind
+      }
+    })
+    select(screen.getByText(/ceramic teapot/).firstChild as Text, 2, 16)
+    await Promise.resolve()
+    expect(screen.getByRole('button', { name: /^Search for/ })).toBeTruthy()
+    await rerender({ details: { ...FIXTURE, prompt: 'a different prompt' } })
+    expect(screen.queryByRole('button', { name: /^Search for/ })).toBeNull()
+  })
+
+  it('disables the find actions while the next image loads', () => {
+    render(GenerationPanel, {
+      props: {
+        details: FIXTURE,
+        loadError: undefined,
+        busy: true,
+        oncopy: vi.fn(),
+        onretry: vi.fn(),
+        onfind: vi.fn()
+      }
+    })
+    expect((screen.getByRole('button', { name: 'Same seed' }) as HTMLButtonElement).disabled).toBe(
+      true
+    )
+    expect(
+      (screen.getByRole('button', { name: 'Same prompt' }) as HTMLButtonElement).disabled
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'add-detail-xl' }) as HTMLButtonElement).disabled
+    ).toBe(true)
+  })
+
+  it('offers Same seed only for a seed a filter can hold', () => {
+    renderPanel({ ...FIXTURE, seed: '9'.repeat(41) })
+    expect(screen.queryByRole('button', { name: 'Same seed' })).toBeNull()
   })
 })

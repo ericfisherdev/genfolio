@@ -42,8 +42,9 @@ export class SqliteModelCatalog implements ModelDirectory {
     return row.id as ModelId
   }
 
-  idOf(kind: ModelKind, name: string): number | undefined {
-    return this.selectId.get(kind, modelIdentity(name))
+  // Identity is the display name case-folded, by construction in ensure().
+  idOfDisplayName(kind: ModelKind, displayName: string): number | undefined {
+    return this.selectId.get(kind, displayName.toLowerCase())
   }
 
   /** Deletes models no generation uses. Returns how many. */
