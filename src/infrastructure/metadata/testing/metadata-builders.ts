@@ -153,3 +153,41 @@ export function webpWithExif(tiffBlock: Buffer, withHeader = false): Buffer {
   riff.writeUInt32LE(body.length, 4)
   return Buffer.concat([riff, body])
 }
+
+/**
+ * A big-endian TIFF whose IFD0 holds `pointers` Exif IFD entries all pointing at one sub-IFD,
+ * which holds `comments` UserComment entries all sharing one data blob. With
+ * `exifPointsAtIfd0`, the Exif IFD pointer points back at IFD0 instead.
+ */
+export function aliasedTiff(
+  pointers: number,
+  comments: number,
+  blob: Buffer,
+  exifPointsAtIfd0 = false
+): Buffer {
+  const entry = (tag: number, type: number, count: number, value: number): Buffer => {
+    const bytes = Buffer.alloc(12)
+    bytes.writeUInt16BE(tag, 0)
+    bytes.writeUInt16BE(type, 2)
+    bytes.writeUInt32BE(count, 4)
+    bytes.writeUInt32BE(value, 8)
+    return bytes
+  }
+  const ifd = (entries: Buffer[]): Buffer => {
+    const count = Buffer.alloc(2)
+    count.writeUInt16BE(entries.length)
+    return Buffer.concat([count, ...entries, Buffer.alloc(4)])
+  }
+  const ifd0Offset = 8
+  const exifOffset = ifd0Offset + 2 + 12 * pointers + 4
+  const blobOffset = exifOffset + 2 + 12 * comments + 4
+  const ifd0 = ifd(
+    Array.from({ length: pointers }, () =>
+      entry(0x8769, 4, 1, exifPointsAtIfd0 ? ifd0Offset : exifOffset)
+    )
+  )
+  const exif = ifd(
+    Array.from({ length: comments }, () => entry(0x9286, 7, blob.length, blobOffset))
+  )
+  return Buffer.concat([Buffer.from('MM\0*\0\0\0\x08', 'latin1'), ifd0, exif, blob])
+}

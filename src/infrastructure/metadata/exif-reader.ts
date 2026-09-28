@@ -26,28 +26,35 @@ const trimNuls = (text: string): string => text.replace(/\0+$/, '')
 /**
  * Text tags from a TIFF/EXIF block (starting at its `II`/`MM` header), from IFD0 and the Exif
  * sub-IFD: Fooocus writes UserComment and MakerNote into IFD0, A1111 into the Exif IFD.
- * Returns what it could read from malformed data instead of throwing.
+ * Keeps one record per tag (IFD0 first) and follows only the first Exif IFD pointer, so
+ * entries whose offsets alias the same bytes can't multiply the output: it is bounded by
+ * four records, each no larger than the block. Returns what it could read from malformed
+ * data instead of throwing.
  */
 export function readExifText(tiffBytes: Uint8Array): MetadataRecord[] {
   const tiff = openTiff(tiffBytes)
   if (!tiff) return []
-  const records: MetadataRecord[] = []
-  const ifd0 = entriesOf(tiff, tiff.view.getUint32(4, tiff.littleEndian))
-  for (const entry of ifd0) {
-    if (entry.tag === TAG_EXIF_IFD) {
-      const pointer = entry.value(tiff)
-      if (pointer && pointer.length >= 4) {
-        const offset = new DataView(pointer.buffer, pointer.byteOffset, 4).getUint32(
-          0,
-          tiff.littleEndian
-        )
-        for (const exifEntry of entriesOf(tiff, offset)) pushRecord(records, tiff, exifEntry)
-      }
-    } else {
-      pushRecord(records, tiff, entry)
-    }
+  const ifd0Offset = tiff.view.getUint32(4, tiff.littleEndian)
+  const ifd0 = entriesOf(tiff, ifd0Offset)
+  const exifOffset = exifIfdOffset(
+    tiff,
+    ifd0.find((entry) => entry.tag === TAG_EXIF_IFD)
+  )
+  const exifEntries =
+    exifOffset !== undefined && exifOffset !== ifd0Offset ? entriesOf(tiff, exifOffset) : []
+  const records = new Map<number, MetadataRecord>()
+  for (const entry of [...ifd0, ...exifEntries]) {
+    if (records.has(entry.tag)) continue
+    const record = toRecord(tiff, entry)
+    if (record) records.set(entry.tag, record)
   }
-  return records
+  return [...records.values()]
+}
+
+function exifIfdOffset(tiff: Tiff, entry: Entry | undefined): number | undefined {
+  const pointer = entry?.value(tiff)
+  if (!pointer || pointer.length < 4) return undefined
+  return new DataView(pointer.buffer, pointer.byteOffset, 4).getUint32(0, tiff.littleEndian)
 }
 
 function openTiff(bytes: Uint8Array): Tiff | undefined {
@@ -97,14 +104,14 @@ const TEXT_TAGS: ReadonlyMap<number, { origin: MetadataOrigin; key: string }> = 
   [TAG_MAKER_NOTE, { origin: MetadataOrigin.ExifMakerNote, key: 'MakerNote' }]
 ])
 
-function pushRecord(records: MetadataRecord[], tiff: Tiff, entry: Entry): void {
+function toRecord(tiff: Tiff, entry: Entry): MetadataRecord | undefined {
   const tag = TEXT_TAGS.get(entry.tag)
-  if (!tag) return
+  if (!tag) return undefined
   const raw = entry.value(tiff)
-  if (!raw) return
+  if (!raw) return undefined
   const value =
     entry.tag === TAG_USER_COMMENT ? decodeUserComment(raw, tiff.littleEndian) : decodeText(raw)
-  if (value.length > 0) records.push({ origin: tag.origin, key: tag.key, value })
+  return value.length > 0 ? { origin: tag.origin, key: tag.key, value } : undefined
 }
 
 /** ASCII/UNDEFINED tag bytes: UTF-8 when valid, otherwise latin-1. */

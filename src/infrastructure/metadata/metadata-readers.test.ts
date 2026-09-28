@@ -1,4 +1,5 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -10,6 +11,7 @@ import { readExifText } from './exif-reader'
 import { MetadataRecordReader, recordsFromSource } from './metadata-record-reader'
 import { readPngText } from './png-text-reader'
 import {
+  aliasedTiff,
   iTXt,
   jpegWithExif,
   png,
@@ -126,6 +128,18 @@ describe('readPngText', () => {
     expect(records.map((r) => r.key)).toEqual(['parameters'])
   })
 
+  it('caps the text decoded from all chunks of one image together', async () => {
+    const nearlyFull = 'a'.repeat(MAX_RECORD_BYTES - 1)
+    const bytes = png(
+      [zTXt('one', nearlyFull), zTXt('two', nearlyFull), iTXt('three', nearlyFull, true)],
+      [tEXt('four', 'late')]
+    )
+    const records = await readPngText(memorySource(bytes))
+    const total = records.reduce((sum, record) => sum + record.value.length, 0)
+    expect(total).toBeLessThanOrEqual(MAX_RECORD_BYTES)
+    expect(records.map((r) => r.key)).toEqual(['one'])
+  })
+
   it('ignores non-PNG input', async () => {
     expect(await readPngText(memorySource(Buffer.from('not a png')))).toEqual([])
   })
@@ -160,6 +174,23 @@ describe('readExifText', () => {
       ['MakerNote', 'fooocus'],
       ['Software', 'Fooocus v2.5.5']
     ])
+  })
+
+  it('keeps one record per tag however many entries alias the same bytes', () => {
+    const block = aliasedTiff(512, 512, Buffer.alloc(50_000, 0x61))
+    const records = readExifText(block)
+    expect(records).toHaveLength(1)
+    expect(records[0]?.value).toHaveLength(50_000)
+  })
+
+  it('ignores an Exif IFD pointer back at IFD0', () => {
+    const block = tiff([
+      { tag: 0x9286, type: 7, data: Buffer.from('once') },
+      { tag: 0x8769, type: 4, data: Buffer.alloc(4) }
+    ])
+    const pointerValueAt = 8 + 2 + 12 + 8 // second IFD0 entry's value field
+    block.writeUInt32BE(8, pointerValueAt)
+    expect(readExifText(block).map((r) => r.value)).toEqual(['once'])
   })
 
   it('reads ImageDescription (UnFooocused)', () => {
@@ -202,6 +233,15 @@ describe('sidecar text', () => {
       { origin: MetadataOrigin.SidecarTxt, key: 'parameters', value: 'sidecar prompt\nSteps: 20' }
     ])
   })
+
+  it('ignores a directory or FIFO named like a sidecar without blocking', async () => {
+    writeFileSync(join(dir, 'c.png'), png([]))
+    mkdirSync(join(dir, 'c.txt'))
+    expect(await new MetadataRecordReader().read(join(dir, 'c.png'), ImageFormat.Png)).toEqual([])
+    writeFileSync(join(dir, 'd.png'), png([]))
+    execFileSync('mkfifo', [join(dir, 'd.txt')])
+    expect(await new MetadataRecordReader().read(join(dir, 'd.png'), ImageFormat.Png)).toEqual([])
+  }, 5000)
 
   it('skips a sidecar over 1 MB', async () => {
     writeFileSync(join(dir, 'b.png'), png([]))
