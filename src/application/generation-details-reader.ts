@@ -9,7 +9,7 @@ import type { MetadataRecord } from '@domain/metadata-record'
 import { modelIdentity } from '@domain/model-name'
 import type { GenerationRepository, MetadataRecordRepository } from '@domain/repositories'
 import type { GenerationDetails, GenerationResource, MetadataSource } from '@shared/generation'
-import { ResourceKind } from '@shared/generation-kinds'
+import { GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
 
 /** What the detail page shows for an image: its stored generation, resources and raw sources. */
@@ -42,6 +42,8 @@ export class GenerationDetailsReader {
       styles: generation.styles ?? null,
       performance: generation.performance ?? null,
       resources: resourcesOf(generation, ranked),
+      // The merger stores the best-ranked source's params.
+      paramsFormat: ranked[0]?.format ?? GenerationFormat.A1111Infotext,
       params: { ...generation.params },
       sources: groupByOrigin(records)
     }

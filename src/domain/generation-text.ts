@@ -1,4 +1,4 @@
-import { CopyVariant, ResourceKind } from '@shared/generation-kinds'
+import { CopyVariant, GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import type { GenerationDetails, GenerationResource } from '@shared/generation'
 
 /** A1111's `quote`: values holding `,`, `:` or a newline are written as JSON strings. */
@@ -21,7 +21,15 @@ function loraList(
   return entries.length > 0 ? entries.join(', ') : undefined
 }
 
-/** The params line, in A1111's key order; keys without a value are left out. */
+/** Params the line writes from merged fields instead, or that A1111 infotext doesn't carry. */
+const DERIVED_PARAMS = new Set(['Raw prompt', 'Raw negative prompt', 'Scheduler'])
+
+/**
+ * The params line: the merged fields in A1111's key order, then, when the params came from
+ * A1111 text, every other key they hold (Clip skip, Denoising strength, Hires upscale, …) so
+ * pasting the line back reproduces the image. Fooocus JSON keys aren't infotext, so they're
+ * left out. Keys without a value are skipped.
+ */
 function paramsLine(details: GenerationDetails): string {
   const checkpoint = resourcesOf(details, ResourceKind.Checkpoint)[0]
   const refiner = resourcesOf(details, ResourceKind.Refiner)[0]
@@ -50,6 +58,12 @@ function paramsLine(details: GenerationDetails): string {
     ['Performance', details.performance],
     ['Version', details.params['version'] ?? details.params['Version']]
   ]
+  if (details.paramsFormat === GenerationFormat.A1111Infotext) {
+    const written = new Set([...params.map(([key]) => key), ...DERIVED_PARAMS])
+    for (const [key, value] of Object.entries(details.params)) {
+      if (!written.has(key)) params.push([key, value])
+    }
+  }
   return params
     .filter(
       (entry): entry is [string, string | number] =>

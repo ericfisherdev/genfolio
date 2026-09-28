@@ -15,7 +15,7 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { A1111InfotextParser } from '@infrastructure/metadata/parsers/a1111-infotext-parser'
 import type { GenerationDetails } from '@shared/generation'
-import { CopyVariant, ResourceKind } from '@shared/generation-kinds'
+import { CopyVariant, GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { createGenerationParser, createScanRoot } from '../service/scan-root-factory'
 import { GenerationDetailsReader } from './generation-details-reader'
@@ -136,6 +136,33 @@ describe('infotext round trip', () => {
       expect(fields).toEqual(infotextFields(details))
     }
   )
+})
+
+describe('A1111 params in the infotext', () => {
+  it('carries params outside the merged fields through Copy all for A1111 sources', () => {
+    const a1111 = new A1111InfotextParser()
+    const text =
+      'a cat\nSteps: 20, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512, ' +
+      'Clip skip: 2, Denoising strength: 0.4, Hires upscale: 2, ADetailer model: "face_yolov8n.pt"'
+    const parsed = a1111.parse(text)
+    if (!parsed) throw new Error('fixture text did not parse')
+    const details: GenerationDetails = {
+      ...detailsOf('2026-09-27_20-38-19_1754.png'),
+      paramsFormat: GenerationFormat.A1111Infotext,
+      params: parsed.params
+    }
+    const all = formatInfotext(details)
+    expect(all).toContain('Clip skip: 2, Denoising strength: 0.4, Hires upscale: 2')
+    expect(all).toContain('ADetailer model: face_yolov8n.pt')
+    expect(a1111.parse(all)?.params).toMatchObject({ 'Clip skip': '2', 'Hires upscale': '2' })
+    expect(all.match(/Steps: /g)).toHaveLength(1)
+  })
+
+  it('leaves Fooocus JSON keys out of the infotext', () => {
+    const details = detailsOf('2026-09-27_20-36-27_8675.png')
+    expect(details.paramsFormat).toBe(GenerationFormat.FooocusJson)
+    expect(formatInfotext(details)).not.toContain('base_model')
+  })
 })
 
 describe('generationText', () => {

@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { GeneratorKind, ResourceKind } from './generation-kinds'
+import { GenerationFormat, GeneratorKind, ResourceKind } from './generation-kinds'
 import { MetadataOrigin } from './metadata-kinds'
 
-export { CopyVariant, GeneratorKind, ResourceKind } from './generation-kinds'
+export { CopyVariant, GenerationFormat, GeneratorKind, ResourceKind } from './generation-kinds'
 
 export const generationResourceSchema = z
   .object({
@@ -47,6 +47,8 @@ export const generationDetailsSchema = z
     performance: z.string().nullable(),
     /** Checkpoint first, then refiner, then LoRAs in their order. */
     resources: z.array(generationResourceSchema).readonly(),
+    /** The format `params` was parsed from: A1111 keys, or Fooocus's snake_case fields. */
+    paramsFormat: z.enum(GenerationFormat),
     params: z.record(z.string(), z.string()),
     /** Raw records grouped by where they were found, in storage order. */
     sources: z.array(metadataSourceSchema).readonly()
