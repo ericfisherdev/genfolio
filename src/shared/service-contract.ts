@@ -8,6 +8,7 @@ import {
 } from './gallery'
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
+import { searchFacetsSchema } from './search'
 import { serviceHealthSchema } from './service-health'
 
 /** Methods the library service (utility process) answers over its parent port. */
@@ -22,7 +23,8 @@ export enum ServiceMethod {
   DirectoryTree = 'gallery.directory-tree',
   RenderDisplayCopy = 'images.render-display-copy',
   ImageGeneration = 'images.generation',
-  ImageGenerationText = 'images.generation-text'
+  ImageGenerationText = 'images.generation-text',
+  SearchFacets = 'search.facets'
 }
 
 const noParams = z.object({}).strict()
@@ -45,6 +47,10 @@ export const serviceContract = {
   [ServiceMethod.GalleryLayout]: {
     params: z.object({ query: galleryQuerySchema }).strict(),
     result: imageLayoutSchema
+  },
+  [ServiceMethod.SearchFacets]: {
+    params: z.object({ query: galleryQuerySchema }).strict(),
+    result: searchFacetsSchema
   },
   [ServiceMethod.GalleryImages]: {
     params: z

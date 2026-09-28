@@ -1,5 +1,6 @@
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
+import type { SearchFacets } from './search'
 import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
@@ -14,6 +15,7 @@ export enum IpcChannel {
   RescanRoot = 'library:rescan-root',
   GalleryLayout = 'gallery:layout',
   GalleryImages = 'gallery:images',
+  SearchFacets = 'search:facets',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -42,6 +44,8 @@ export interface GenfolioApi {
   rescanRoot(rootId: number): Promise<boolean>
   /** `[id, width, height]*` for every image in scope, in display order. */
   getImageLayout(query: GalleryQuery): Promise<Int32Array>
+  /** Filter picker values with counts, over the query's scope and its other filters. */
+  getFacets(query: GalleryQuery): Promise<SearchFacets>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */
