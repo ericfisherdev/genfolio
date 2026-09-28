@@ -7,7 +7,7 @@
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
   import { samePromptRoute } from '../lib/gallery/find-similar'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
-  import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
+  import { isGalleryRoute, routeFilters, RouteKind, withFilters } from '../lib/routing/route'
   import { DeleteMode } from '@shared/deletion-kinds'
   import { AlbumArranger } from '../lib/gallery/album-arranger.svelte'
   import { actionTargets } from '../lib/gallery/card-targets'
@@ -145,7 +145,7 @@
 
   const filtered = $derived(routeFilters(router.route) !== undefined)
   function clearFilters(): void {
-    if (router.route.kind !== RouteKind.Image) router.navigate(withFilters(router.route, undefined))
+    if (isGalleryRoute(router.route)) router.navigate(withFilters(router.route, undefined))
   }
 </script>
 

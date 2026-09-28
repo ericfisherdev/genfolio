@@ -8,6 +8,7 @@ import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
 import type { ServiceHealth } from './service-health'
+import type { SlideshowPreset, SlideshowSettings } from './slideshow'
 
 /** Renderer → main request channels. One channel per API method. */
 export enum IpcChannel {
@@ -39,6 +40,9 @@ export enum IpcChannel {
   RemoveFromAlbum = 'albums:remove',
   MoveInAlbum = 'albums:move',
   DeleteImages = 'image:delete',
+  ListPresets = 'slideshow:list-presets',
+  SavePreset = 'slideshow:save-preset',
+  DeletePreset = 'slideshow:delete-preset',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -118,6 +122,12 @@ export interface GenfolioApi {
    * images leave the library. Resolves what happened to each.
    */
   deleteImages(imageIds: readonly number[], mode: DeleteMode): Promise<DeleteReport>
+  /** Named slideshow settings, by name. */
+  listSlideshowPresets(): Promise<readonly SlideshowPreset[]>
+  /** Saves under the name, replacing the settings of a preset with the same (folded) name. */
+  saveSlideshowPreset(name: string, settings: SlideshowSettings): Promise<SlideshowPreset>
+  /** Resolves false when the preset was already gone. */
+  deleteSlideshowPreset(presetId: number): Promise<boolean>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

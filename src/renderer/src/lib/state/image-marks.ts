@@ -2,7 +2,7 @@ import type { GenfolioApi } from '@shared/genfolio-api'
 import { GalleryScopeKind, MAX_IDS_PER_MARK, SortOrder } from '@shared/gallery-kinds'
 import type { GalleryQuery, ImageCard } from '@shared/gallery'
 import { userMessage } from '../format/user-message'
-import { RouteKind, type Route } from '../routing/route'
+import { isGalleryRoute, type Route } from '../routing/route'
 import type { FacetsState } from './facets.svelte'
 import type { GalleryState } from './gallery.svelte'
 import type { NoticeSink } from './notice-sink'
@@ -17,9 +17,9 @@ export enum LayoutUpdate {
   Deferred = 'deferred'
 }
 
-/** Defer while an image is open: its page steps through the layout. */
+/** Defer while an image or a slideshow is open: both step through the layout. */
 export function layoutUpdateFor(route: Route): LayoutUpdate {
-  return route.kind === RouteKind.Image ? LayoutUpdate.Deferred : LayoutUpdate.Now
+  return isGalleryRoute(route) ? LayoutUpdate.Now : LayoutUpdate.Deferred
 }
 
 /**

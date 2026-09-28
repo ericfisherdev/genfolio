@@ -1,6 +1,7 @@
 import type { ModelKind } from '@shared/generation-kinds'
 import type { AlbumKind } from '@shared/album-kinds'
 import type { StoredSearchFilters } from '@shared/search'
+import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
 import type { StoredGeneration } from './generation'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
@@ -233,4 +234,14 @@ export class UnknownAlbumError extends Error {
     super(`Album ${albumId} does not exist`)
     this.name = 'UnknownAlbumError'
   }
+}
+
+/** Named slideshow settings. Names are unique on nameKey(); saving a taken name updates it. */
+export interface SlideshowPresetRepository {
+  /** Every preset, by name. */
+  list(): SlideshowPreset[]
+  /** Creates the preset, or replaces the settings of the one with the same name key. */
+  save(name: string, settings: SlideshowSettings): SlideshowPreset
+  /** Returns false when the preset was already gone. */
+  delete(id: number): boolean
 }

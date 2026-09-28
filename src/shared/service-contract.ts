@@ -12,6 +12,7 @@ import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
+import { presetNameSchema, slideshowPresetSchema, slideshowSettingsSchema } from './slideshow'
 import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
 
@@ -48,7 +49,10 @@ export enum ServiceMethod {
   AlbumsSetCover = 'albums.set-cover',
   AlbumsAdd = 'albums.add',
   AlbumsRemove = 'albums.remove',
-  AlbumsMove = 'albums.move'
+  AlbumsMove = 'albums.move',
+  PresetsList = 'slideshow.presets-list',
+  PresetsSave = 'slideshow.presets-save',
+  PresetsDelete = 'slideshow.presets-delete'
 }
 
 const noParams = z.object({}).strict()
@@ -157,6 +161,19 @@ export const serviceContract = {
       .object({ albumId, imageIds: markIds, beforeId: z.number().int().positive().nullable() })
       .strict(),
     result: changed
+  },
+  [ServiceMethod.PresetsList]: {
+    params: noParams,
+    result: z.array(slideshowPresetSchema).readonly()
+  },
+  [ServiceMethod.PresetsSave]: {
+    /** A name folding to an existing preset's replaces its settings. */
+    params: z.object({ name: presetNameSchema, settings: slideshowSettingsSchema }).strict(),
+    result: slideshowPresetSchema
+  },
+  [ServiceMethod.PresetsDelete]: {
+    params: z.object({ id: z.number().int().positive() }).strict(),
+    result: z.object({ deleted: z.boolean() })
   },
   [ServiceMethod.GalleryImages]: {
     params: z

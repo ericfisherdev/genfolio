@@ -5,14 +5,14 @@
   import type { FacetValue, SearchFilters } from '@shared/search'
   import { getAppServices } from '../lib/app-context'
   import { generatorLabel } from '../lib/format/generation-labels'
-  import { RouteKind, withFilters } from '../lib/routing/route'
+  import { isGalleryRoute, RouteKind, withFilters } from '../lib/routing/route'
   import FacetPicker from './FacetPicker.svelte'
   import SaveSmartAlbum from './SaveSmartAlbum.svelte'
 
   const { router, facets } = getAppServices()
   const KEYWORD_DELAY_MS = 300
 
-  const route = $derived(router.route.kind === RouteKind.Image ? undefined : router.route)
+  const route = $derived(isGalleryRoute(router.route) ? router.route : undefined)
   const filters: SearchFilters = $derived(route?.filters ?? {})
   const checkpoints = $derived(facets.facets?.checkpoints ?? [])
   const loras = $derived(facets.facets?.loras ?? [])

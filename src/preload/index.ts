@@ -32,6 +32,10 @@ const api: GenfolioApi = {
   addToAlbum: (albumId, imageIds) => ipcRenderer.invoke(IpcChannel.AddToAlbum, albumId, imageIds),
   removeFromAlbum: (albumId, imageIds) =>
     ipcRenderer.invoke(IpcChannel.RemoveFromAlbum, albumId, imageIds),
+  listSlideshowPresets: () => ipcRenderer.invoke(IpcChannel.ListPresets),
+  saveSlideshowPreset: (name, settings) =>
+    ipcRenderer.invoke(IpcChannel.SavePreset, name, settings),
+  deleteSlideshowPreset: (presetId) => ipcRenderer.invoke(IpcChannel.DeletePreset, presetId),
   deleteImages: (imageIds, mode) => ipcRenderer.invoke(IpcChannel.DeleteImages, imageIds, mode),
   moveInAlbum: (albumId, imageIds, beforeId) =>
     ipcRenderer.invoke(IpcChannel.MoveInAlbum, albumId, imageIds, beforeId),

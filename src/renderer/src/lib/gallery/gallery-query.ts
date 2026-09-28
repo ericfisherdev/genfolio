@@ -12,7 +12,7 @@ export interface ViewSorts {
   readonly album: SortOrder
 }
 
-/** The gallery query a route shows; image routes keep showing `previous`. */
+/** The gallery query a route shows; image and slideshow routes keep showing `previous`. */
 export function queryForRoute(
   route: Route,
   sorts: ViewSorts,
@@ -39,6 +39,7 @@ export function queryForRoute(
         ...filtersOf(route)
       }
     case RouteKind.Image:
+    case RouteKind.Slideshow:
       return previous
   }
 }

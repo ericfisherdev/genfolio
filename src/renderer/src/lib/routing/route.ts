@@ -5,7 +5,8 @@ export enum RouteKind {
   All = 'all',
   Directory = 'directory',
   Album = 'album',
-  Image = 'image'
+  Image = 'image',
+  Slideshow = 'slideshow'
 }
 
 export type Route =
@@ -18,9 +19,15 @@ export type Route =
     }
   | { readonly kind: RouteKind.Album; readonly albumId: number; readonly filters?: SearchFilters }
   | { readonly kind: RouteKind.Image; readonly imageId: number }
+  /** Plays the current results, from `startId` or their first image. */
+  | { readonly kind: RouteKind.Slideshow; readonly startId?: number }
 
 /** Routes that show a gallery, which is where filters apply. */
-export type GalleryRoute = Exclude<Route, { kind: RouteKind.Image }>
+export type GalleryRoute = Exclude<Route, { kind: RouteKind.Image | RouteKind.Slideshow }>
+
+/** Whether the route shows a gallery; the others show the current results image by image. */
+export const isGalleryRoute = (route: Route): route is GalleryRoute =>
+  route.kind !== RouteKind.Image && route.kind !== RouteKind.Slideshow
 
 export const ALL_PHOTOS: Route = { kind: RouteKind.All }
 
@@ -28,6 +35,8 @@ const ALL = /^#\/?$/
 const DIRECTORY = /^#\/dir\/([1-9]\d*)$/
 const ALBUM = /^#\/album\/([1-9]\d*)$/
 const IMAGE = /^#\/image\/([1-9]\d*)$/
+const SLIDESHOW = /^#\/slideshow$/
+const POSITIVE = /^[1-9]\d*$/
 
 /** Parses a location hash; an unrecognised path is All Photos, invalid filters are dropped. */
 export function parseRoute(hash: string): Route {
@@ -36,6 +45,12 @@ export function parseRoute(hash: string): Route {
   const params = new URLSearchParams(at < 0 ? '' : hash.slice(at + 1))
   const image = IMAGE.exec(path)
   if (image) return { kind: RouteKind.Image, imageId: Number(image[1]) }
+  if (SLIDESHOW.test(path)) {
+    const start = params.get('start')
+    return start !== null && POSITIVE.test(start)
+      ? { kind: RouteKind.Slideshow, startId: Number(start) }
+      : { kind: RouteKind.Slideshow }
+  }
   const filters = parseFilters(params)
   const withFilters = filters ? { filters } : {}
   const album = ALBUM.exec(path)
@@ -55,6 +70,9 @@ export function parseRoute(hash: string): Route {
 
 export function formatRoute(route: Route): string {
   if (route.kind === RouteKind.Image) return `#/image/${route.imageId}`
+  if (route.kind === RouteKind.Slideshow) {
+    return route.startId === undefined ? '#/slideshow' : `#/slideshow?start=${route.startId}`
+  }
   const params = new URLSearchParams()
   if (route.kind === RouteKind.Directory) params.set('recursive', route.recursive ? '1' : '0')
   writeFilters(route.filters, params)
@@ -76,7 +94,7 @@ function galleryPath(route: GalleryRoute): string {
 
 /** The route's filters, if it is a gallery route that has any. */
 export function routeFilters(route: Route): SearchFilters | undefined {
-  return route.kind === RouteKind.Image ? undefined : route.filters
+  return isGalleryRoute(route) ? route.filters : undefined
 }
 
 /** The same gallery route with other filters (none when `filters` is empty or undefined). */

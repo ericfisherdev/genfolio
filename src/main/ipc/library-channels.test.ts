@@ -59,7 +59,10 @@ describe('registerLibraryChannels', () => {
       IpcChannel.AddToAlbum,
       IpcChannel.RemoveFromAlbum,
       IpcChannel.MoveInAlbum,
-      IpcChannel.DeleteImages
+      IpcChannel.DeleteImages,
+      IpcChannel.ListPresets,
+      IpcChannel.SavePreset,
+      IpcChannel.DeletePreset
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

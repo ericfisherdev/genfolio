@@ -10,6 +10,7 @@
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
+  import SlideshowView from './SlideshowView.svelte'
   import TopBar from './TopBar.svelte'
 
   const { library, scans, router, gallery, facets, tags, selection, albums } = getAppServices()
@@ -55,7 +56,10 @@
   })
 </script>
 
-<div class="shell">
+{#if router.route.kind === RouteKind.Slideshow}
+  <SlideshowView />
+{/if}
+<div class="shell" inert={router.route.kind === RouteKind.Slideshow}>
   <Sidebar />
   <main>
     {#if router.route.kind === RouteKind.Image}
