@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { GalleryQuery } from '@shared/gallery'
 import type { GeneratorKind } from '@shared/generation-kinds'
+import { SetMatchMode } from '@shared/search-kinds'
 import type { FacetValue, SearchFacets, SearchFilters } from '@shared/search'
 import type { CriteriaFilter } from './criteria-filter'
 import { selectImages, type ImageSelection } from './image-selection'
@@ -28,7 +29,7 @@ export class SqliteFacetReader {
   facets(query: GalleryQuery): SearchFacets {
     return {
       checkpoints: this.checkpoints(without(query, 'checkpointIds')),
-      loras: this.loras(without(query, 'loras')),
+      loras: this.loras(query),
       generators: this.generators(without(query, 'generators')),
       withoutMetadata: this.withoutMetadata(without(query, 'hasMetadata'))
     }
@@ -48,16 +49,27 @@ export class SqliteFacetReader {
     )
   }
 
+  /**
+   * Any is a union, so its selection is dropped and every LoRA shows what it would add. All
+   * narrows, so its selection is kept and each count is what adding that LoRA would leave.
+   * Weight bounds apply to the counted links, as they do to the gallery's matching links.
+   */
   private loras(query: GalleryQuery): FacetValue[] {
-    const selection = selectImages(query, this.filters)
+    const loras = query.filters?.loras
+    const counted = loras?.mode === SetMatchMode.All ? query : without(query, 'loras')
+    const selection = selectImages(counted, this.filters)
+    const min = loras?.minWeight ?? null
+    const max = loras?.maxWeight ?? null
     return this.all<FacetValue>(
       `${selection.prefix}
        SELECT models.id, models.display_name AS name, COUNT(DISTINCT links.image_id) AS count
        FROM generation_loras links JOIN models ON models.id = links.model_id
        WHERE links.image_id ${IN_SELECTION(selection)}
+         AND (? IS NULL OR links.weight >= ?)
+         AND (? IS NULL OR links.weight <= ?)
        GROUP BY models.id
        ORDER BY count DESC, name COLLATE NOCASE, models.id`,
-      selection.params
+      [...selection.params, min, min, max, max]
     )
   }
 

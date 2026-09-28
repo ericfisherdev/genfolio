@@ -58,7 +58,9 @@ export const searchFacetsSchema = z
     checkpoints: z.array(facetValue).readonly(),
     loras: z.array(facetValue).readonly(),
     generators: z
-      .array(z.object({ kind: z.enum(GeneratorKind), count: z.number().int() }).strict())
+      .array(
+        z.object({ kind: z.enum(GeneratorKind), count: z.number().int().nonnegative() }).strict()
+      )
       .readonly(),
     withoutMetadata: z.number().int().nonnegative()
   })
