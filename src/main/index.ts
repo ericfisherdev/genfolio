@@ -11,6 +11,7 @@ import { isAppUrl, type RendererEntry } from './app-url'
 import { denyAllPermissions } from './deny-permissions'
 import { pickFolderWithDialog } from './folder-picker'
 import { ImageFileActions } from './image-file-actions'
+import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
@@ -80,6 +81,7 @@ function onReady(): void {
   )
   const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
+  registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
   denyAllPermissions(session.defaultSession)
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),

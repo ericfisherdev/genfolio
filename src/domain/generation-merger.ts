@@ -30,6 +30,11 @@ function precedence(source: SourcedGeneration): number {
   return source.format === GenerationFormat.FooocusJson ? 0 : 2
 }
 
+/** The sources best first (a stable sort keeps record order within a rank). */
+export function byPrecedence(sources: readonly SourcedGeneration[]): SourcedGeneration[] {
+  return [...sources].sort((a, b) => precedence(a) - precedence(b))
+}
+
 /**
  * Combines what every source says about one image, field by field: each field comes from the
  * best source that has it (see {@link precedence}), LoRAs are merged by name with weight and
@@ -38,7 +43,7 @@ function precedence(source: SourcedGeneration): number {
  */
 export class GenerationMerger {
   merge(sources: readonly SourcedGeneration[]): StoredGeneration | null {
-    const ranked = [...sources].sort((a, b) => precedence(a) - precedence(b))
+    const ranked = byPrecedence(sources)
     const best = ranked[0]
     if (!best) return null
     const generations = ranked.map((source) => source.generation)

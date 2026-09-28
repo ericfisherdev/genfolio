@@ -6,6 +6,7 @@ import {
   imageLayoutSchema,
   MAX_IMAGES_PER_REQUEST
 } from './gallery'
+import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { serviceHealthSchema } from './service-health'
 
@@ -19,11 +20,14 @@ export enum ServiceMethod {
   GalleryLayout = 'gallery.layout',
   GalleryImages = 'gallery.images',
   DirectoryTree = 'gallery.directory-tree',
-  RenderDisplayCopy = 'images.render-display-copy'
+  RenderDisplayCopy = 'images.render-display-copy',
+  ImageGeneration = 'images.generation',
+  ImageGenerationText = 'images.generation-text'
 }
 
 const noParams = z.object({}).strict()
 const rootIdParams = z.object({ rootId: z.number().int().positive() }).strict()
+const imageIdParams = z.object({ imageId: z.number().int().positive() }).strict()
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -58,6 +62,18 @@ export const serviceContract = {
       .strict(),
     /** WebP bytes, or null when the image is unknown or its file is missing. */
     result: z.instanceof(Uint8Array).nullable()
+  },
+  [ServiceMethod.ImageGeneration]: {
+    params: imageIdParams,
+    /** null when the image is unknown or carries no generation data. */
+    result: generationDetailsSchema.nullable()
+  },
+  [ServiceMethod.ImageGenerationText]: {
+    params: z
+      .object({ imageId: z.number().int().positive(), variant: z.enum(CopyVariant) })
+      .strict(),
+    /** null when there is no such text (no generation, or an empty prompt). */
+    result: z.string().nullable()
   }
 } as const satisfies { [M in ServiceMethod]: { params: z.ZodType; result: z.ZodType } }
 
