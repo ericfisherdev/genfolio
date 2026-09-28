@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -58,6 +58,38 @@ describe('NodeFileWalker', () => {
     symlinkSync(join(root, 'keep.png'), join(root, 'alias.png'))
     expect((await collect(walker())).map((f) => f.fileName)).toEqual(['keep.png'])
   })
+
+  it('rejects when the root itself cannot be read', async () => {
+    const walker = new NodeFileWalker({ warn: vi.fn() }, (path) => path)
+    const missing = join(root, 'unmounted')
+    const run = async (): Promise<void> => {
+      for await (const _ of walker.walk(missing, new AbortController().signal)) void _
+    }
+    await expect(run()).rejects.toThrow(/ENOENT/)
+  })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'reports an unreadable subdirectory and skips it',
+    async () => {
+      touch('open/a.png')
+      touch('locked/b.png')
+      chmodSync(join(root, 'locked'), 0o000)
+      try {
+        const skipped: string[] = []
+        const found: string[] = []
+        const walker = new NodeFileWalker({ warn: vi.fn() }, (path) => path)
+        for await (const file of walker.walk(root, new AbortController().signal, (dir) =>
+          skipped.push(dir)
+        )) {
+          found.push(file.fileName)
+        }
+        expect(found).toEqual(['a.png'])
+        expect(skipped).toEqual(['locked'])
+      } finally {
+        chmodSync(join(root, 'locked'), 0o755)
+      }
+    }
+  )
 
   it('stops when aborted', async () => {
     touch('a/1.png')

@@ -16,7 +16,7 @@ export class SqliteImageRepository implements ImageRepository {
   private readonly upsert: Database.Statement<UpsertParams>
   private readonly countInRoot: Database.Statement<[number], { count: number }>
   private readonly statsInRoot: Database.Statement<[number], StatRow>
-  private readonly deleteById: Database.Statement<[number]>
+  private readonly deleteUnchanged: Database.Statement<[number, number, number]>
 
   constructor(private readonly db: Database.Database) {
     this.upsert = db.prepare(`
@@ -41,7 +41,9 @@ export class SqliteImageRepository implements ImageRepository {
       FROM images JOIN directories ON directories.id = images.directory_id
       WHERE directories.root_id = ?
     `)
-    this.deleteById = db.prepare('DELETE FROM images WHERE id = ?')
+    this.deleteUnchanged = db.prepare(
+      'DELETE FROM images WHERE id = ? AND size_bytes = ? AND mtime_ms = ?'
+    )
   }
 
   upsertMany(images: readonly ImageFile[], addedAt: number): void {
@@ -76,9 +78,9 @@ export class SqliteImageRepository implements ImageRepository {
     }))
   }
 
-  deleteMany(ids: readonly ImageId[]): void {
+  deleteMany(stats: readonly StoredFileStat[]): void {
     this.db.transaction(() => {
-      for (const id of ids) this.deleteById.run(id)
+      for (const stat of stats) this.deleteUnchanged.run(stat.id, stat.sizeBytes, stat.mtimeMs)
     })()
   }
 }

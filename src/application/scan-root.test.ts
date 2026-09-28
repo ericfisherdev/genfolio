@@ -1,7 +1,9 @@
 import {
+  chmodSync,
   copyFileSync,
   mkdirSync,
   mkdtempSync,
+  renameSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -21,7 +23,7 @@ import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { NodeFileWalker } from '@infrastructure/fs/node-file-walker'
 import { ImageSizeHeaderReader } from '@infrastructure/imaging/image-size-header-reader'
 import { encodeSolid, gifHeader } from '@infrastructure/imaging/testing/synthetic-images'
-import { ScanRoot, type ScanRootOptions } from './scan-root'
+import { ScanAlreadyRunningError, ScanRoot, type ScanRootOptions } from './scan-root'
 
 let dir: string
 let db: Database.Database
@@ -175,6 +177,55 @@ describe('ScanRoot', () => {
     upsert.mockRestore()
     expect(await scan()).toMatchObject({ added: 15, unchanged: 5 })
     expect(indexed()).toHaveLength(20)
+  })
+})
+
+describe('ScanRoot failure safety', () => {
+  it('rejects and keeps every row when the root has gone missing', async () => {
+    await buildTree()
+    await scan()
+    renameSync(dir, `${dir}-moved`)
+    try {
+      await expect(scan()).rejects.toThrow(/ENOENT/)
+      expect(images.countByRoot(root.id)).toBe(5)
+    } finally {
+      renameSync(`${dir}-moved`, dir)
+    }
+  })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'keeps rows under a subdirectory that became unreadable',
+    async () => {
+      await buildTree()
+      await scan()
+      chmodSync(join(dir, '2026/09'), 0o000)
+      try {
+        const report = await scan()
+        expect(report.removed).toBe(0)
+        expect(indexed()).toContain('2026/09/27/b.webp')
+      } finally {
+        chmodSync(join(dir, '2026/09'), 0o755)
+      }
+    }
+  )
+
+  it('refuses to run twice at once for the same root', async () => {
+    write('a.png', await encodeSolid('png', 6, 4))
+    const scanRoot = scanner()
+    const first = scanRoot.run(root, new AbortController().signal)
+    await expect(scanRoot.run(root, new AbortController().signal)).rejects.toBeInstanceOf(
+      ScanAlreadyRunningError
+    )
+    await first
+    await expect(scanRoot.run(root, new AbortController().signal)).resolves.toBeDefined()
+  })
+
+  it('fails the scan on a database error instead of counting the image as failed', async () => {
+    write('a.png', await encodeSolid('png', 6, 4))
+    vi.spyOn(SqliteDirectoryRepository.prototype, 'ensure').mockImplementation(() => {
+      throw new Error('SQLITE_FULL: database or disk is full')
+    })
+    await expect(scan()).rejects.toThrow('SQLITE_FULL')
   })
 })
 

@@ -38,6 +38,9 @@ export interface ImageRepository {
   upsertMany(images: readonly ImageFile[], addedAt: number): void
   countByRoot(rootId: RootId): number
   fileStatsByRoot(rootId: RootId): StoredFileStat[]
-  /** Deletes in one transaction; unknown ids are ignored. */
-  deleteMany(ids: readonly ImageId[]): void
+  /**
+   * Deletes, in one transaction, each row that still has the size and mtime in `stats`;
+   * rows another writer changed since the snapshot survive.
+   */
+  deleteMany(stats: readonly StoredFileStat[]): void
 }

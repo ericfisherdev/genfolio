@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs'
 import { opendir, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import type { FileWalker, FoundFile, ScanLogger } from '@domain/scan'
@@ -13,7 +14,8 @@ export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
 
 /**
  * Iterative depth-first walk. Skips hidden entries and every symlink (no loops, nothing
- * outside the root). An unreadable directory or file is logged and skipped.
+ * outside the root). An unreadable root rejects; an unreadable subdirectory or file is
+ * logged and skipped.
  */
 export class NodeFileWalker implements FileWalker {
   constructor(
@@ -21,12 +23,16 @@ export class NodeFileWalker implements FileWalker {
     private readonly fileRef: (path: string) => string
   ) {}
 
-  async *walk(rootPath: string, signal: AbortSignal): AsyncIterable<FoundFile> {
+  async *walk(
+    rootPath: string,
+    signal: AbortSignal,
+    onSkippedDir: (relDir: string) => void = () => undefined
+  ): AsyncIterable<FoundFile> {
     const pending = ['']
     while (pending.length > 0) {
       signal.throwIfAborted()
       const relDir = pending.pop() as string
-      for (const entry of await this.entriesOf(join(rootPath, relDir))) {
+      for (const entry of await this.entriesOf(rootPath, relDir, onSkippedDir)) {
         if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue
         const relPath = relDir === '' ? entry.name : `${relDir}/${entry.name}`
         if (entry.isDirectory()) {
@@ -39,12 +45,19 @@ export class NodeFileWalker implements FileWalker {
     }
   }
 
-  private async entriesOf(path: string): Promise<import('node:fs').Dirent[]> {
-    const entries: import('node:fs').Dirent[] = []
+  private async entriesOf(
+    rootPath: string,
+    relDir: string,
+    onSkippedDir: (relDir: string) => void
+  ): Promise<Dirent[]> {
+    const path = join(rootPath, relDir)
+    const entries: Dirent[] = []
     try {
       for await (const entry of await opendir(path)) entries.push(entry)
-    } catch {
+    } catch (error) {
+      if (relDir === '') throw error
       this.logger.warn('Skipping unreadable directory', this.fileRef(path))
+      onSkippedDir(relDir)
     }
     return entries
   }

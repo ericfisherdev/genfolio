@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { parseFooocusTimestamp } from '@domain/fooocus-filename'
-import type { ImageHeaderReader } from '@domain/image-header'
-import type { DirectoryId, ImageFile, ImageId, LibraryRoot } from '@domain/library'
+import type { ImageHeader, ImageHeaderReader } from '@domain/image-header'
+import type { DirectoryId, ImageFile, LibraryRoot, RootId } from '@domain/library'
 import type { DirectoryRepository, ImageRepository, StoredFileStat } from '@domain/repositories'
 import {
   ScanPhase,
@@ -47,6 +47,16 @@ interface Classified {
   readonly toIndex: FoundFile[]
   readonly seen: Set<string>
   readonly unchanged: number
+  /** Unreadable subdirectories: their stored rows are kept, not treated as deleted. */
+  readonly skippedDirs: string[]
+}
+
+/** A scan of this root is already running; `run` must not overlap for one root. */
+export class ScanAlreadyRunningError extends Error {
+  constructor(readonly rootId: RootId) {
+    super(`A scan of library root ${rootId} is already running`)
+    this.name = 'ScanAlreadyRunningError'
+  }
 }
 
 interface IndexCounts {
@@ -57,6 +67,9 @@ interface IndexCounts {
 
 const fileKey = (relDir: string, fileName: string): string => `${relDir}\0${fileName}`
 
+const isWithin = (relDir: string, dirs: readonly string[]): boolean =>
+  dirs.some((dir) => relDir === dir || relDir.startsWith(`${dir}/`))
+
 const isUnchanged = (previous: StoredFileStat | undefined, file: FoundFile): boolean =>
   previous !== undefined &&
   previous.sizeBytes === file.sizeBytes &&
@@ -66,9 +79,13 @@ const isUnchanged = (previous: StoredFileStat | undefined, file: FoundFile): boo
  * Brings one root's rows in line with the disk: indexes new and changed files, deletes rows
  * for files that are gone, and prunes emptied directories. Each batch is its own transaction
  * and deletions happen only after a complete walk, so an abort leaves a consistent database.
- * Rejects with the signal's reason when aborted.
+ * Rows under unreadable subdirectories are kept. Rejects with the signal's reason when
+ * aborted, with the walker's error when the root itself is unreadable, with any database
+ * error, and with {@link ScanAlreadyRunningError} when this root is already being scanned.
  */
 export class ScanRoot {
+  private readonly inFlight = new Set<RootId>()
+
   constructor(
     private readonly deps: ScanRootDependencies,
     private readonly options: ScanRootOptions = DEFAULT_SCAN_OPTIONS
@@ -78,6 +95,20 @@ export class ScanRoot {
     root: LibraryRoot,
     signal: AbortSignal,
     onProgress: (progress: ScanProgress) => void = () => undefined
+  ): Promise<ScanReport> {
+    if (this.inFlight.has(root.id)) throw new ScanAlreadyRunningError(root.id)
+    this.inFlight.add(root.id)
+    try {
+      return await this.scan(root, signal, onProgress)
+    } finally {
+      this.inFlight.delete(root.id)
+    }
+  }
+
+  private async scan(
+    root: LibraryRoot,
+    signal: AbortSignal,
+    onProgress: (progress: ScanProgress) => void
   ): Promise<ScanReport> {
     const throttle = new ProgressThrottle(
       onProgress,
@@ -96,7 +127,7 @@ export class ScanRoot {
     const counts = await this.index(root, classified.toIndex, stored, signal, report)
 
     report(ScanPhase.Pruning, 0, undefined, true)
-    const removed = this.removeMissing(stored, classified.seen)
+    const removed = this.removeMissing(stored, classified)
     this.deps.directories.pruneEmpty(root.id)
     return { ...counts, unchanged: classified.unchanged, removed }
   }
@@ -109,8 +140,10 @@ export class ScanRoot {
   ): Promise<Classified> {
     const toIndex: FoundFile[] = []
     const seen = new Set<string>()
+    const skippedDirs: string[] = []
     let unchanged = 0
-    for await (const file of this.deps.walker.walk(root.path, signal)) {
+    const walk = this.deps.walker.walk(root.path, signal, (relDir) => skippedDirs.push(relDir))
+    for await (const file of walk) {
       const key = fileKey(file.relDir, file.fileName)
       seen.add(key)
       if (isUnchanged(stored.get(key), file)) unchanged++
@@ -118,7 +151,7 @@ export class ScanRoot {
       report(ScanPhase.Walking, seen.size, undefined)
     }
     report(ScanPhase.Walking, seen.size, seen.size, true)
-    return { toIndex, seen, unchanged }
+    return { toIndex, seen, unchanged, skippedDirs }
   }
 
   private async index(
@@ -155,29 +188,33 @@ export class ScanRoot {
     return counts
   }
 
-  /** Reads the header; logs and returns `undefined` when the file cannot be indexed. */
+  /**
+   * Reads the header; logs and returns `undefined` when the file cannot be read or parsed.
+   * Database errors (from resolving the directory) propagate and fail the scan.
+   */
   private async describe(
     root: LibraryRoot,
     file: FoundFile,
     directoryOf: (relDir: string) => DirectoryId
   ): Promise<ImageFile | undefined> {
     const path = join(root.path, file.relDir, file.fileName)
+    let header: ImageHeader
     try {
-      const header = await this.deps.headerReader.read(path)
-      return {
-        directoryId: directoryOf(file.relDir),
-        fileName: file.fileName,
-        format: header.format,
-        sizeBytes: file.sizeBytes,
-        mtimeMs: file.mtimeMs,
-        width: header.width,
-        height: header.height,
-        createdAt: parseFooocusTimestamp(file.fileName) ?? file.mtimeMs
-      }
+      header = await this.deps.headerReader.read(path)
     } catch (error) {
       const reason = error instanceof Error ? error.name : 'unknown error'
       this.deps.logger.warn(`Skipping image (${reason})`, this.deps.fileRef(path))
       return undefined
+    }
+    return {
+      directoryId: directoryOf(file.relDir),
+      fileName: file.fileName,
+      format: header.format,
+      sizeBytes: file.sizeBytes,
+      mtimeMs: file.mtimeMs,
+      width: header.width,
+      height: header.height,
+      createdAt: parseFooocusTimestamp(file.fileName) ?? file.mtimeMs
     }
   }
 
@@ -193,12 +230,11 @@ export class ScanRoot {
     }
   }
 
-  private removeMissing(
-    stored: ReadonlyMap<string, StoredFileStat>,
-    seen: ReadonlySet<string>
-  ): number {
-    const missing: ImageId[] = []
-    for (const [key, stat] of stored) if (!seen.has(key)) missing.push(stat.id)
+  private removeMissing(stored: ReadonlyMap<string, StoredFileStat>, walk: Classified): number {
+    const missing: StoredFileStat[] = []
+    for (const [key, stat] of stored) {
+      if (!walk.seen.has(key) && !isWithin(stat.relDir, walk.skippedDirs)) missing.push(stat)
+    }
     this.deps.images.deleteMany(missing)
     return missing.length
   }

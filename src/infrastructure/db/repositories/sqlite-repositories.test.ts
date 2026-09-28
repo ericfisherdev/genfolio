@@ -117,8 +117,19 @@ describe('SqliteImageRepository', () => {
       ['x', 'b.png', 2]
     ])
 
-    images.deleteMany([stats[0]!.id])
+    images.deleteMany([stats[0]!])
     expect(images.fileStatsByRoot(root.id).map((s) => s.fileName)).toEqual(['b.png'])
+  })
+
+  it('keeps a row whose size or mtime changed since the snapshot', () => {
+    const root = roots.add('/a', 1)
+    const dir = directories.ensure(root.id, '')
+    images.upsertMany([imageIn(dir, 'a.png', 1)], 1)
+    const [snapshot] = images.fileStatsByRoot(root.id)
+    images.upsertMany([imageIn(dir, 'a.png', 999)], 1)
+
+    images.deleteMany([snapshot!])
+    expect(images.countByRoot(root.id)).toBe(1)
   })
 
   it('rejects a fractional mtime instead of storing a REAL (STRICT table)', () => {

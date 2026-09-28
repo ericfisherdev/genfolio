@@ -32,8 +32,17 @@ export interface FoundFile {
 }
 
 export interface FileWalker {
-  /** Yields image-extension files below `rootPath`; stops early when `signal` aborts. */
-  walk(rootPath: string, signal: AbortSignal): AsyncIterable<FoundFile>
+  /**
+   * Yields image-extension files below `rootPath`; stops early when `signal` aborts.
+   * Rejects when `rootPath` itself cannot be read (e.g. an unmounted drive). Unreadable
+   * subdirectories are skipped and reported through `onSkippedDir` so callers do not treat
+   * their contents as deleted.
+   */
+  walk(
+    rootPath: string,
+    signal: AbortSignal,
+    onSkippedDir?: (relDir: string) => void
+  ): AsyncIterable<FoundFile>
 }
 
 export interface ScanLogger {
