@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
 import { expect, test, type Page } from '@playwright/test'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
+import { copiedText, recordClipboard } from './support/clipboard'
 import { launchApp, type LaunchedApp } from './support/launch'
 
 let launched: LaunchedApp | undefined
@@ -67,14 +68,13 @@ test('the card menu copies the path and reveals the file', async () => {
     shell.showItemInFolder = (path: string) =>
       ((globalThis as Record<string, unknown>)['revealed'] as string[]).push(path)
   })
+  await recordClipboard(current().app)
   const card = page.getByRole('listitem').first()
   await card.hover()
 
   await card.getByRole('button', { name: /^Actions for / }).click()
   await page.getByRole('menuitem', { name: 'Copy path' }).click()
-  await expect
-    .poll(() => current().app.evaluate(({ clipboard }) => clipboard.readText()))
-    .toContain(join(library, '2026-09-27'))
+  await expect.poll(() => copiedText(current().app)).toContain(join(library, '2026-09-27'))
 
   await card.getByRole('button', { name: /^Actions for / }).click()
   await page.getByRole('menuitem', { name: 'Show in folder' }).click()
@@ -93,6 +93,7 @@ test('the menu of a short, wide card is fully usable', async () => {
   ).png()
   writeFileSync(join(library, '0-wide.png'), wide)
   const page = await openLibrary()
+  await recordClipboard(current().app)
   await page.getByRole('combobox', { name: 'Sort by' }).selectOption('file-name')
   const card = page.getByRole('listitem').first()
   await expect(card).toHaveAttribute('style', /height: \d{2}px/)
@@ -109,9 +110,7 @@ test('the menu of a short, wide card is fully usable', async () => {
   })
   expect(onTop).toBe(true)
   await copy.click()
-  await expect
-    .poll(() => current().app.evaluate(({ clipboard }) => clipboard.readText()))
-    .toContain('0-wide.png')
+  await expect.poll(() => copiedText(current().app)).toContain('0-wide.png')
 })
 
 test('columns follow the window width without horizontal overflow', async () => {
