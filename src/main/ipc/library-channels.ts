@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { IpcChannel } from '@shared/genfolio-api'
+import { galleryQuerySchema, MAX_IMAGES_PER_REQUEST } from '@shared/gallery'
 import { AddRootOutcome, type AddRootViaDialogResult } from '@shared/library'
 import { ServiceMethod } from '@shared/service-contract'
 import type { ServiceRequester } from '../service/library-service-client'
@@ -35,6 +36,17 @@ export function registerLibraryChannels(
     IpcChannel.RemoveRoot,
     rootIdArgs,
     async (rootId) => (await service.request(ServiceMethod.RemoveRoot, { rootId })).removed
+  )
+  ipc.register(IpcChannel.GalleryLayout, z.tuple([galleryQuerySchema]), (query) =>
+    service.request(ServiceMethod.GalleryLayout, { query })
+  )
+  ipc.register(
+    IpcChannel.GalleryImages,
+    z.tuple([z.array(z.number().int().positive()).max(MAX_IMAGES_PER_REQUEST)]),
+    (ids) => service.request(ServiceMethod.GalleryImages, { ids })
+  )
+  ipc.register(IpcChannel.DirectoryTree, rootIdArgs, (rootId) =>
+    service.request(ServiceMethod.DirectoryTree, { rootId })
   )
   ipc.register(
     IpcChannel.RescanRoot,

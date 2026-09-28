@@ -69,4 +69,24 @@ describe('registerLibraryChannels', () => {
     const { invoke } = setup(async () => undefined)
     expect(() => invoke(IpcChannel.RemoveRoot, 0)).toThrow()
   })
+
+  it('forwards gallery queries and caps image requests at 500 ids', async () => {
+    const layout = new Int32Array([1, 800, 1200])
+    const { request, invoke } = setup(async () => undefined, {
+      [ServiceMethod.GalleryLayout]: layout
+    })
+    const query = { scope: { kind: 'all' }, sort: 'newest' }
+    await expect(invoke(IpcChannel.GalleryLayout, query)).resolves.toBe(layout)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.GalleryLayout, { query })
+
+    expect(() =>
+      invoke(
+        IpcChannel.GalleryImages,
+        Array.from({ length: 501 }, (_, i) => i + 1)
+      )
+    ).toThrow()
+    expect(() =>
+      invoke(IpcChannel.GalleryLayout, { scope: { kind: 'all' }, sort: 'random' })
+    ).toThrow()
+  })
 })

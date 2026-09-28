@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import {
+  directoryNodeSchema,
+  galleryQuerySchema,
+  imageCardSchema,
+  imageLayoutSchema,
+  MAX_IMAGES_PER_REQUEST
+} from './gallery'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { serviceHealthSchema } from './service-health'
 
@@ -8,7 +15,10 @@ export enum ServiceMethod {
   ListRoots = 'roots.list',
   AddRoot = 'roots.add',
   RemoveRoot = 'roots.remove',
-  RescanRoot = 'roots.rescan'
+  RescanRoot = 'roots.rescan',
+  GalleryLayout = 'gallery.layout',
+  GalleryImages = 'gallery.images',
+  DirectoryTree = 'gallery.directory-tree'
 }
 
 const noParams = z.object({}).strict()
@@ -26,7 +36,18 @@ export const serviceContract = {
     result: addRootResultSchema
   },
   [ServiceMethod.RemoveRoot]: { params: rootIdParams, result: z.object({ removed: z.boolean() }) },
-  [ServiceMethod.RescanRoot]: { params: rootIdParams, result: z.object({ started: z.boolean() }) }
+  [ServiceMethod.RescanRoot]: { params: rootIdParams, result: z.object({ started: z.boolean() }) },
+  [ServiceMethod.GalleryLayout]: {
+    params: z.object({ query: galleryQuerySchema }).strict(),
+    result: imageLayoutSchema
+  },
+  [ServiceMethod.GalleryImages]: {
+    params: z
+      .object({ ids: z.array(z.number().int().positive()).max(MAX_IMAGES_PER_REQUEST) })
+      .strict(),
+    result: z.array(imageCardSchema).readonly()
+  },
+  [ServiceMethod.DirectoryTree]: { params: rootIdParams, result: directoryNodeSchema.nullable() }
 } as const satisfies { [M in ServiceMethod]: { params: z.ZodType; result: z.ZodType } }
 
 export type ServiceParams = { [M in ServiceMethod]: z.infer<(typeof serviceContract)[M]['params']> }

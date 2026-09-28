@@ -8,6 +8,9 @@ const api: GenfolioApi = {
   addRootViaDialog: () => ipcRenderer.invoke(IpcChannel.AddRootViaDialog),
   removeRoot: (rootId) => ipcRenderer.invoke(IpcChannel.RemoveRoot, rootId),
   rescanRoot: (rootId) => ipcRenderer.invoke(IpcChannel.RescanRoot, rootId),
+  getImageLayout: (query) => ipcRenderer.invoke(IpcChannel.GalleryLayout, query),
+  getImages: (ids) => ipcRenderer.invoke(IpcChannel.GalleryImages, ids),
+  getDirectoryTree: (rootId) => ipcRenderer.invoke(IpcChannel.DirectoryTree, rootId),
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)
