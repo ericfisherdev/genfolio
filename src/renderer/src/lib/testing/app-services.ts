@@ -98,6 +98,7 @@ export function testServices(
   const hash = memoryHash()
   const libraryState = new LibraryState(api)
   const gallery = new GalleryState(api)
+  const facets = new FacetsState(api)
   const services: AppServices = {
     api,
     router: new RouterState(hash),
@@ -107,8 +108,8 @@ export function testServices(
     sort: new SortPreference(memoryStore()),
     generation: new GenerationDetailsState(api),
     copier: new GenerationCopier(api, libraryState),
-    facets: new FacetsState(api),
-    marks: new ImageMarks(api, gallery, libraryState)
+    facets,
+    marks: new ImageMarks(api, gallery, facets, libraryState)
   }
   return {
     services,

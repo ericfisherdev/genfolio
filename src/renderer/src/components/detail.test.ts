@@ -210,3 +210,57 @@ describe('library changes while an image is open', () => {
     await waitFor(() => expect(getImageLayout.mock.calls.length).toBeGreaterThan(callsBefore))
   })
 })
+
+describe('marks on the detail page of a favourites view', () => {
+  const FAVOURITES = { favoritesOnly: true as const }
+
+  async function openFavourite(imageId: number): Promise<{
+    harness: TestServices
+    getImageLayout: ReturnType<typeof vi.fn<() => Promise<Int32Array>>>
+    setFavorite: ReturnType<typeof vi.fn<() => Promise<number>>>
+  }> {
+    let favourites = layout
+    const getImageLayout = vi.fn(async () => favourites)
+    const setFavorite = vi.fn(async () => {
+      favourites = new Int32Array([7, 832, 1216, 9, 1024, 1024])
+      return 1
+    })
+    const harness = testServices(sampleLibrary(), {
+      getImageLayout,
+      setFavorite,
+      getImages: async (ids) => ids.map((id) => ({ ...cardFor(id), favorite: true })),
+      getGeneration: async () => null
+    })
+    await harness.services.library.refresh()
+    harness.services.router.navigate({ kind: RouteKind.All, filters: FAVOURITES })
+    render(AppShell, { context: harness.context })
+    await waitFor(() => expect(harness.services.gallery.count).toBe(3))
+    harness.services.router.navigate({ kind: RouteKind.Image, imageId })
+    await screen.findByRole('button', { name: /Favourite/ })
+    return { harness, getImageLayout, setFavorite }
+  }
+
+  it('keep stepping through the results the viewer opened', async () => {
+    const { harness, setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f' })
+    await waitFor(() => expect(setFavorite).toHaveBeenCalledWith([8], false))
+    await fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(harness.services.router.route).toEqual({ kind: RouteKind.Image, imageId: 9 })
+  })
+
+  it('reload the results when the grid is shown again', async () => {
+    const { harness, getImageLayout, setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f' })
+    await waitFor(() => expect(setFavorite).toHaveBeenCalled())
+    const callsBefore = getImageLayout.mock.calls.length
+    harness.services.router.navigate({ kind: RouteKind.All, filters: FAVOURITES })
+    await waitFor(() => expect(harness.services.gallery.count).toBe(2))
+    expect(getImageLayout.mock.calls.length).toBe(callsBefore + 1)
+  })
+
+  it('ignore a held key', async () => {
+    const { setFavorite } = await openFavourite(8)
+    await fireEvent.keyDown(window, { key: 'f', repeat: true })
+    expect(setFavorite).not.toHaveBeenCalled()
+  })
+})

@@ -30,7 +30,10 @@
       sort.current,
       untrack(() => gallery.query)
     )
-    if (!query || queryKey(query) === untrack(() => gallery.key)) return
+    if (!query) return
+    // A mark made on the detail page may have changed which images these results hold.
+    const stale = untrack(() => gallery.layoutStale)
+    if (!stale && queryKey(query) === untrack(() => gallery.key)) return
     untrack(() => {
       onscroll()
       void gallery.load(query)

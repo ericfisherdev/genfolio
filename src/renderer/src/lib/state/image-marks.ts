@@ -2,18 +2,26 @@ import type { GenfolioApi } from '@shared/genfolio-api'
 import { MAX_IDS_PER_MARK, SortOrder } from '@shared/gallery-kinds'
 import type { GalleryQuery, ImageCard } from '@shared/gallery'
 import { userMessage } from '../format/user-message'
+import type { FacetsState } from './facets.svelte'
 import type { GalleryState } from './gallery.svelte'
 import type { NoticeSink } from './notice-sink'
 
 type Mark = Partial<Pick<ImageCard, 'favorite' | 'rating'>>
 
-/** Whether the query's results or their order depend on favourites or ratings. */
-function dependsOnMarks(query: GalleryQuery | undefined): boolean {
+/** How a mark treats results that depend on marks (a favourites or rating view). */
+export enum LayoutUpdate {
+  /** Reload the layout and facet counts at once. */
+  Now = 'now',
+  /** The caller is stepping through the layout: reload when the grid is shown again. */
+  Deferred = 'deferred'
+}
+
+/** Whether the query's results, their order or their facet counts depend on marks. */
+function dependsOnMarks(query: GalleryQuery): boolean {
   return (
-    query !== undefined &&
-    (query.sort === SortOrder.Rating ||
-      query.filters?.favoritesOnly === true ||
-      query.filters?.minRating !== undefined)
+    query.sort === SortOrder.Rating ||
+    query.filters?.favoritesOnly === true ||
+    query.filters?.minRating !== undefined
   )
 }
 
@@ -25,41 +33,54 @@ export class ImageMarks {
   constructor(
     private readonly api: Pick<GenfolioApi, 'setFavorite' | 'setRating'>,
     private readonly gallery: GalleryState,
+    private readonly facets: Pick<FacetsState, 'load'>,
     private readonly notices: NoticeSink
   ) {}
 
-  setFavorite(ids: readonly number[], favorite: boolean): Promise<void> {
+  setFavorite(ids: readonly number[], favorite: boolean, update = LayoutUpdate.Now): Promise<void> {
     return this.mark(
       ids,
       { favorite },
       (chunk) => this.api.setFavorite(chunk, favorite),
-      'favourite'
+      'favourite',
+      update
     )
   }
 
   /** 0 clears the rating. */
-  setRating(ids: readonly number[], rating: number): Promise<void> {
-    return this.mark(ids, { rating }, (chunk) => this.api.setRating(chunk, rating), 'rate')
+  setRating(ids: readonly number[], rating: number, update = LayoutUpdate.Now): Promise<void> {
+    return this.mark(ids, { rating }, (chunk) => this.api.setRating(chunk, rating), 'rate', update)
   }
 
   private async mark(
     ids: readonly number[],
-    patch: Mark,
+    fields: Mark,
     send: (chunk: readonly number[]) => Promise<number>,
-    verb: string
+    verb: string,
+    update: LayoutUpdate
   ): Promise<void> {
     if (ids.length === 0) return
-    const previous = this.gallery.patchCards(ids, patch)
+    const patch = this.gallery.patchCards(ids, fields)
+    let start = 0
     try {
-      for (let start = 0; start < ids.length; start += MAX_IDS_PER_MARK) {
+      for (; start < ids.length; start += MAX_IDS_PER_MARK) {
         await send(ids.slice(start, start + MAX_IDS_PER_MARK))
       }
     } catch (error) {
-      this.gallery.restoreCards(previous)
+      // Earlier chunks were stored; only the failed chunk and the rest go back.
+      patch.revert(ids.slice(start))
       const what = ids.length === 1 ? 'the image' : `${ids.length} images`
       this.notices.notify(`Could not ${verb} ${what}: ${userMessage(error)}`)
+      if (start > 0) await this.refreshResults(update)
       return
     }
-    if (dependsOnMarks(this.gallery.query)) await this.gallery.refreshLayout()
+    await this.refreshResults(update)
+  }
+
+  private async refreshResults(update: LayoutUpdate): Promise<void> {
+    const query = this.gallery.query
+    if (!query || !dependsOnMarks(query)) return
+    if (update === LayoutUpdate.Deferred) this.gallery.markLayoutStale()
+    else await Promise.all([this.gallery.refreshLayout(), this.facets.load(query)])
   }
 }

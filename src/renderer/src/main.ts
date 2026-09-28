@@ -20,6 +20,7 @@ if (!target) throw new Error('#app mount point missing from index.html')
 const api = window.genfolio
 const library = new LibraryState(api)
 const gallery = new GalleryState(api)
+const facets = new FacetsState(api)
 const services: AppServices = {
   api,
   router: new RouterState(windowHashLocation(window)),
@@ -29,8 +30,8 @@ const services: AppServices = {
   sort: new SortPreference(localPreferenceStore(() => window.localStorage)),
   generation: new GenerationDetailsState(api),
   copier: new GenerationCopier(api, library),
-  facets: new FacetsState(api),
-  marks: new ImageMarks(api, gallery, library)
+  facets,
+  marks: new ImageMarks(api, gallery, facets, library)
 }
 
 export default mount(App, {

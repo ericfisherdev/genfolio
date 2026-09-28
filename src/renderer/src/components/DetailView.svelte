@@ -3,6 +3,7 @@
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
+  import { LayoutUpdate } from '../lib/state/image-marks'
   import { filtersToFind, type FindSimilar } from '../lib/gallery/find-similar'
   import { routeForQuery } from '../lib/gallery/route-for-query'
   import { RouteKind } from '../lib/routing/route'
@@ -83,15 +84,25 @@
 
   const RATING_KEY = /^[0-5]$/
 
+  // The results stay put while stepping through them; the grid reloads them when shown.
+  function setFavorite(favorite: boolean): void {
+    void marks.setFavorite([imageId], favorite, LayoutUpdate.Deferred)
+  }
+
+  function setRating(rating: number): void {
+    void marks.setRating([imageId], rating, LayoutUpdate.Deferred)
+  }
+
   /** F toggles the favourite, 0–5 set the rating (0 clears it). True when the key was used. */
   function markWithKey(event: KeyboardEvent): boolean {
     if (!card || event.ctrlKey || event.metaKey || event.altKey) return false
     if (event.key === 'f' || event.key === 'F') {
-      void marks.setFavorite([imageId], !card.favorite)
+      // A held key would flip the favourite on every auto-repeat.
+      if (!event.repeat) setFavorite(!card.favorite)
       return true
     }
     if (RATING_KEY.test(event.key)) {
-      void marks.setRating([imageId], Number(event.key))
+      if (!event.repeat) setRating(Number(event.key))
       return true
     }
     return false
@@ -155,8 +166,8 @@
         onreveal={() => void library.fileAction('show the file', () => api.revealImage(imageId))}
         oncopypath={() =>
           void library.fileAction('copy the path', () => api.copyImagePath(imageId))}
-        onfavorite={(favorite) => void marks.setFavorite([imageId], favorite)}
-        onrate={(rating) => void marks.setRating([imageId], rating)}
+        onfavorite={setFavorite}
+        onrate={setRating}
       />
     </div>
   </div>

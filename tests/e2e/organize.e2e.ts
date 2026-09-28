@@ -1,5 +1,6 @@
 import { rmSync } from 'node:fs'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { LAYOUT_STRIDE } from '../../src/shared/gallery-kinds'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
 
@@ -106,4 +107,29 @@ test('F and the number keys mark the image on the detail page', async () => {
     'aria-pressed',
     'false'
   )
+
+  // Stored, not just shown: a failed write would have put the marks back by now.
+  await expect
+    .poll(() => storedMarks(page, '2026-09-27_20-36-27_8675.png'))
+    .toEqual({ favorite: true, rating: 0 })
 })
+
+/** The marks of the named image as the database has them. */
+async function storedMarks(
+  page: Page,
+  fileName: string
+): Promise<{ favorite: boolean; rating: number } | undefined> {
+  return page.evaluate(
+    async ({ name, stride }) => {
+      const layout = await window.genfolio.getImageLayout({
+        scope: { kind: 'all' },
+        sort: 'newest'
+      } as never)
+      const ids = Array.from(layout.filter((_, index) => index % stride === 0))
+      const cards = await window.genfolio.getImages(ids)
+      const image = cards.find((card) => card.fileName === name)
+      return image && { favorite: image.favorite, rating: image.rating }
+    },
+    { name: fileName, stride: LAYOUT_STRIDE }
+  )
+}
