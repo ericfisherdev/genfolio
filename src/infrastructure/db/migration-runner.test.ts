@@ -15,22 +15,27 @@ const tableNames = (db: Database.Database): string[] =>
 
 const version = (db: Database.Database): unknown => db.pragma('user_version', { simple: true })
 
+// Includes the FTS5 virtual table and its shadow tables (migration 005).
 const LATEST_TABLES = [
+  'album_images',
+  'albums',
   'directories',
   'fooocus_logs',
   'generation_loras',
   'generations',
+  'image_tags',
   'images',
   'library_roots',
   'metadata_raw',
   'model_hashes',
   'models',
-  // FTS5 creates the virtual table's row in sqlite_schema plus its shadow tables.
   'prompt_fts',
   'prompt_fts_config',
   'prompt_fts_data',
   'prompt_fts_docsize',
-  'prompt_fts_idx'
+  'prompt_fts_idx',
+  'slideshow_presets',
+  'tags'
 ]
 
 describe('MigrationRunner', () => {
