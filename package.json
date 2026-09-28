@@ -1,0 +1,63 @@
+{
+  "name": "genfolio",
+  "productName": "Genfolio",
+  "desktopName": "genfolio.desktop",
+  "version": "0.1.0",
+  "description": "Desktop gallery for organizing AI-generated images (A1111, Fooocus)",
+  "license": "MIT",
+  "main": "./out/main/index.js",
+  "author": "Eric Fisher <eric@ericfisher.dev>",
+  "homepage": "https://github.com/ericfisherdev/genfolio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ericfisherdev/genfolio.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "lint": "eslint --cache --max-warnings 0 .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "svelte-check --tsconfig ./tsconfig.web.json --fail-on-warnings",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:dir": "npm run build && electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "@napi-rs/image": "^1.15.0",
+    "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "^3.0.1",
+    "@electron-toolkit/eslint-config-ts": "^4.0.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@playwright/test": "^1.63.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@testing-library/svelte": "^5.4.2",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.19.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-svelte": "^3.23.0",
+    "jsdom": "^30.1.1",
+    "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.2"
+  }
+}
