@@ -11,7 +11,9 @@ describe('routes', () => {
     { kind: RouteKind.Directory, directoryId: 7, recursive: false },
     { kind: RouteKind.Album, albumId: 3 },
     { kind: RouteKind.Album, albumId: 3, filters: { favoritesOnly: true } },
-    { kind: RouteKind.Image, imageId: 42 }
+    { kind: RouteKind.Image, imageId: 42 },
+    { kind: RouteKind.Slideshow },
+    { kind: RouteKind.Slideshow, startId: 7 }
   ])('round-trips %j', (route) => {
     expect(parseRoute(formatRoute(route))).toEqual(route)
   })
@@ -22,6 +24,10 @@ describe('routes', () => {
       directoryId: 3,
       recursive: true
     })
+  })
+
+  it('ignores a slideshow start that is not an image id', () => {
+    expect(parseRoute('#/slideshow?start=abc')).toEqual({ kind: RouteKind.Slideshow })
   })
 
   it('keeps an album when its filters are cleared', () => {

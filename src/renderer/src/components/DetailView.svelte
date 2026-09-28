@@ -14,8 +14,18 @@
   import NoticeBar from './NoticeBar.svelte'
   import TagEditor from './TagEditor.svelte'
 
-  const { router, gallery, sort, library, api, generation, copier, marks, deletion } =
-    getAppServices()
+  const {
+    router,
+    gallery,
+    sort,
+    library,
+    api,
+    generation,
+    copier,
+    marks,
+    deletion,
+    slideshowNavigator
+  } = getAppServices()
   const count = new Intl.NumberFormat()
 
   const imageId = $derived(router.route.kind === RouteKind.Image ? router.route.imageId : 0)
@@ -157,6 +167,7 @@
         onclick={() => show(nextId)}>›</button
       >
     </div>
+    <button type="button" onclick={() => slideshowNavigator.start(imageId)}>▶ Slideshow</button>
     <button
       type="button"
       class="trash"

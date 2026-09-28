@@ -14,6 +14,7 @@ import { pickFolderWithDialog } from './folder-picker'
 import { ImageFileActions } from './image-file-actions'
 import { DialogDeleteConfirmer } from './delete-confirmer'
 import { registerDeletionChannels } from './ipc/deletion-channels'
+import { registerSlideshowChannels } from './ipc/slideshow-channels'
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
@@ -89,6 +90,7 @@ function onReady(): void {
   registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
   registerTagChannels(ipc, libraryService)
   registerAlbumChannels(ipc, libraryService)
+  registerSlideshowChannels(ipc, libraryService)
   denyAllPermissions(session.defaultSession)
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),

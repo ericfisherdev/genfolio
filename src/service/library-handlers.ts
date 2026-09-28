@@ -23,6 +23,7 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlite-image-mark-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
+import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createImageSelector } from '@infrastructure/db/search/create-image-selector'
@@ -70,6 +71,7 @@ export function createLibraryHandlers(
     now
   })
   const marks = new SqliteImageMarkRepository(db)
+  const presets = new SqliteSlideshowPresetRepository(db)
   const tags = new TagService(new SqliteTagRepository(db), now)
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
@@ -152,6 +154,9 @@ export function createLibraryHandlers(
     [ServiceMethod.ImagesForget]: async ({ ids }) => ({
       forgotten: await forgetter.forget(ids as ImageId[])
     }),
+    [ServiceMethod.PresetsList]: async () => presets.list(),
+    [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
+    [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),
     [ServiceMethod.SetFavorite]: async ({ ids, favorite }) => ({
       changed: marks.setFavorite(ids as ImageId[], favorite)
     }),

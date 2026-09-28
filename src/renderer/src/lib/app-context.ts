@@ -2,6 +2,9 @@ import { getContext } from 'svelte'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { RouterState } from './routing/router.svelte'
 import type { AlbumsState } from './state/albums.svelte'
+import type { SlideshowNavigator } from './slideshow/slideshow-navigator'
+import type { SlideshowPresetsState } from './slideshow/slideshow-presets.svelte'
+import type { SlideshowSettingsState } from './slideshow/slideshow-settings.svelte'
 import type { FacetsState } from './state/facets.svelte'
 import type { ImageDeletion } from './state/image-deletion.svelte'
 import type { GalleryState } from './state/gallery.svelte'
@@ -30,6 +33,9 @@ export interface AppServices {
   readonly selection: SelectionState
   readonly albums: AlbumsState
   readonly deletion: ImageDeletion
+  readonly slideshowSettings: SlideshowSettingsState
+  readonly slideshowPresets: SlideshowPresetsState
+  readonly slideshowNavigator: SlideshowNavigator
 }
 
 const APP_SERVICES = Symbol('app-services')

@@ -5,7 +5,7 @@
   import ScanIndicator from './ScanIndicator.svelte'
   import SortMenu from './SortMenu.svelte'
 
-  const { router, library, albums } = getAppServices()
+  const { router, library, albums, gallery, slideshowNavigator } = getAppServices()
 
   const directory = $derived(
     router.route.kind === RouteKind.Directory
@@ -42,6 +42,12 @@
         Include subfolders
       </label>
     {/if}
+    <button
+      type="button"
+      class="slideshow"
+      disabled={gallery.count === 0}
+      onclick={() => slideshowNavigator.start()}>▶ Slideshow</button
+    >
     <SortMenu />
   </div>
 </header>
@@ -53,6 +59,13 @@
     gap: var(--space-4);
     padding: var(--space-3) var(--space-5);
     border-bottom: 1px solid var(--color-border);
+  }
+  .slideshow {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-1);
+    padding: var(--space-1) var(--space-3);
+    cursor: pointer;
   }
   h1 {
     margin: 0;

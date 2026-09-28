@@ -7,6 +7,9 @@ import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
 import { AlbumsState } from '../state/albums.svelte'
 import { ImageDeletion } from '../state/image-deletion.svelte'
+import { SlideshowNavigator } from '../slideshow/slideshow-navigator'
+import { SlideshowPresetsState } from '../slideshow/slideshow-presets.svelte'
+import { SlideshowSettingsState } from '../slideshow/slideshow-settings.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
@@ -95,6 +98,7 @@ export function testServices(
     getImages: async () => [],
     listTags: async () => [],
     listAlbums: async () => [],
+    listSlideshowPresets: async () => [],
     getFacets: async () => ({
       checkpoints: [],
       loras: [],
@@ -128,6 +132,9 @@ export function testServices(
       refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
     ),
     selection: new SelectionState(gallery),
+    slideshowSettings: new SlideshowSettingsState(memoryStore()),
+    slideshowPresets: new SlideshowPresetsState(api, libraryState),
+    slideshowNavigator: new SlideshowNavigator(router, gallery),
     deletion: new ImageDeletion(api, libraryState, () => void libraryState.refresh()),
     albums: new AlbumsState(api, libraryState, () =>
       refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
