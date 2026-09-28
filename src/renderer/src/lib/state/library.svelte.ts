@@ -4,12 +4,13 @@ import type { AddRootViaDialogResult, RootSummary } from '@shared/library'
 import { AddRootOutcome } from '@shared/library-kinds'
 import { addRootMessage } from '../format/add-root-message'
 import { userMessage as messageOf } from '../format/user-message'
+import type { NoticeSink } from './notice-sink'
 
 /**
  * Library roots and their folder trees, refreshed from the service on demand. No method
  * rejects: service failures become `loadError` (loading) or `notice` (actions).
  */
-export class LibraryState {
+export class LibraryState implements NoticeSink {
   roots: readonly RootSummary[] = $state([])
   trees: Readonly<Record<number, DirectoryNode | null>> = $state({})
   /** Last user-facing message from an action, e.g. "already in the library". */
@@ -73,6 +74,11 @@ export class LibraryState {
     } catch (error) {
       this.notice = `Could not ${description}: ${messageOf(error)}`
     }
+  }
+
+  /** Shows a message in the notice bar (the NoticeSink the other states report through). */
+  notify(message: string): void {
+    this.notice = message
   }
 
   dismissNotice(): void {

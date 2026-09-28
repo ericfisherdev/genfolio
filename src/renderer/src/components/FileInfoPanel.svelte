@@ -46,13 +46,7 @@
 
 <style>
   .panel {
-    width: 300px;
-    flex-shrink: 0;
-    box-sizing: border-box;
     padding: var(--space-4);
-    background: var(--color-surface);
-    border-left: 1px solid var(--color-border);
-    overflow-y: auto;
   }
   h2 {
     margin: 0 0 var(--space-3);

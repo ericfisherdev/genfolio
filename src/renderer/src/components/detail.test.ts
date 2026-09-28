@@ -55,6 +55,17 @@ describe('DetailView', () => {
     expect(panel.textContent).toContain('1.2 MB')
   })
 
+  it('reloads the generation data when a scan changes the root list', async () => {
+    const getGeneration = vi.fn(async () => null)
+    let roots = sampleLibrary().roots
+    const { services } = await openDetail(8, { getGeneration, listRoots: async () => roots })
+    await waitFor(() => expect(getGeneration).toHaveBeenCalledTimes(1))
+    roots = [{ ...roots[0]!, imageCount: 9 }]
+    await services.library.refresh()
+    await waitFor(() => expect(getGeneration).toHaveBeenCalledTimes(2))
+    expect(getGeneration).toHaveBeenLastCalledWith(8)
+  })
+
   it('steps with the arrow keys and stops at the ends', async () => {
     const { services } = await openDetail(8)
     await fireEvent.keyDown(window, { key: 'ArrowRight' })

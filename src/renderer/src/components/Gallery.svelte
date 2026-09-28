@@ -7,7 +7,7 @@
   import { RouteKind } from '../lib/routing/route'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api } = getAppServices()
+  const { gallery, router, sort, library, scans, api, copier } = getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
@@ -121,6 +121,7 @@
               onreveal={() => library.fileAction('show the file', () => api.revealImage(imageId))}
               oncopypath={() =>
                 library.fileAction('copy the path', () => api.copyImagePath(imageId))}
+              oncopy={(variant) => copier.copy(imageId, variant)}
             />
           </div>
         {/each}
