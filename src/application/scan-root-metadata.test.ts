@@ -176,6 +176,28 @@ describe('ScanRoot metadata indexing', () => {
     })
   })
 
+  it('keeps favourites, ratings, tags and album membership when a changed file is re-indexed', async () => {
+    await scan()
+    const id = imageId('day', A1111_WEBP)
+    db.prepare('UPDATE images SET is_favorite = 1, rating = 4 WHERE id = ?').run(id)
+    db.exec("INSERT INTO tags (id, name, created_at) VALUES (1, 'keeper', 1)")
+    db.prepare('INSERT INTO image_tags VALUES (?, 1)').run(id)
+    db.exec("INSERT INTO albums (id, name, kind, created_at) VALUES (1, 'best', 'manual', 1)")
+    db.prepare('INSERT INTO album_images VALUES (1, ?, 1.0)').run(id)
+    const path = join(dir, 'day', A1111_WEBP)
+    utimesSync(path, new Date(), new Date(Date.now() + 5000))
+    expect(await scan()).toMatchObject({ updated: 1 })
+    expect(imageId('day', A1111_WEBP)).toBe(id)
+    expect(db.prepare('SELECT is_favorite, rating FROM images WHERE id = ?').get(id)).toEqual({
+      is_favorite: 1,
+      rating: 4
+    })
+    expect(db.prepare('SELECT COUNT(*) FROM image_tags WHERE image_id = ?').pluck().get(id)).toBe(1)
+    expect(db.prepare('SELECT COUNT(*) FROM album_images WHERE image_id = ?').pluck().get(id)).toBe(
+      1
+    )
+  })
+
   it('ignores logs under lists/', async () => {
     mkdirSync(join(dir, 'lists', 'favourites'), { recursive: true })
     cpSync(join(FIXTURES, NO_METADATA_PNG), join(dir, 'lists', 'favourites', NO_METADATA_PNG))
