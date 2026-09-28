@@ -7,6 +7,8 @@ export { CopyVariant, GenerationFormat, GeneratorKind, ResourceKind } from './ge
 export const generationResourceSchema = z
   .object({
     kind: z.enum(ResourceKind),
+    /** The stored model's id, to link to a filter; null if it isn't stored. */
+    modelId: z.number().int().positive().nullable(),
     name: z.string(),
     hash: z.string().nullable(),
     /** LoRAs only; null when no source gave one. */

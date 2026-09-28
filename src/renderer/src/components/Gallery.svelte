@@ -132,6 +132,8 @@
               oncopypath={() =>
                 library.fileAction('copy the path', () => api.copyImagePath(imageId))}
               oncopy={(variant) => copier.copy(imageId, variant)}
+              onsameprompt={() =>
+                router.navigate({ kind: RouteKind.All, filters: { samePromptAs: imageId } })}
             />
           </div>
         {/each}

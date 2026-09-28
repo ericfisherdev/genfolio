@@ -12,9 +12,11 @@
     oncopypath: () => void
     /** Click copies the prompt; Shift-click copies all generation data. */
     oncopy: (variant: CopyVariant) => void
+    /** Shows every image with this image's prompt. */
+    onsameprompt: () => void
   }
 
-  let { imageId, card, onopen, onreveal, oncopypath, oncopy }: Props = $props()
+  let { imageId, card, onopen, onreveal, oncopypath, oncopy, onsameprompt }: Props = $props()
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
 </script>
 
@@ -28,7 +30,8 @@
       actions={[
         { label: 'Open', onselect: onopen },
         { label: 'Show in folder', onselect: onreveal },
-        { label: 'Copy path', onselect: oncopypath }
+        { label: 'Copy path', onselect: oncopypath },
+        { label: 'Same prompt', onselect: onsameprompt }
       ]}
     />
     <button

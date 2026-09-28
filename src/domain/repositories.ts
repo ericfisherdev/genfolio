@@ -1,3 +1,4 @@
+import type { ModelKind } from '@shared/generation-kinds'
 import type { StoredGeneration } from './generation'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
@@ -100,4 +101,10 @@ export interface FooocusLogRepository {
   find(directoryId: DirectoryId): FileStamp | undefined
   save(directoryId: DirectoryId, stamp: FileStamp): void
   remove(directoryId: DirectoryId): void
+}
+
+/** Finds stored checkpoints and LoRAs by name, so views can link to them as filters. */
+export interface ModelDirectory {
+  /** The model's id by name identity (folder, extension and case ignored), if stored. */
+  idOf(kind: ModelKind, name: string): number | undefined
 }
