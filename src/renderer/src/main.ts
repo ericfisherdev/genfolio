@@ -54,7 +54,7 @@ const services: AppServices = {
   similarity: new SimilarityState(
     api,
     library,
-    () => void gallery.reload(),
+    () => void gallery.refresh(),
     async (ids) => {
       const report = await deletion.delete(ids, DeleteMode.Trash)
       return report !== undefined && !report.cancelled && report.deleted.length > 0

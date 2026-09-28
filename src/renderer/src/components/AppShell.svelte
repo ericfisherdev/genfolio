@@ -29,7 +29,7 @@
       return
     }
     untrack(() => {
-      void gallery.reload()
+      void gallery.refresh()
       if (gallery.query) void facets.load(gallery.query)
     })
   })
@@ -59,7 +59,7 @@
     if (wasHashing && !hashing) {
       untrack(() => {
         void similarity.load()
-        void gallery.reload()
+        void gallery.refresh()
       })
     }
     wasHashing = hashing

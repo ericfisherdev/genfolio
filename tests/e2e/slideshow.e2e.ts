@@ -1,5 +1,6 @@
 import { rmSync } from 'node:fs'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
 
@@ -35,16 +36,11 @@ async function openGallery(): Promise<Page> {
   return page
 }
 
-const cards = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Images' }).getByRole('listitem')
-
 const slide = (page: Page): Locator => page.locator('.slide')
 
 test('the slideshow steps, pauses, shows the prompt and returns where it started', async () => {
   const page = await openGallery()
-  const names = await cards(page)
-    .getByRole('article')
-    .evaluateAll((articles) => articles.map((article) => article.getAttribute('aria-label') ?? ''))
+  const names = await cardNames(page)
 
   await page.getByRole('button', { name: '▶ Slideshow' }).click()
   const show = page.getByRole('region', { name: 'Slideshow' })

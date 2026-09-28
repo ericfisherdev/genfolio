@@ -1,7 +1,8 @@
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { askedToDelete, stubTrashAndDialogs } from './support/trash'
 import { launchApp, type LaunchedApp } from './support/launch'
@@ -44,15 +45,6 @@ async function openGallery(): Promise<Page> {
   await page.evaluate(() => (location.hash = '#/'))
   await expect(cards(page)).toHaveCount(6)
   return page
-}
-
-const cards = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Images' }).getByRole('listitem')
-
-function cardNames(page: Page): Promise<string[]> {
-  return cards(page)
-    .getByRole('article')
-    .evaluateAll((articles) => articles.map((article) => article.getAttribute('aria-label') ?? ''))
 }
 
 test('a bulk delete trashes the files, forgets missing ones and reports the one it could not delete', async () => {
