@@ -154,6 +154,8 @@ export function createLibraryHandlers(
   // Images left unhashed by an earlier session (or by an older HASH_VERSION).
   void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
   hashing.request()
+  // Changes made while the app was closed: every root is scanned (unchanged files are cheap).
+  void roots.reconcileAll().catch(logFailure('reconciling the library'))
 
   return {
     [ServiceMethod.Health]: () => health.report(),
