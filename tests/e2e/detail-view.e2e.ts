@@ -71,8 +71,13 @@ test('opens the original, steps with the arrow keys and shows file details', asy
 test('Escape returns to the gallery at the same scroll position', async () => {
   const page = await openLibrary({ width: 800, height: 500 })
   const scroller = page.locator('.scroller')
-  await scroller.evaluate((element) => (element.scrollTop = 900))
-  await page.waitForTimeout(100)
+  await scroller.evaluate(
+    (element) =>
+      new Promise<void>((resolve) => {
+        element.addEventListener('scroll', () => resolve(), { once: true })
+        element.scrollTop = 900
+      })
+  )
   const visible = page.getByRole('listitem').filter({ has: page.locator('img') })
   await visible
     .nth(2)

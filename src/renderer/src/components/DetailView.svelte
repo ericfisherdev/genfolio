@@ -33,9 +33,10 @@
     }
   })
 
+  // Re-runs when a reload clears the card cache, so the panel never stays on "Loading".
   $effect(() => {
     const id = imageId
-    if (id > 0) untrack(() => void gallery.ensureCards([id]))
+    if (id > 0 && card === undefined) untrack(() => void gallery.ensureCards([id]))
   })
 
   // Decode neighbours ahead of time so stepping through feels instant.
@@ -54,9 +55,14 @@
   }
   const back = (): void => router.navigate(routeForQuery(gallery.query))
 
+  /** Keys aimed at form fields, the folder tree, an open menu or a dialog are theirs. */
+  const ownedByAnotherWidget = (target: EventTarget | null): boolean =>
+    target instanceof Element &&
+    target.closest('input, select, textarea, [role="tree"], [aria-expanded="true"], dialog') !==
+      null
+
   function onkeydown(event: KeyboardEvent): void {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)
-      return
+    if (event.defaultPrevented || ownedByAnotherWidget(event.target)) return
     if (event.key === 'ArrowLeft') show(previousId)
     else if (event.key === 'ArrowRight') show(nextId)
     else if (event.key === 'Escape') back()

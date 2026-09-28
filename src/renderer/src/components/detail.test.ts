@@ -6,6 +6,7 @@ import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
+import AppShell from './AppShell.svelte'
 import DetailView from './DetailView.svelte'
 
 const layout = new Int32Array([7, 832, 1216, 8, 1024, 1024, 9, 1024, 1024])
@@ -85,5 +86,55 @@ describe('DetailView', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Copy path' }))
     expect(revealImage).toHaveBeenCalledWith(7)
     expect(copyImagePath).toHaveBeenCalledWith(7)
+  })
+
+  it('leaves keys to the folder tree, open menus and dialogs', async () => {
+    const { services } = await openDetail(8)
+    const tree = document.createElement('ul')
+    tree.setAttribute('role', 'tree')
+    const item = document.createElement('li')
+    item.tabIndex = 0
+    tree.append(item)
+    const dialog = document.createElement('dialog')
+    const button = document.createElement('button')
+    dialog.append(button)
+    document.body.append(tree, dialog)
+
+    await fireEvent.keyDown(item, { key: 'ArrowRight' })
+    await fireEvent.keyDown(button, { key: 'Escape' })
+    const handled = new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+      cancelable: true
+    })
+    handled.preventDefault()
+    window.dispatchEvent(handled)
+
+    expect(services.router.route).toEqual({ kind: RouteKind.Image, imageId: 8 })
+  })
+})
+
+describe('library changes while an image is open', () => {
+  it('reload the results so the gallery is current on return', async () => {
+    const getImageLayout = vi.fn(async () => layout)
+    const listRoots = vi.fn(async () => sampleLibrary().roots)
+    const harness = testServices(sampleLibrary(), {
+      getImageLayout,
+      listRoots,
+      getImages: async (ids) => ids.map(cardFor)
+    })
+    await harness.services.library.refresh()
+    await harness.services.gallery.load({
+      scope: { kind: GalleryScopeKind.All },
+      sort: SortOrder.Newest
+    })
+    harness.services.router.navigate({ kind: RouteKind.Image, imageId: 8 })
+    render(AppShell, { context: harness.context })
+    const callsBefore = getImageLayout.mock.calls.length
+
+    listRoots.mockResolvedValue([])
+    await harness.services.library.refresh()
+
+    await waitFor(() => expect(getImageLayout.mock.calls.length).toBeGreaterThan(callsBefore))
   })
 })

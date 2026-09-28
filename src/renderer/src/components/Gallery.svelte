@@ -23,7 +23,6 @@
   })
 
   // Load the query for the current route and sort; image routes keep the current results.
-  let loadedOnMount = false
   $effect(() => {
     const query = queryForRoute(
       router.route,
@@ -34,21 +33,7 @@
     untrack(() => {
       onscroll()
       void gallery.load(query)
-      loadedOnMount = true
     })
-  })
-
-  // A changed root list (scan finished, root added or removed) means the results changed.
-  // On mount, reload unless the route effect above has just loaded: the results may be from
-  // before roots changed while the gallery was not mounted.
-  let rootsSeen = false
-  $effect(() => {
-    void library.roots
-    if (!rootsSeen) {
-      rootsSeen = true
-      if (loadedOnMount) return
-    }
-    untrack(() => void gallery.reload())
   })
 
   // Resize every card from the layout whenever columns, width or results change.
