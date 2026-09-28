@@ -40,7 +40,15 @@ describe('registerLibraryChannels', () => {
       IpcChannel.RevealImage,
       IpcChannel.CopyImagePath,
       IpcChannel.GetGeneration,
-      IpcChannel.CopyGeneration
+      IpcChannel.CopyGeneration,
+      IpcChannel.ListTags,
+      IpcChannel.ImageTags,
+      IpcChannel.CreateTag,
+      IpcChannel.RenameTag,
+      IpcChannel.MergeTags,
+      IpcChannel.DeleteTag,
+      IpcChannel.ApplyTags,
+      IpcChannel.RemoveTags
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)
@@ -63,7 +71,7 @@ describe('registerLibraryChannels', () => {
   })
 
   it('forwards a validated facet query to the service', async () => {
-    const facets = { checkpoints: [], loras: [], generators: [], withoutMetadata: 0 }
+    const facets = { checkpoints: [], loras: [], tags: [], generators: [], withoutMetadata: 0 }
     const { request, invoke } = setup(async () => undefined, {
       [ServiceMethod.SearchFacets]: facets
     })

@@ -8,8 +8,10 @@ import { GalleryState } from '../state/gallery.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
-import { ImageMarks } from '../state/image-marks'
+import { ImageMarks, layoutUpdateFor } from '../state/image-marks'
 import { LibraryState } from '../state/library.svelte'
+import { refreshAfterTagChange } from '../state/refresh-after-tag-change'
+import { TagsState } from '../state/tags.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
 import { SortPreference, type PreferenceStore } from '../state/sort-preference.svelte'
 import { fakeGenfolioApi } from './fake-genfolio-api'
@@ -88,7 +90,14 @@ export function testServices(
     getDirectoryTree: async (rootId) => library.trees[rootId] ?? null,
     getImageLayout: async () => new Int32Array(0),
     getImages: async () => [],
-    getFacets: async () => ({ checkpoints: [], loras: [], generators: [], withoutMetadata: 0 }),
+    listTags: async () => [],
+    getFacets: async () => ({
+      checkpoints: [],
+      loras: [],
+      tags: [],
+      generators: [],
+      withoutMetadata: 0
+    }),
     onScanEvent: (listener) => {
       scanListener = listener
       return () => undefined
@@ -99,9 +108,10 @@ export function testServices(
   const libraryState = new LibraryState(api)
   const gallery = new GalleryState(api)
   const facets = new FacetsState(api)
+  const router = new RouterState(hash)
   const services: AppServices = {
     api,
-    router: new RouterState(hash),
+    router,
     library: libraryState,
     gallery,
     scans: new ScanProgressState(api, () => void libraryState.refresh()),
@@ -109,7 +119,10 @@ export function testServices(
     generation: new GenerationDetailsState(api),
     copier: new GenerationCopier(api, libraryState),
     facets,
-    marks: new ImageMarks(api, gallery, facets, libraryState)
+    marks: new ImageMarks(api, gallery, facets, libraryState),
+    tags: new TagsState(api, libraryState, () =>
+      refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
+    )
   }
   return {
     services,

@@ -11,6 +11,7 @@
   import GenerationPanel from './GenerationPanel.svelte'
   import ImageViewer from './ImageViewer.svelte'
   import NoticeBar from './NoticeBar.svelte'
+  import TagEditor from './TagEditor.svelte'
 
   const { router, gallery, sort, library, api, generation, copier, marks } = getAppServices()
   const count = new Intl.NumberFormat()
@@ -160,6 +161,9 @@
         onretry={() => void generation.retry()}
         onfind={find}
       />
+      {#if card}
+        <TagEditor {imageId} />
+      {/if}
       <FileInfoPanel
         {card}
         {rootPath}

@@ -6,6 +6,7 @@
   import DirectoryTree from './DirectoryTree.svelte'
   import RootMenu from './RootMenu.svelte'
   import ServiceStatus from './ServiceStatus.svelte'
+  import SidebarTags from './SidebarTags.svelte'
 
   const { library, router } = getAppServices()
   const count = new Intl.NumberFormat()
@@ -74,6 +75,8 @@
 
   <button type="button" class="add" onclick={() => library.addFolder()}>+ Add folder</button>
 
+  <SidebarTags />
+
   <details class="diagnostics">
     <summary>Library service</summary>
     <ServiceStatus />
@@ -83,7 +86,7 @@
 <ConfirmDialog
   open={removing !== undefined}
   title={`Remove ${removing?.label ?? ''} from the library?`}
-  message={`Genfolio will forget this folder and everything indexed from it. The files in ${removing?.path ?? ''} stay on disk and are not deleted.`}
+  message={`Genfolio will forget this folder and everything recorded for its images, including favourites, ratings, tags and album entries. The files in ${removing?.path ?? ''} stay on disk and are not deleted.`}
   confirmLabel="Remove"
   onconfirm={confirmRemove}
   oncancel={() => (removing = undefined)}

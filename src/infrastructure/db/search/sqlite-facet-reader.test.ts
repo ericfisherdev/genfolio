@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import type { ImageId } from '@domain/library'
 import { GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
@@ -6,6 +7,7 @@ import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteGenerationRepository } from '../repositories/sqlite-generation-repository'
 import { SqliteImageVersionCheck } from '../repositories/sqlite-image-version-check'
 import { SqliteModelCatalog } from '../repositories/sqlite-model-catalog'
+import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
 import { createSearchFilters } from './filters'
 import { SqliteFacetReader } from './sqlite-facet-reader'
@@ -69,7 +71,13 @@ describe('SqliteFacetReader', () => {
         recursive: false
       })
     )
-    expect(flat).toEqual({ checkpoints: [], loras: [], generators: [], withoutMetadata: 0 })
+    expect(flat).toEqual({
+      checkpoints: [],
+      loras: [],
+      tags: [],
+      generators: [],
+      withoutMetadata: 0
+    })
   })
 
   it('counts within a folder', () => {
@@ -189,5 +197,33 @@ describe('SqliteFacetReader', () => {
       ['alpha', 3],
       ['beta', 3]
     ])
+  })
+
+  it('counts tags, ignoring its own Any selection but keeping All and exclusions', () => {
+    const repository = new SqliteTagRepository(library.db)
+    const red = repository.create('red', 1).id
+    const blue = repository.create('blue', 1).id
+    const image = (n: number): ImageId => library.ids.get(n) ?? (0 as ImageId)
+    repository.apply([red], [image(1), image(2), image(3)])
+    repository.apply([blue], [image(2), image(4)])
+    expect(named(reader.facets(query()).tags)).toEqual([
+      ['red', 3],
+      ['blue', 2]
+    ])
+    expect(
+      named(reader.facets(query({ tags: { ids: [blue], mode: SetMatchMode.Any } })).tags)
+    ).toEqual([
+      ['red', 3],
+      ['blue', 2]
+    ])
+    expect(
+      named(reader.facets(query({ tags: { ids: [blue], mode: SetMatchMode.All } })).tags)
+    ).toEqual([
+      ['blue', 2],
+      ['red', 1]
+    ])
+    expect(
+      named(reader.facets(query({ tags: { mode: SetMatchMode.Any, excludeIds: [blue] } })).tags)
+    ).toEqual([['red', 2]])
   })
 })

@@ -17,6 +17,10 @@ const FACETS: SearchFacets = {
     { id: 2, name: 'detail', count: 7 },
     { id: 5, name: 'style', count: 2 }
   ],
+  tags: [
+    { id: 30, name: 'keeper', count: 4 },
+    { id: 31, name: 'draft', count: 1 }
+  ],
   generators: [
     { kind: GeneratorKind.A1111, count: 10 },
     { kind: GeneratorKind.Fooocus, count: 5 }
@@ -179,6 +183,25 @@ describe('FilterBar', () => {
     expect(harness.hash.current).toBe('#/?fav=1&rmin=3')
     const active = screen.getByRole('list', { name: 'Active filters' })
     expect(active.textContent).toContain('★★★ or more')
+  })
+
+  it('includes tags by any or all and excludes others', async () => {
+    const harness = await renderBar()
+    await fireEvent.click(screen.getByRole('button', { name: /^Tags/ }))
+    const tagsDialog = screen.getByRole('dialog', { name: 'Tags' })
+    await fireEvent.click(within(tagsDialog).getByRole('checkbox', { name: /keeper/ }))
+    await fireEvent.click(within(tagsDialog).getByRole('radio', { name: /all selected/ }))
+    await fireEvent.keyDown(tagsDialog, { key: 'Escape' })
+    await fireEvent.click(screen.getByRole('button', { name: /^Without tags/ }))
+    const withoutDialog = screen.getByRole('dialog', { name: 'Without tags' })
+    await fireEvent.click(within(withoutDialog).getByRole('checkbox', { name: /draft/ }))
+    expect(filters(harness)?.tags).toEqual({ ids: [30], mode: SetMatchMode.All, excludeIds: [31] })
+    expect(harness.hash.current).toBe('#/?tag=30&tmode=all&xtag=31')
+    const active = screen.getByRole('list', { name: 'Active filters' })
+    expect(active.textContent).toContain('Tag: keeper')
+    expect(active.textContent).toContain('Without: draft')
+    await fireEvent.click(within(active).getByRole('button', { name: 'Remove Tag: keeper' }))
+    expect(filters(harness)?.tags).toEqual({ mode: SetMatchMode.All, excludeIds: [31] })
   })
 
   it('toggles generators', async () => {

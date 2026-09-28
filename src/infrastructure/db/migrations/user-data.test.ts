@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { nameKey } from '@domain/name-key'
+import { nameKey } from '@shared/name-key'
 import { storedSearchFiltersSchema } from '@shared/search'
 import { MigrationRunner } from '../migration-runner'
 import { migrations } from '.'

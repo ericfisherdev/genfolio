@@ -9,6 +9,7 @@ import { ImageFileResolver } from '@application/image-file-resolver'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
+import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
@@ -19,6 +20,7 @@ import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlite-image-mark-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
+import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createSearchFilters } from '@infrastructure/db/search/filters'
 import { SqliteFacetReader } from '@infrastructure/db/search/sqlite-facet-reader'
@@ -63,6 +65,7 @@ export function createLibraryHandlers(
     now
   })
   const marks = new SqliteImageMarkRepository(db)
+  const tags = new TagService(new SqliteTagRepository(db), now)
   const searchFilters = createSearchFilters()
   const gallery = new SqliteGalleryReader(db, searchFilters)
   const facets = new SqliteFacetReader(db, searchFilters)
@@ -99,6 +102,18 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.GalleryLayout]: async ({ query }) => gallery.layout(query),
     [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
+    [ServiceMethod.TagsList]: async () => tags.list(),
+    [ServiceMethod.TagsOfImage]: async ({ imageId }) => tags.tagsOf(imageId as ImageId),
+    [ServiceMethod.TagsCreate]: async ({ name }) => tags.create(name),
+    [ServiceMethod.TagsRename]: async ({ id, name }) => tags.rename(id, name),
+    [ServiceMethod.TagsMerge]: async ({ fromId, intoId }) => tags.merge(fromId, intoId),
+    [ServiceMethod.TagsDelete]: async ({ id }) => ({ deleted: tags.delete(id) }),
+    [ServiceMethod.TagsApply]: async ({ tagIds, imageIds }) => ({
+      changed: tags.apply(tagIds, imageIds as ImageId[])
+    }),
+    [ServiceMethod.TagsRemove]: async ({ tagIds, imageIds }) => ({
+      changed: tags.remove(tagIds, imageIds as ImageId[])
+    }),
     [ServiceMethod.SetFavorite]: async ({ ids, favorite }) => ({
       changed: marks.setFavorite(ids as ImageId[], favorite)
     }),

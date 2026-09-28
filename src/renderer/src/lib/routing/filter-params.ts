@@ -53,6 +53,8 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
   const seed = params.get('seed')
   const same = params.get('same')
   const meta = params.get('meta')
+  const tagIds = idList(params.get('tag'))
+  const excludedTags = idList(params.get('xtag'))
   const minRating = Number(params.get('rmin'))
   const filters = defined<SearchFilters>([
     ['checkpointIds', idList(params.get('ckpt'))],
@@ -80,6 +82,19 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
     ['seed', seed && seed.length <= MAX_SEED_LENGTH ? seed : undefined],
     ['samePromptAs', same !== null && POSITIVE_INT.test(same) ? Number(same) : undefined],
     ['hasMetadata', meta === '1' ? true : meta === '0' ? false : undefined],
+    [
+      'tags',
+      tagIds || excludedTags
+        ? defined<NonNullable<SearchFilters['tags']>>([
+            ['ids', tagIds],
+            [
+              'mode',
+              params.get('tmode') === SetMatchMode.All ? SetMatchMode.All : SetMatchMode.Any
+            ],
+            ['excludeIds', excludedTags]
+          ])
+        : undefined
+    ],
     ['favoritesOnly', params.get('fav') === '1' ? true : undefined],
     [
       'minRating',
@@ -108,6 +123,9 @@ export function writeFilters(filters: SearchFilters | undefined, params: URLSear
   set('seed', filters.seed)
   set('same', filters.samePromptAs)
   set('meta', filters.hasMetadata === undefined ? undefined : filters.hasMetadata ? 1 : 0)
+  set('tag', filters.tags?.ids?.join(','))
+  set('tmode', filters.tags?.mode === SetMatchMode.All ? SetMatchMode.All : undefined)
+  set('xtag', filters.tags?.excludeIds?.join(','))
   set('fav', filters.favoritesOnly ? 1 : undefined)
   set('rmin', filters.minRating)
 }

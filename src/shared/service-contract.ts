@@ -11,6 +11,7 @@ import {
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { searchFacetsSchema } from './search'
+import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
 
 /** Methods the library service (utility process) answers over its parent port. */
@@ -28,13 +29,23 @@ export enum ServiceMethod {
   ImageGenerationText = 'images.generation-text',
   SearchFacets = 'search.facets',
   SetFavorite = 'images.set-favorite',
-  SetRating = 'images.set-rating'
+  SetRating = 'images.set-rating',
+  TagsList = 'tags.list',
+  TagsOfImage = 'tags.of-image',
+  TagsCreate = 'tags.create',
+  TagsRename = 'tags.rename',
+  TagsMerge = 'tags.merge',
+  TagsDelete = 'tags.delete',
+  TagsApply = 'tags.apply',
+  TagsRemove = 'tags.remove'
 }
 
 const noParams = z.object({}).strict()
 const rootIdParams = z.object({ rootId: z.number().int().positive() }).strict()
 const imageIdParams = z.object({ imageId: z.number().int().positive() }).strict()
 const markIds = z.array(z.number().int().positive()).min(1).max(MAX_IDS_PER_MARK)
+const tagId = z.number().int().positive()
+const tagIds = z.array(tagId).min(1).max(200)
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -64,6 +75,32 @@ export const serviceContract = {
   },
   [ServiceMethod.SetRating]: {
     params: z.object({ ids: markIds, rating: z.number().int().min(0).max(MAX_RATING) }).strict(),
+    result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.TagsList]: { params: noParams, result: z.array(tagSchema).readonly() },
+  [ServiceMethod.TagsOfImage]: { params: imageIdParams, result: z.array(tagSchema).readonly() },
+  [ServiceMethod.TagsCreate]: {
+    params: z.object({ name: tagNameSchema }).strict(),
+    result: tagChangeSchema
+  },
+  [ServiceMethod.TagsRename]: {
+    params: z.object({ id: tagId, name: tagNameSchema }).strict(),
+    result: tagChangeSchema
+  },
+  [ServiceMethod.TagsMerge]: {
+    params: z.object({ fromId: tagId, intoId: tagId }).strict(),
+    result: tagChangeSchema
+  },
+  [ServiceMethod.TagsDelete]: {
+    params: z.object({ id: tagId }).strict(),
+    result: z.object({ deleted: z.boolean() })
+  },
+  [ServiceMethod.TagsApply]: {
+    params: z.object({ tagIds, imageIds: markIds }).strict(),
+    result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.TagsRemove]: {
+    params: z.object({ tagIds, imageIds: markIds }).strict(),
     result: z.object({ changed: z.number().int().nonnegative() })
   },
   [ServiceMethod.GalleryImages]: {

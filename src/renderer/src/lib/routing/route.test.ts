@@ -40,7 +40,8 @@ describe('routes with filters', () => {
     samePromptAs: 7,
     hasMetadata: true,
     favoritesOnly: true,
-    minRating: 3
+    minRating: 3,
+    tags: { ids: [8, 9], mode: SetMatchMode.All, excludeIds: [10] }
   }
 
   it.each<Route>([

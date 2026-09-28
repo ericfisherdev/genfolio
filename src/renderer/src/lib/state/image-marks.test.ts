@@ -3,7 +3,8 @@ import { GalleryScopeKind, MAX_IDS_PER_MARK, SortOrder } from '@shared/gallery-k
 import type { GalleryQuery, ImageCard } from '@shared/gallery'
 import { ImageFormat } from '@shared/image-format'
 import { GalleryState } from './gallery.svelte'
-import { ImageMarks, LayoutUpdate } from './image-marks'
+import { RouteKind } from '../routing/route'
+import { ImageMarks, LayoutUpdate, layoutUpdateFor } from './image-marks'
 
 const card = (id: number): ImageCard => ({
   id,
@@ -174,3 +175,10 @@ function deferred(): { promise: Promise<number>; reject: (error: Error) => void 
   const promise = new Promise<number>((_, rejectPromise) => (reject = rejectPromise))
   return { promise, reject }
 }
+
+describe('layoutUpdateFor', () => {
+  it('defers while an image is open and reloads at once otherwise', () => {
+    expect(layoutUpdateFor({ kind: RouteKind.Image, imageId: 1 })).toBe(LayoutUpdate.Deferred)
+    expect(layoutUpdateFor({ kind: RouteKind.All })).toBe(LayoutUpdate.Now)
+  })
+})

@@ -15,6 +15,7 @@
   const filters: SearchFilters = $derived(route?.filters ?? {})
   const checkpoints = $derived(facets.facets?.checkpoints ?? [])
   const loras = $derived(facets.facets?.loras ?? [])
+  const tagFacets = $derived(facets.facets?.tags ?? [])
   /** Shown in the pickers only when there are no facets at all to fall back on. */
   const facetsError = $derived(facets.facets ? undefined : facets.loadError)
   const generators = $derived(
@@ -98,6 +99,20 @@
     apply({ ...filters, loras: next.ids.length > 0 ? next : undefined })
   }
 
+  /** Included tags, their match mode and excluded tags; an empty filter is dropped. */
+  function setTags(changes: Partial<NonNullable<SearchFilters['tags']>>): void {
+    const next = { mode: SetMatchMode.Any, ...filters.tags, ...changes }
+    const ids = next.ids?.length ? next.ids : undefined
+    const excludeIds = next.excludeIds?.length ? next.excludeIds : undefined
+    apply({
+      ...filters,
+      tags:
+        ids || excludeIds
+          ? { mode: next.mode, ...(ids ? { ids } : {}), ...(excludeIds ? { excludeIds } : {}) }
+          : undefined
+    })
+  }
+
   function weight(event: Event): number | undefined {
     const value = (event.currentTarget as HTMLInputElement).value
     const number = Number(value)
@@ -142,6 +157,15 @@
     }
     if (filters.samePromptAs !== undefined) {
       list.push({ label: 'Same prompt', remove: without('samePromptAs') })
+    }
+    if (filters.tags?.ids) {
+      const names = filters.tags.ids.map((id) => nameOf(tagFacets, id)).join(', ')
+      const mode = filters.tags.ids.length > 1 ? ` (${filters.tags.mode})` : ''
+      list.push({ label: `Tag${mode}: ${names}`, remove: () => setTags({ ids: [] }) })
+    }
+    if (filters.tags?.excludeIds) {
+      const names = filters.tags.excludeIds.map((id) => nameOf(tagFacets, id)).join(', ')
+      list.push({ label: `Without: ${names}`, remove: () => setTags({ excludeIds: [] }) })
     }
     if (filters.favoritesOnly) {
       list.push({ label: 'Favourites', remove: without('favoritesOnly') })
@@ -237,6 +261,40 @@
           </label>
         </div>
       </FacetPicker>
+      <FacetPicker
+        label="Tags"
+        values={tagFacets}
+        error={facetsError}
+        selected={filters.tags?.ids ?? []}
+        onchange={(ids) => setTags({ ids })}
+      >
+        <fieldset class="tag-mode">
+          <legend>Images with</legend>
+          <label>
+            <input
+              type="radio"
+              name="tag-mode"
+              checked={(filters.tags?.mode ?? SetMatchMode.Any) === SetMatchMode.Any}
+              onchange={() => setTags({ mode: SetMatchMode.Any })}
+            /> any selected
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="tag-mode"
+              checked={filters.tags?.mode === SetMatchMode.All}
+              onchange={() => setTags({ mode: SetMatchMode.All })}
+            /> all selected
+          </label>
+        </fieldset>
+      </FacetPicker>
+      <FacetPicker
+        label="Without tags"
+        values={tagFacets}
+        error={facetsError}
+        selected={filters.tags?.excludeIds ?? []}
+        onchange={(excludeIds) => setTags({ excludeIds })}
+      />
       <button
         type="button"
         class="chip-toggle"
@@ -321,6 +379,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
+    font-size: 0.9em;
+  }
+  .tag-mode {
     font-size: 0.9em;
   }
   fieldset {
