@@ -43,7 +43,12 @@ export class ImageMarks {
     private readonly notices: NoticeSink
   ) {}
 
-  setFavorite(ids: readonly number[], favorite: boolean, update = LayoutUpdate.Now): Promise<void> {
+  /** Resolves whether the change was stored (a failure is already reported). */
+  setFavorite(
+    ids: readonly number[],
+    favorite: boolean,
+    update = LayoutUpdate.Now
+  ): Promise<boolean> {
     return this.mark(
       ids,
       { favorite },
@@ -53,8 +58,8 @@ export class ImageMarks {
     )
   }
 
-  /** 0 clears the rating. */
-  setRating(ids: readonly number[], rating: number, update = LayoutUpdate.Now): Promise<void> {
+  /** 0 clears the rating. Resolves whether the change was stored. */
+  setRating(ids: readonly number[], rating: number, update = LayoutUpdate.Now): Promise<boolean> {
     return this.mark(ids, { rating }, (chunk) => this.api.setRating(chunk, rating), 'rate', update)
   }
 
@@ -64,8 +69,8 @@ export class ImageMarks {
     send: (chunk: readonly number[]) => Promise<number>,
     verb: string,
     update: LayoutUpdate
-  ): Promise<void> {
-    if (ids.length === 0) return
+  ): Promise<boolean> {
+    if (ids.length === 0) return true
     const patch = this.gallery.patchCards(ids, fields)
     let start = 0
     try {
@@ -78,9 +83,10 @@ export class ImageMarks {
       const what = ids.length === 1 ? 'the image' : `${ids.length} images`
       this.notices.notify(`Could not ${verb} ${what}: ${userMessage(error)}`)
       if (start > 0) await this.refreshResults(update)
-      return
+      return false
     }
     await this.refreshResults(update)
+    return true
   }
 
   private async refreshResults(update: LayoutUpdate): Promise<void> {

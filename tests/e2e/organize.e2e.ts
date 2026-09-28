@@ -182,3 +182,36 @@ test('tags are created, applied, filtered, renamed, merged and deleted', async (
     .click()
   await expect(page.getByRole('list', { name: 'Tags' })).toHaveCount(0)
 })
+
+test('a selection is favourited and tagged from the bulk bar', async () => {
+  const page = await openGallery()
+  const first = '2026-09-27_20-36-27_8675.png'
+  const second = '2026-09-27_20-38-19_1754.png'
+  await card(page, first)
+    .getByRole('button', { name: /^Open / })
+    .click({ modifiers: ['Control'] })
+  await card(page, second)
+    .getByRole('checkbox', { name: /^Select / })
+    .click()
+  const bar = page.getByRole('toolbar', { name: 'Selected images' })
+  await expect(bar).toContainText('2 images selected')
+
+  await bar.getByRole('button', { name: '♥ Favourite' }).click()
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Added 2 images to favourites.' })
+  ).toBeVisible()
+  const input = bar.getByRole('combobox', { name: 'Tag them' })
+  await input.fill('batch')
+  await input.press('Enter')
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Tagged 2 images with “batch”.' })
+  ).toBeVisible()
+
+  await bar.getByRole('button', { name: 'Clear' }).click()
+  await expect(bar).toHaveCount(0)
+  await expect(
+    page.getByRole('list', { name: 'Tags' }).getByRole('button', { name: /^batch/ })
+  ).toContainText('2')
+  expect(await storedMarks(page, first)).toEqual({ favorite: true, rating: 0 })
+  expect(await storedMarks(page, second)).toEqual({ favorite: true, rating: 0 })
+})

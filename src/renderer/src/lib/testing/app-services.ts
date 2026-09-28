@@ -11,6 +11,7 @@ import { GenerationDetailsState } from '../state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from '../state/image-marks'
 import { LibraryState } from '../state/library.svelte'
 import { refreshAfterTagChange } from '../state/refresh-after-tag-change'
+import { SelectionState } from '../state/selection.svelte'
 import { TagsState } from '../state/tags.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
 import { SortPreference, type PreferenceStore } from '../state/sort-preference.svelte'
@@ -122,7 +123,8 @@ export function testServices(
     marks: new ImageMarks(api, gallery, facets, libraryState),
     tags: new TagsState(api, libraryState, () =>
       refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
-    )
+    ),
+    selection: new SelectionState(gallery)
   }
   return {
     services,

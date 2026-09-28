@@ -1,0 +1,112 @@
+<script lang="ts">
+  import type { Tag } from '@shared/tags'
+  import { getAppServices } from '../lib/app-context'
+  import RatingStars from './RatingStars.svelte'
+  import TagCombobox from './TagCombobox.svelte'
+
+  const { selection, marks, tags, library, gallery } = getAppServices()
+  const count = new Intl.NumberFormat()
+  const selected = $derived(selection.count)
+  const images = (n: number): string => `${count.format(n)} image${n === 1 ? '' : 's'}`
+
+  /** Runs a bulk action on the selection and confirms it in the notice bar when it worked. */
+  async function onSelection(
+    action: (ids: number[]) => Promise<boolean>,
+    done: (n: number) => string
+  ): Promise<void> {
+    const ids = selection.list()
+    if (await action(ids)) library.notify(done(ids.length))
+  }
+
+  async function tag(choice: Tag | string): Promise<void> {
+    const chosen = typeof choice === 'string' ? await tags.ensure(choice) : choice
+    if (!chosen) return
+    await onSelection(
+      (ids) => tags.apply([chosen], ids),
+      (n) => `Tagged ${images(n)} with “${chosen.name}”.`
+    )
+  }
+</script>
+
+<div class="bulk-bar" role="toolbar" aria-label="Selected images">
+  <span class="count" aria-live="polite">{images(selected)} selected</span>
+  <button
+    type="button"
+    onclick={() =>
+      onSelection(
+        (ids) => marks.setFavorite(ids, true),
+        (n) => `Added ${images(n)} to favourites.`
+      )}>♥ Favourite</button
+  >
+  <button
+    type="button"
+    onclick={() =>
+      onSelection(
+        (ids) => marks.setFavorite(ids, false),
+        (n) => `Removed ${images(n)} from favourites.`
+      )}>♡ Unfavourite</button
+  >
+  <span class="rate">
+    Rate
+    <RatingStars
+      rating={0}
+      label="Rate the selected images"
+      onrate={(rating) =>
+        onSelection(
+          (ids) => marks.setRating(ids, rating),
+          (n) =>
+            rating === 0
+              ? `Cleared the rating of ${images(n)}.`
+              : `Rated ${images(n)} ${'★'.repeat(rating)}.`
+        )}
+    />
+  </span>
+  <div class="tag">
+    <TagCombobox
+      tags={tags.tags}
+      applied={[]}
+      onpick={(choice) => void tag(choice)}
+      label="Tag them"
+    />
+  </div>
+  <span class="spacer"></span>
+  {#if selected < gallery.count}
+    <button type="button" onclick={() => selection.selectAll()}>
+      Select all {count.format(gallery.count)}
+    </button>
+  {/if}
+  <button type="button" onclick={() => selection.clear()}>Clear</button>
+</div>
+
+<style>
+  .bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-selected);
+  }
+  .count {
+    font-weight: 600;
+  }
+  button {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-1);
+    padding: var(--space-1) var(--space-3);
+    cursor: pointer;
+  }
+  .rate {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .tag {
+    width: 200px;
+  }
+  .spacer {
+    flex: 1;
+  }
+</style>

@@ -8,7 +8,8 @@
   import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api, copier, facets, marks } = getAppServices()
+  const { gallery, router, sort, library, scans, api, copier, facets, marks, selection } =
+    getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
@@ -87,11 +88,30 @@
   })
 
   const open = (imageId: number): void => router.navigate({ kind: RouteKind.Image, imageId })
+
+  // A new query (scope, filters, sort) starts with nothing selected.
+  $effect(() => {
+    void gallery.key
+    untrack(() => selection.clear())
+  })
+
+  /** Ctrl/Cmd+A selects every result; Escape clears the selection. Fields keep their keys. */
+  function onkeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented) return
+    const target = event.target
+    if (target instanceof Element && target.closest('input, select, textarea, dialog')) return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') selection.selectAll()
+    else if (event.key === 'Escape' && selection.count > 0) selection.clear()
+    else return
+    event.preventDefault()
+  }
   const filtered = $derived(routeFilters(router.route) !== undefined)
   function clearFilters(): void {
     if (router.route.kind !== RouteKind.Image) router.navigate(withFilters(router.route, undefined))
   }
 </script>
+
+<svelte:window {onkeydown} />
 
 <div class="scroller" bind:this={scroller} {onscroll}>
   <!-- Measured inside the padding, so columns fill the content box exactly. -->
@@ -139,6 +159,10 @@
               onsameprompt={() => router.navigate(samePromptRoute(imageId))}
               onfavorite={(favorite) => marks.setFavorite([imageId], favorite)}
               onrate={(rating) => marks.setRating([imageId], rating)}
+              selected={selection.has(imageId)}
+              selecting={selection.count > 0}
+              onselect={(range) =>
+                range ? selection.extendTo(imageId) : selection.toggle(imageId)}
             />
           </div>
         {/each}

@@ -2,6 +2,7 @@
   import { untrack } from 'svelte'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
+  import BulkBar from './BulkBar.svelte'
   import DetailView from './DetailView.svelte'
   import FilterBar from './FilterBar.svelte'
   import LibraryView from './LibraryView.svelte'
@@ -9,7 +10,7 @@
   import Sidebar from './Sidebar.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans, router, gallery, facets, tags } = getAppServices()
+  const { library, scans, router, gallery, facets, tags, selection } = getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
   // changed, whether the gallery or the detail view is on screen. The shell stays mounted in
@@ -47,7 +48,11 @@
       <DetailView />
     {:else}
       <TopBar />
-      <FilterBar />
+      {#if selection.count > 0}
+        <BulkBar />
+      {:else}
+        <FilterBar />
+      {/if}
       <NoticeBar />
       <LibraryView />
     {/if}
