@@ -38,13 +38,13 @@ import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
 import { LibraryServiceSupervisor } from './service/library-service-supervisor'
 import { claimSingleInstance, focusWindow } from './single-instance'
-import { e2eUserDataOverride } from './user-data-override'
+import { userDataLocation } from './user-data-override'
 import { createMainWindow } from './window'
 
 // Composition root of the main process.
 
-const userDataOverride = e2eUserDataOverride(process.env)
-if (userDataOverride) app.setPath('userData', userDataOverride)
+const userData = userDataLocation(process.env, app.isPackaged, app.getPath('appData'))
+if (userData) app.setPath('userData', userData)
 
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 const rendererEntry: RendererEntry =
