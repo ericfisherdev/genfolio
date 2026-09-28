@@ -1,6 +1,8 @@
 import type { UtilityProcess } from 'electron'
 import type { ServiceMethod, ServiceResults } from '@shared/service-rpc'
 import { isServiceResponse } from '@shared/service-rpc-guards'
+import { serviceResultSchemas } from '@shared/service-result-schemas'
+import { describeIssues } from '@shared/validation'
 
 /** The library service process exited before answering. */
 export class ServiceExitedError extends Error {
@@ -10,7 +12,7 @@ export class ServiceExitedError extends Error {
   }
 }
 
-/** The library service answered a request with an error. */
+/** The library service answered with an error, or with a result that fails its schema. */
 export class ServiceRequestError extends Error {
   constructor(
     readonly method: ServiceMethod,
@@ -32,8 +34,8 @@ export class ServiceTimeoutError extends Error {
 /** Anything that can forward a request to the library service. */
 export interface ServiceRequester {
   /**
-   * Rejects with {@link ServiceRequestError}, {@link ServiceTimeoutError}
-   * or {@link ServiceExitedError}.
+   * Rejects with {@link ServiceRequestError} (service error or malformed result),
+   * {@link ServiceTimeoutError} or {@link ServiceExitedError}.
    */
   request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]>
 }
@@ -64,6 +66,11 @@ export class LibraryServiceClient implements ServiceRequester {
   ) {
     child.on('message', (message: unknown) => this.settle(message))
     child.on('exit', (code: number) => this.failAll(code))
+  }
+
+  /** Requests awaiting an answer; settled, timed-out and failed requests are removed. */
+  get pendingRequestCount(): number {
+    return this.pending.size
   }
 
   request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]> {
@@ -97,9 +104,20 @@ export class LibraryServiceClient implements ServiceRequester {
     if (!pending) return
     this.pending.delete(message.id)
     if (message.ok) {
-      pending.resolve(message.result)
+      this.resolveValidated(pending, message.result)
     } else {
       pending.reject(new ServiceRequestError(pending.method, message.error))
+    }
+  }
+
+  private resolveValidated(pending: PendingRequest, result: unknown): void {
+    const parsed = serviceResultSchemas[pending.method].safeParse(result)
+    if (parsed.success) {
+      pending.resolve(parsed.data)
+    } else {
+      pending.reject(
+        new ServiceRequestError(pending.method, `malformed result: ${describeIssues(parsed.error)}`)
+      )
     }
   }
 

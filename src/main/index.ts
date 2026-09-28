@@ -1,10 +1,12 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { z } from 'zod'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IpcChannel } from '@shared/genfolio-api'
 import { ServiceMethod } from '@shared/service-rpc'
 import icon from '../../resources/icon.png?asset'
-import type { RendererEntry } from './app-url'
+import { isAppUrl, type RendererEntry } from './app-url'
+import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
@@ -42,7 +44,10 @@ app.whenReady().then(() => {
       error: (message) => console.error(`[main] ${message}`)
     }
   )
-  ipcMain.handle(IpcChannel.ServiceHealth, () => libraryService.request(ServiceMethod.Health))
+  const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
+  ipc.register(IpcChannel.ServiceHealth, z.tuple([]), () =>
+    libraryService.request(ServiceMethod.Health)
+  )
 
   openMainWindow()
   app.on('activate', () => {

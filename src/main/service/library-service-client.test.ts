@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ServiceHealth } from '@shared/service-health'
 import { ServiceMethod, type ServiceRequest } from '@shared/service-rpc'
 import {
   LibraryServiceClient,
@@ -29,6 +30,14 @@ function setup(options: Partial<LibraryServiceClientOptions> = {}): {
   return { child, client }
 }
 
+const health: ServiceHealth = {
+  electron: '44.4.5',
+  node: '24.21.0',
+  sqlite: '3.53.4',
+  fts5: true,
+  decodableFormats: ['png']
+}
+
 afterEach(() => {
   vi.useRealTimers()
 })
@@ -38,8 +47,9 @@ describe('LibraryServiceClient', () => {
     const { child, client } = setup()
     const pending = client.request(ServiceMethod.Health)
     const [request] = child.sent
-    child.emit('message', { id: request?.id, ok: true, result: { sqlite: '3' } })
-    await expect(pending).resolves.toEqual({ sqlite: '3' })
+    child.emit('message', { id: request?.id, ok: true, result: health })
+    await expect(pending).resolves.toEqual(health)
+    expect(client.pendingRequestCount).toBe(0)
   })
 
   it('rejects with ServiceRequestError on an error response', async () => {
@@ -53,9 +63,16 @@ describe('LibraryServiceClient', () => {
     const { child, client } = setup()
     const pending = client.request(ServiceMethod.Health)
     child.emit('message', 'garbage')
-    child.emit('message', { id: 999, ok: true, result: 1 })
-    child.emit('message', { id: child.sent[0]?.id, ok: true, result: 2 })
-    await expect(pending).resolves.toBe(2)
+    child.emit('message', { id: 999, ok: true, result: health })
+    child.emit('message', { id: child.sent[0]?.id, ok: true, result: health })
+    await expect(pending).resolves.toEqual(health)
+  })
+
+  it('rejects a result that fails the method schema', async () => {
+    const { child, client } = setup()
+    const pending = client.request(ServiceMethod.Health)
+    child.emit('message', { id: child.sent[0]?.id, ok: true, result: { ...health, fts5: 'yes' } })
+    await expect(pending).rejects.toThrow(/malformed result: fts5/)
   })
 
   it('rejects with ServiceTimeoutError when the service never answers', async () => {
@@ -67,13 +84,14 @@ describe('LibraryServiceClient', () => {
     await assertion
   })
 
-  it('ignores a late answer after the deadline passed', async () => {
+  it('forgets a timed-out request', async () => {
     vi.useFakeTimers()
-    const { child, client } = setup({ requestTimeoutMs: 500 })
-    const pending = client.request(ServiceMethod.Health).catch((error: unknown) => error)
+    const { client } = setup({ requestTimeoutMs: 500 })
+    const pending = client.request(ServiceMethod.Health).catch(() => undefined)
+    expect(client.pendingRequestCount).toBe(1)
     await vi.advanceTimersByTimeAsync(501)
-    child.emit('message', { id: child.sent[0]?.id, ok: true, result: 'late' })
-    expect(await pending).toBeInstanceOf(ServiceTimeoutError)
+    await pending
+    expect(client.pendingRequestCount).toBe(0)
   })
 
   it('rejects outstanding and future requests after the process exits', async () => {

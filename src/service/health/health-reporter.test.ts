@@ -23,7 +23,7 @@ describe('HealthReporter', () => {
 
   it('rejects when fields are missing', async () => {
     const reporter = new HealthReporter([probeOf({ electron: '44' })])
-    await expect(reporter.report()).rejects.toThrow(/missing fields: node, sqlite/)
+    await expect(reporter.report()).rejects.toThrow(/incomplete: node: .*; sqlite: /)
   })
 
   it('rejects when a probe fails', async () => {

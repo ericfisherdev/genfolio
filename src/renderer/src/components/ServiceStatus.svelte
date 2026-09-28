@@ -3,7 +3,11 @@
   import { getGenfolioApi } from '../lib/api-context'
 
   const api = getGenfolioApi()
-  const health: Promise<ServiceHealth> = api.getServiceHealth()
+  let health: Promise<ServiceHealth> = $state(api.getServiceHealth())
+
+  function retry(): void {
+    health = api.getServiceHealth()
+  }
 </script>
 
 <section class="service-status" aria-label="Library service status">
@@ -24,6 +28,7 @@
     <p role="alert">
       Library service unavailable: {error instanceof Error ? error.message : error}
     </p>
+    <button type="button" onclick={retry}>Retry</button>
   {/await}
 </section>
 

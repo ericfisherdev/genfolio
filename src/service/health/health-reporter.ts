@@ -1,26 +1,18 @@
-import type { ServiceHealth } from '@shared/service-health'
+import { serviceHealthSchema, type ServiceHealth } from '@shared/service-health'
+import { describeIssues } from '@shared/validation'
 import type { HealthProbe } from './health-probe'
-
-const REQUIRED_FIELDS: readonly (keyof ServiceHealth)[] = [
-  'electron',
-  'node',
-  'sqlite',
-  'fts5',
-  'decodableFormats'
-]
 
 /** Runs every probe and merges their results into one complete report. */
 export class HealthReporter {
   constructor(private readonly probes: readonly HealthProbe[]) {}
 
-  /** Rejects when any probe fails or a required field is missing from the merged report. */
+  /** Rejects when any probe fails or the merged report does not match {@link serviceHealthSchema}. */
   async report(): Promise<ServiceHealth> {
     const parts = await Promise.all(this.probes.map((probe) => probe.probe()))
-    const merged = Object.assign({}, ...parts) as Partial<ServiceHealth>
-    const missing = REQUIRED_FIELDS.filter((field) => merged[field] === undefined)
-    if (missing.length > 0) {
-      throw new Error(`Health report missing fields: ${missing.join(', ')}`)
+    const merged = serviceHealthSchema.safeParse(Object.assign({}, ...parts))
+    if (!merged.success) {
+      throw new Error(`Health report incomplete: ${describeIssues(merged.error)}`)
     }
-    return merged as ServiceHealth
+    return merged.data
   }
 }
