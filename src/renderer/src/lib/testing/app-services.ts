@@ -6,6 +6,7 @@ import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
 import { AlbumsState } from '../state/albums.svelte'
+import { DeleteMode } from '@shared/deletion-kinds'
 import { ImageDeletion } from '../state/image-deletion.svelte'
 import { SlideshowNavigator } from '../slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from '../slideshow/slideshow-presets.svelte'
@@ -119,6 +120,7 @@ export function testServices(
   const libraryState = new LibraryState(api)
   const gallery = new GalleryState(api)
   const facets = new FacetsState(api)
+  const deletion = new ImageDeletion(api, libraryState, () => void libraryState.refresh())
   const router = new RouterState(hash)
   const services: AppServices = {
     api,
@@ -138,8 +140,16 @@ export function testServices(
     slideshowSettings: new SlideshowSettingsState(memoryStore()),
     slideshowPresets: new SlideshowPresetsState(api, libraryState),
     slideshowNavigator: new SlideshowNavigator(router, gallery),
-    similarity: new SimilarityState(api, libraryState, () => void gallery.reload()),
-    deletion: new ImageDeletion(api, libraryState, () => void libraryState.refresh()),
+    similarity: new SimilarityState(
+      api,
+      libraryState,
+      () => void gallery.reload(),
+      async (ids) => {
+        const report = await deletion.delete(ids, DeleteMode.Trash)
+        return report !== undefined && !report.cancelled && report.deleted.length > 0
+      }
+    ),
+    deletion,
     albums: new AlbumsState(api, libraryState, () =>
       refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
     )

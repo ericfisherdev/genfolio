@@ -7,6 +7,7 @@
   import DeleteReportDialog from './DeleteReportDialog.svelte'
   import DetailView from './DetailView.svelte'
   import FilterBar from './FilterBar.svelte'
+  import KeeperBar from './KeeperBar.svelte'
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
@@ -87,6 +88,9 @@
       <DetailView />
     {:else}
       <TopBar />
+      {#if router.route.kind === RouteKind.SimilarGroup}
+        <KeeperBar groupId={router.route.groupId} />
+      {/if}
       {#if selection.count > 0}
         <BulkBar />
       {:else}

@@ -285,6 +285,8 @@ export interface SimilarityRepository {
   /** Groups largest first, each with its first `preview` members in keeper order. */
   groups(offset: number, limit: number, preview: number): SimilarGroup[]
   groupCount(): number
+  /** Every member of a group, the suggested keeper first. */
+  members(groupId: number): ImageId[]
   /** A stored setting, or undefined. */
   setting(key: string): string | undefined
   saveSetting(key: string, value: string): void

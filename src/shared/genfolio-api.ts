@@ -47,6 +47,7 @@ export enum IpcChannel {
   SimilarityThreshold = 'similarity:threshold',
   SetSimilarityThreshold = 'similarity:set-threshold',
   SimilarGroups = 'similarity:groups',
+  SimilarGroupMembers = 'similarity:group-members',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -138,6 +139,8 @@ export interface GenfolioApi {
   setSimilarityThreshold(threshold: number): Promise<number>
   /** Up to 100 look-alike groups from `offset`, largest first, keeper first in each. */
   listSimilarGroups(offset: number, limit: number): Promise<SimilarGroupsPage>
+  /** Every member of a look-alike group, the suggested keeper first. */
+  listSimilarGroupMembers(groupId: number): Promise<readonly number[]>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

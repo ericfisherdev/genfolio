@@ -63,6 +63,11 @@ export class SimilarityService {
     }
   }
 
+  /** Every member of a group, the suggested keeper first; empty when there is no such group. */
+  members(groupId: number): ImageId[] {
+    return this.repository.members(groupId)
+  }
+
   regroup(): void {
     const threshold = this.threshold()
     this.repository.writeGroups(groupSimilar(this.repository.pairsWithin(threshold), threshold))

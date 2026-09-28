@@ -4,6 +4,7 @@ import { appServicesContext, type AppServices } from './lib/app-context'
 import { RouterState, windowHashLocation } from './lib/routing/router.svelte'
 import { GalleryState } from './lib/state/gallery.svelte'
 import { AlbumsState } from './lib/state/albums.svelte'
+import { DeleteMode } from '@shared/deletion-kinds'
 import { ImageDeletion } from './lib/state/image-deletion.svelte'
 import { SlideshowNavigator } from './lib/slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from './lib/slideshow/slideshow-presets.svelte'
@@ -30,6 +31,7 @@ const api = window.genfolio
 const library = new LibraryState(api)
 const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
+const deletion = new ImageDeletion(api, library, () => void library.refresh())
 const router = new RouterState(windowHashLocation(window))
 const services: AppServices = {
   api,
@@ -49,8 +51,16 @@ const services: AppServices = {
   slideshowSettings: new SlideshowSettingsState(localPreferenceStore(() => window.localStorage)),
   slideshowPresets: new SlideshowPresetsState(api, library),
   slideshowNavigator: new SlideshowNavigator(router, gallery),
-  similarity: new SimilarityState(api, library, () => void gallery.reload()),
-  deletion: new ImageDeletion(api, library, () => void library.refresh()),
+  similarity: new SimilarityState(
+    api,
+    library,
+    () => void gallery.reload(),
+    async (ids) => {
+      const report = await deletion.delete(ids, DeleteMode.Trash)
+      return report !== undefined && !report.cancelled && report.deleted.length > 0
+    }
+  ),
+  deletion,
   albums: new AlbumsState(api, library, () =>
     refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
   )
