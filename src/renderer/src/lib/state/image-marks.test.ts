@@ -68,7 +68,7 @@ describe('ImageMarks', () => {
     const { api, gallery, marks } = await setup()
     const pending = marks.setFavorite([1, 2], true)
     expect(gallery.card(1)?.favorite).toBe(true)
-    await pending
+    expect(await pending).toBe(true)
     expect(api.setFavorite).toHaveBeenCalledWith([1, 2], true)
     await marks.setRating([2], 4)
     expect(gallery.card(2)?.rating).toBe(4)
@@ -77,7 +77,7 @@ describe('ImageMarks', () => {
   it('puts cards back and says so when the change fails', async () => {
     const { api, gallery, notices, marks } = await setup()
     api.setRating.mockRejectedValueOnce(new Error('service down'))
-    await marks.setRating([1, 2], 5)
+    expect(await marks.setRating([1, 2], 5)).toBe(false)
     expect(gallery.card(1)?.rating).toBe(0)
     expect(notices.notify).toHaveBeenCalledWith('Could not rate 2 images: service down')
   })

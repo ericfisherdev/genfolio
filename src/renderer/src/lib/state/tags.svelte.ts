@@ -1,3 +1,4 @@
+import { MAX_IDS_PER_MARK } from '@shared/gallery-kinds'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import { TagOutcome } from '@shared/tag-kinds'
 import type { Tag, TagChange } from '@shared/tags'
@@ -54,14 +55,18 @@ export class TagsState {
     await this.attempt('delete the tag', () => this.api.deleteTag(tag.id))
   }
 
-  async apply(tags: readonly Tag[], imageIds: readonly number[]): Promise<void> {
-    if (tags.length === 0 || imageIds.length === 0) return
-    await this.attempt('tag the images', () =>
-      this.api.applyTags(
-        tags.map((tag) => tag.id),
-        imageIds
-      )
-    )
+  /** Resolves whether the tags were applied (a failure is already reported). */
+  async apply(tags: readonly Tag[], imageIds: readonly number[]): Promise<boolean> {
+    if (tags.length === 0 || imageIds.length === 0) return true
+    const tagIds = tags.map((tag) => tag.id)
+    const added = await this.attempt('tag the images', async () => {
+      let total = 0
+      for (let start = 0; start < imageIds.length; start += MAX_IDS_PER_MARK) {
+        total += await this.api.applyTags(tagIds, imageIds.slice(start, start + MAX_IDS_PER_MARK))
+      }
+      return total
+    })
+    return added !== undefined
   }
 
   async remove(tags: readonly Tag[], imageIds: readonly number[]): Promise<void> {

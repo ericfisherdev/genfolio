@@ -9,6 +9,7 @@ import { GenerationDetailsState } from './lib/state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from './lib/state/image-marks'
 import { LibraryState } from './lib/state/library.svelte'
 import { refreshAfterTagChange } from './lib/state/refresh-after-tag-change'
+import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
@@ -37,7 +38,8 @@ const services: AppServices = {
   marks: new ImageMarks(api, gallery, facets, library),
   tags: new TagsState(api, library, () =>
     refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
-  )
+  ),
+  selection: new SelectionState(gallery)
 }
 
 export default mount(App, {

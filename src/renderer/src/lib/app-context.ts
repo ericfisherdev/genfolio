@@ -5,6 +5,7 @@ import type { FacetsState } from './state/facets.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
 import type { ImageMarks } from './state/image-marks'
+import type { SelectionState } from './state/selection.svelte'
 import type { TagsState } from './state/tags.svelte'
 import type { GenerationDetailsState } from './state/generation-details.svelte'
 import type { LibraryState } from './state/library.svelte'
@@ -24,6 +25,7 @@ export interface AppServices {
   readonly facets: FacetsState
   readonly marks: ImageMarks
   readonly tags: TagsState
+  readonly selection: SelectionState
 }
 
 const APP_SERVICES = Symbol('app-services')

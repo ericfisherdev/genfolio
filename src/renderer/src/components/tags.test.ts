@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
+import { MAX_IDS_PER_MARK } from '@shared/gallery-kinds'
 import { SetMatchMode } from '@shared/search-kinds'
 import { TagOutcome } from '@shared/tag-kinds'
 import type { Tag } from '@shared/tags'
@@ -54,6 +55,29 @@ describe('TagsState', () => {
     await tags.apply([RED], [5])
     expect(notices.notify).toHaveBeenCalledWith('Could not tag the images: service down')
     expect(api.listTags).toHaveBeenCalled()
+  })
+})
+
+describe('TagsState.apply', () => {
+  it('tags large selections in chunks and resolves whether it worked', async () => {
+    const applyTags = vi.fn(
+      async (_tagIds: readonly number[], ids: readonly number[]) => ids.length
+    )
+    const api = {
+      listTags: vi.fn(async () => [RED]),
+      createTag: vi.fn(),
+      renameTag: vi.fn(),
+      mergeTags: vi.fn(),
+      deleteTag: vi.fn(),
+      applyTags,
+      removeTags: vi.fn()
+    }
+    const tags = new TagsState(api, { notify: vi.fn() }, () => undefined)
+    const ids = Array.from({ length: MAX_IDS_PER_MARK + 3 }, (_, index) => index + 1)
+    expect(await tags.apply([RED], ids)).toBe(true)
+    expect(applyTags.mock.calls.map(([, chunk]) => chunk.length)).toEqual([MAX_IDS_PER_MARK, 3])
+    applyTags.mockRejectedValueOnce(new Error('service down'))
+    expect(await tags.apply([RED], [1])).toBe(false)
   })
 })
 

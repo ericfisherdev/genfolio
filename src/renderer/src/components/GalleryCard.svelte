@@ -17,6 +17,11 @@
     onsameprompt: () => void
     onfavorite: (favorite: boolean) => void
     onrate: (rating: number) => void
+    selected: boolean
+    /** Whether any image is selected; a plain click then selects instead of opening. */
+    selecting: boolean
+    /** `range`: from the last selected image to this one (Shift); otherwise toggle. */
+    onselect: (range: boolean) => void
   }
 
   let {
@@ -28,15 +33,35 @@
     oncopy,
     onsameprompt,
     onfavorite,
-    onrate
+    onrate,
+    selected,
+    selecting,
+    onselect
   }: Props = $props()
+
+  function onclick(event: MouseEvent): void {
+    if (event.shiftKey) onselect(true)
+    else if (event.ctrlKey || event.metaKey || selecting) onselect(false)
+    else onopen()
+  }
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
 </script>
 
-<article class="card" aria-label={name}>
-  <button type="button" class="open" aria-label={`Open ${name}`} onclick={onopen}>
+<article class="card" class:selected aria-label={name}>
+  <button type="button" class="open" aria-label={`Open ${name}`} {onclick}>
     <img src={imageUrl(imageId, ImageDisplay.Grid)} alt="" decoding="async" draggable="false" />
   </button>
+  <label class="select" class:visible={selecting}>
+    <input
+      type="checkbox"
+      checked={selected}
+      aria-label={`Select ${name}`}
+      onclick={(event) => {
+        event.preventDefault()
+        onselect(event.shiftKey)
+      }}
+    />
+  </label>
   <div class="actions">
     <ActionMenu
       label={`Actions for ${name}`}
@@ -125,6 +150,29 @@
   .copy:hover,
   .copy:focus-visible {
     background: rgb(0 0 0 / 80%);
+  }
+  .card.selected {
+    outline: 3px solid var(--color-accent);
+    outline-offset: -3px;
+  }
+  .select {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .select input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--color-accent);
+  }
+  .select.visible,
+  .card:hover .select,
+  .card:focus-within .select {
+    opacity: 1;
   }
   .footer {
     position: absolute;
