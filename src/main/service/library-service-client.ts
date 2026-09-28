@@ -1,7 +1,13 @@
 import type { UtilityProcess } from 'electron'
-import type { ServiceMethod, ServiceResults } from '@shared/service-rpc'
-import { isServiceResponse } from '@shared/service-rpc-guards'
-import { serviceResultSchemas } from '@shared/service-result-schemas'
+import { scanEventSchema, type ScanEvent } from '@shared/scan'
+import {
+  serviceContract,
+  type ServiceMethod,
+  type ServiceParams,
+  type ServiceResults
+} from '@shared/service-contract'
+import type { ServiceEventMessage } from '@shared/service-rpc'
+import { isServiceEventMessage, isServiceResponse } from '@shared/service-rpc-guards'
 import { describeIssues } from '@shared/validation'
 
 /** The library service process exited before answering. */
@@ -37,13 +43,15 @@ export interface ServiceRequester {
    * Rejects with {@link ServiceRequestError} (service error or malformed result),
    * {@link ServiceTimeoutError} or {@link ServiceExitedError}.
    */
-  request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]>
+  request<M extends ServiceMethod>(method: M, params: ServiceParams[M]): Promise<ServiceResults[M]>
 }
 
 export interface LibraryServiceClientOptions {
   readonly requestTimeoutMs: number
   /** Called once when the process exits, after outstanding requests were rejected. */
   readonly onExit?: (exitCode: number) => void
+  /** Receives schema-valid events; malformed ones are dropped. */
+  readonly onEvent?: (event: ScanEvent) => void
 }
 
 interface PendingRequest {
@@ -64,7 +72,9 @@ export class LibraryServiceClient implements ServiceRequester {
     private readonly child: ServiceProcess,
     private readonly options: LibraryServiceClientOptions
   ) {
-    child.on('message', (message: unknown) => this.settle(message))
+    child.on('message', (message: unknown) =>
+      isServiceEventMessage(message) ? this.deliverEvent(message) : this.settle(message)
+    )
     child.on('exit', (code: number) => this.failAll(code))
   }
 
@@ -73,7 +83,10 @@ export class LibraryServiceClient implements ServiceRequester {
     return this.pending.size
   }
 
-  request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]> {
+  request<M extends ServiceMethod>(
+    method: M,
+    params: ServiceParams[M]
+  ): Promise<ServiceResults[M]> {
     if (this.exitCode !== undefined) {
       return Promise.reject(new ServiceExitedError(this.exitCode))
     }
@@ -94,7 +107,7 @@ export class LibraryServiceClient implements ServiceRequester {
           reject(error)
         }
       })
-      this.child.postMessage({ id, method })
+      this.child.postMessage({ id, method, params })
     })
   }
 
@@ -110,8 +123,13 @@ export class LibraryServiceClient implements ServiceRequester {
     }
   }
 
+  private deliverEvent(message: ServiceEventMessage): void {
+    const parsed = scanEventSchema.safeParse(message.event)
+    if (parsed.success) this.options.onEvent?.(parsed.data)
+  }
+
   private resolveValidated(pending: PendingRequest, result: unknown): void {
-    const parsed = serviceResultSchemas[pending.method].safeParse(result)
+    const parsed = serviceContract[pending.method].result.safeParse(result)
     if (parsed.success) {
       pending.resolve(parsed.data)
     } else {

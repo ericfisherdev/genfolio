@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ServiceMethod } from '@shared/service-rpc'
+import { ServiceMethod } from '@shared/service-contract'
 import type { ServiceRequester } from './library-service-client'
 import {
   LibraryServiceSupervisor,
@@ -54,14 +54,14 @@ describe('LibraryServiceSupervisor', () => {
   it('starts one client and forwards requests to it', async () => {
     const { supervisor, clients } = harness()
     expect(clients).toHaveLength(1)
-    await expect(supervisor.request(ServiceMethod.Health)).resolves.toBe('client-1')
+    await expect(supervisor.request(ServiceMethod.Health, {})).resolves.toBe('client-1')
   })
 
   it('replaces the client after a crash', async () => {
     const { supervisor, clients, latest } = harness()
     latest().crash(139)
     expect(clients).toHaveLength(2)
-    await expect(supervisor.request(ServiceMethod.Health)).resolves.toBe('client-2')
+    await expect(supervisor.request(ServiceMethod.Health, {})).resolves.toBe('client-2')
   })
 
   it('stops restarting after too many crashes within the window', () => {

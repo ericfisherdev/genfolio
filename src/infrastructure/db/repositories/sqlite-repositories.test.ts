@@ -34,6 +34,12 @@ function imageIn(directoryId: DirectoryId, fileName: string, sizeBytes = 100): I
 }
 
 describe('SqliteLibraryRootRepository', () => {
+  it('finds a root by id', () => {
+    const root = roots.add('/a', 5)
+    expect(roots.findById(root.id)).toEqual(root)
+    expect(roots.findById(999 as RootId)).toBeUndefined()
+  })
+
   it('adds and lists roots sorted by path', () => {
     roots.add('/b', 1)
     roots.add('/a', 2)
@@ -84,6 +90,24 @@ describe('SqliteDirectoryRepository', () => {
 
     expect(directories.pruneEmpty(root.id)).toBe(4)
     expect(directories.listByRoot(root.id).map((d) => d.relPath)).toEqual(['', 'kept', 'kept/deep'])
+  })
+
+  it('moves a whole root under a prefix of another root, keeping ids and images', () => {
+    const outer = roots.add('/lib', 1)
+    const inner = roots.add('/lib/2026/09', 1)
+    const deep = directories.ensure(inner.id, '27')
+    images.upsertMany([imageIn(deep, 'a.png')], 1)
+    const innerRootDir = directories.listByRoot(inner.id).find((d) => d.relPath === '')
+
+    directories.moveRoot(inner.id, outer.id, '2026/09')
+
+    const byPath = new Map(directories.listByRoot(outer.id).map((d) => [d.relPath, d]))
+    expect([...byPath.keys()]).toEqual(['', '2026', '2026/09', '2026/09/27'])
+    expect(byPath.get('2026/09')?.id).toBe(innerRootDir?.id)
+    expect(byPath.get('2026/09')?.parentId).toBe(byPath.get('2026')?.id)
+    expect(byPath.get('2026/09/27')?.id).toBe(deep)
+    expect(images.countByRoot(outer.id)).toBe(1)
+    expect(directories.listByRoot(inner.id)).toEqual([])
   })
 
   it('returns the same id when called again', () => {

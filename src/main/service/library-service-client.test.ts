@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ServiceHealth } from '@shared/service-health'
-import { ServiceMethod, type ServiceRequest } from '@shared/service-rpc'
+import { ServiceMethod } from '@shared/service-contract'
+import type { ServiceRequest } from '@shared/service-rpc'
 import {
   LibraryServiceClient,
   ServiceExitedError,
@@ -46,7 +47,7 @@ afterEach(() => {
 describe('LibraryServiceClient', () => {
   it('resolves with the result matching the request id', async () => {
     const { child, client } = setup()
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     const [request] = child.sent
     child.emit('message', { id: request?.id, ok: true, result: health })
     await expect(pending).resolves.toEqual(health)
@@ -55,14 +56,14 @@ describe('LibraryServiceClient', () => {
 
   it('rejects with ServiceRequestError on an error response', async () => {
     const { child, client } = setup()
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     child.emit('message', { id: child.sent[0]?.id, ok: false, error: 'boom' })
     await expect(pending).rejects.toBeInstanceOf(ServiceRequestError)
   })
 
   it('ignores malformed and unknown messages', async () => {
     const { child, client } = setup()
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     child.emit('message', 'garbage')
     child.emit('message', { id: 999, ok: true, result: health })
     child.emit('message', { id: child.sent[0]?.id, ok: true, result: health })
@@ -71,7 +72,7 @@ describe('LibraryServiceClient', () => {
 
   it('rejects a result that fails the method schema', async () => {
     const { child, client } = setup()
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     child.emit('message', { id: child.sent[0]?.id, ok: true, result: { ...health, fts5: 'yes' } })
     await expect(pending).rejects.toThrow(/malformed result: fts5/)
   })
@@ -79,7 +80,7 @@ describe('LibraryServiceClient', () => {
   it('rejects with ServiceTimeoutError when the service never answers', async () => {
     vi.useFakeTimers()
     const { client } = setup({ requestTimeoutMs: 500 })
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     const assertion = expect(pending).rejects.toBeInstanceOf(ServiceTimeoutError)
     await vi.advanceTimersByTimeAsync(501)
     await assertion
@@ -88,7 +89,7 @@ describe('LibraryServiceClient', () => {
   it('forgets a timed-out request', async () => {
     vi.useFakeTimers()
     const { client } = setup({ requestTimeoutMs: 500 })
-    const pending = client.request(ServiceMethod.Health).catch(() => undefined)
+    const pending = client.request(ServiceMethod.Health, {}).catch(() => undefined)
     expect(client.pendingRequestCount).toBe(1)
     await vi.advanceTimersByTimeAsync(501)
     await pending
@@ -97,23 +98,45 @@ describe('LibraryServiceClient', () => {
 
   it('rejects outstanding and future requests after the process exits', async () => {
     const { child, client } = setup()
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     child.emit('exit', 139)
     await expect(pending).rejects.toBeInstanceOf(ServiceExitedError)
-    await expect(client.request(ServiceMethod.Health)).rejects.toMatchObject({ exitCode: 139 })
+    await expect(client.request(ServiceMethod.Health, {})).rejects.toMatchObject({ exitCode: 139 })
   })
 
   it('calls onExit once the client has latched the exit and rejected outstanding requests', async () => {
     let requestFromOnExit: Promise<unknown> | undefined
     const onExit = vi.fn(() => {
-      requestFromOnExit = client.request(ServiceMethod.Health)
+      requestFromOnExit = client.request(ServiceMethod.Health, {})
     })
     const { child, client } = setup({ onExit })
-    const pending = client.request(ServiceMethod.Health)
+    const pending = client.request(ServiceMethod.Health, {})
     child.emit('exit', 139)
     expect(onExit).toHaveBeenCalledExactlyOnceWith(139)
     await expect(pending).rejects.toBeInstanceOf(ServiceExitedError)
     await expect(requestFromOnExit).rejects.toBeInstanceOf(ServiceExitedError)
     expect(child.sent).toHaveLength(1)
+  })
+
+  it('delivers schema-valid events and drops malformed ones', () => {
+    const onEvent = vi.fn()
+    const { child } = setup({ onEvent })
+    const finished = {
+      type: 'finished',
+      rootId: 1,
+      report: { added: 1, updated: 0, unchanged: 0, removed: 0, failed: 0 }
+    }
+    child.emit('message', { event: finished })
+    child.emit('message', { event: { type: 'finished', rootId: 'one' } })
+    expect(onEvent).toHaveBeenCalledExactlyOnceWith(finished)
+  })
+
+  it('sends the params with the request', () => {
+    const { child, client } = setup()
+    void client.request(ServiceMethod.AddRoot, { path: '/library' }).catch(() => undefined)
+    expect(child.sent[0]).toMatchObject({
+      method: ServiceMethod.AddRoot,
+      params: { path: '/library' }
+    })
   })
 })

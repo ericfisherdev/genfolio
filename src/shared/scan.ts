@@ -1,0 +1,48 @@
+import { z } from 'zod'
+
+export enum ScanPhase {
+  Walking = 'walking',
+  Indexing = 'indexing',
+  Pruning = 'pruning'
+}
+
+export const scanReportSchema = z
+  .object({
+    added: z.number().int(),
+    updated: z.number().int(),
+    unchanged: z.number().int(),
+    removed: z.number().int(),
+    /** Files that looked like images but could not be read or parsed. */
+    failed: z.number().int()
+  })
+  .readonly()
+
+export type ScanReport = z.infer<typeof scanReportSchema>
+
+export enum ScanEventType {
+  Progress = 'progress',
+  Finished = 'finished',
+  Failed = 'failed'
+}
+
+const rootId = z.number().int().positive()
+
+export const scanEventSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal(ScanEventType.Progress),
+      rootId,
+      phase: z.enum(ScanPhase),
+      done: z.number().int(),
+      /** Null while the total is still unknown (walking). */
+      total: z.number().int().nullable()
+    })
+    .readonly(),
+  z
+    .object({ type: z.literal(ScanEventType.Finished), rootId, report: scanReportSchema })
+    .readonly(),
+  z.object({ type: z.literal(ScanEventType.Failed), rootId, reason: z.string() }).readonly()
+])
+
+/** Scan lifecycle notifications pushed from the library service to the renderer. */
+export type ScanEvent = z.infer<typeof scanEventSchema>
