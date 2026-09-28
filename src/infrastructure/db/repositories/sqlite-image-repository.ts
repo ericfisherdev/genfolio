@@ -1,12 +1,22 @@
 import type Database from 'better-sqlite3'
-import type { ImageFile, RootId } from '@domain/library'
-import type { ImageRepository } from '@domain/repositories'
+import type { ImageFile, ImageId, RootId } from '@domain/library'
+import type { ImageRepository, StoredFileStat } from '@domain/repositories'
+
+interface StatRow {
+  id: number
+  rel_path: string
+  file_name: string
+  size_bytes: number
+  mtime_ms: number
+}
 
 type UpsertParams = [number, string, string, number, number, number, number, number, number]
 
 export class SqliteImageRepository implements ImageRepository {
   private readonly upsert: Database.Statement<UpsertParams>
   private readonly countInRoot: Database.Statement<[number], { count: number }>
+  private readonly statsInRoot: Database.Statement<[number], StatRow>
+  private readonly deleteUnchanged: Database.Statement<[number, number, number]>
 
   constructor(private readonly db: Database.Database) {
     this.upsert = db.prepare(`
@@ -26,6 +36,14 @@ export class SqliteImageRepository implements ImageRepository {
       JOIN directories ON directories.id = images.directory_id
       WHERE directories.root_id = ?
     `)
+    this.statsInRoot = db.prepare(`
+      SELECT images.id, directories.rel_path, images.file_name, images.size_bytes, images.mtime_ms
+      FROM images JOIN directories ON directories.id = images.directory_id
+      WHERE directories.root_id = ?
+    `)
+    this.deleteUnchanged = db.prepare(
+      'DELETE FROM images WHERE id = ? AND size_bytes = ? AND mtime_ms = ?'
+    )
   }
 
   upsertMany(images: readonly ImageFile[], addedAt: number): void {
@@ -48,5 +66,21 @@ export class SqliteImageRepository implements ImageRepository {
 
   countByRoot(rootId: RootId): number {
     return this.countInRoot.get(rootId)?.count ?? 0
+  }
+
+  fileStatsByRoot(rootId: RootId): StoredFileStat[] {
+    return this.statsInRoot.all(rootId).map((row) => ({
+      id: row.id as ImageId,
+      relDir: row.rel_path,
+      fileName: row.file_name,
+      sizeBytes: row.size_bytes,
+      mtimeMs: row.mtime_ms
+    }))
+  }
+
+  deleteMany(stats: readonly StoredFileStat[]): void {
+    this.db.transaction(() => {
+      for (const stat of stats) this.deleteUnchanged.run(stat.id, stat.sizeBytes, stat.mtimeMs)
+    })()
   }
 }

@@ -6,6 +6,7 @@ import { svelteTesting } from '@testing-library/svelte/vite'
 const alias = {
   '@shared': resolve(__dirname, 'src/shared'),
   '@domain': resolve(__dirname, 'src/domain'),
+  '@application': resolve(__dirname, 'src/application'),
   '@infrastructure': resolve(__dirname, 'src/infrastructure')
 }
 

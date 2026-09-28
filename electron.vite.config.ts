@@ -6,6 +6,7 @@ const sharedAlias = { '@shared': resolve(__dirname, 'src/shared') }
 const nodeAlias = {
   ...sharedAlias,
   '@domain': resolve(__dirname, 'src/domain'),
+  '@application': resolve(__dirname, 'src/application'),
   '@infrastructure': resolve(__dirname, 'src/infrastructure')
 }
 
