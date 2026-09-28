@@ -1,5 +1,5 @@
 import type { GenfolioApi } from '@shared/genfolio-api'
-import { MAX_IDS_PER_MARK, SortOrder } from '@shared/gallery-kinds'
+import { GalleryScopeKind, MAX_IDS_PER_MARK, SortOrder } from '@shared/gallery-kinds'
 import type { GalleryQuery, ImageCard } from '@shared/gallery'
 import { userMessage } from '../format/user-message'
 import { RouteKind, type Route } from '../routing/route'
@@ -22,12 +22,16 @@ export function layoutUpdateFor(route: Route): LayoutUpdate {
   return route.kind === RouteKind.Image ? LayoutUpdate.Deferred : LayoutUpdate.Now
 }
 
-/** Whether the query's results, their order or their facet counts depend on marks. */
+/**
+ * Whether the query's results, their order or their facet counts may depend on marks. An
+ * album may be a smart one whose saved search uses them.
+ */
 function dependsOnMarks(query: GalleryQuery): boolean {
   return (
     query.sort === SortOrder.Rating ||
     query.filters?.favoritesOnly === true ||
-    query.filters?.minRating !== undefined
+    query.filters?.minRating !== undefined ||
+    query.scope.kind === GalleryScopeKind.Album
   )
 }
 

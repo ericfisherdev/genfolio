@@ -8,6 +8,7 @@ import {
 } from '@domain/repositories'
 import { AlbumKind } from '@shared/album-kinds'
 import { nameKey } from '@shared/name-key'
+import type { StoredSearchFilters } from '@shared/search'
 import { spreadPositions } from './album-positions'
 
 interface AlbumRow {
@@ -23,16 +24,17 @@ interface EntryRow {
   position: number
 }
 
-// The cover is the chosen image while it is still in the album, else the first one.
+// A manual album's cover is the chosen image while it is still in the album, else the first
+// one; a smart album's is the chosen one (its members are evaluated by the service).
 const SELECT_ALBUMS = `
   SELECT albums.id, albums.name, albums.kind,
     (SELECT COUNT(*) FROM album_images WHERE album_id = albums.id) AS image_count,
-    COALESCE(
+    CASE albums.kind WHEN 'smart' THEN albums.cover_image_id ELSE COALESCE(
       (SELECT image_id FROM album_images
         WHERE album_id = albums.id AND image_id = albums.cover_image_id),
       (SELECT image_id FROM album_images
         WHERE album_id = albums.id ORDER BY position, image_id LIMIT 1)
-    ) AS cover_image_id
+    ) END AS cover_image_id
   FROM albums`
 
 const recordOf = (row: AlbumRow): AlbumRecord => ({
@@ -47,7 +49,10 @@ export class SqliteAlbumRepository implements AlbumRepository {
   private readonly selectAll: Database.Statement<[], AlbumRow>
   private readonly selectById: Database.Statement<[number], AlbumRow>
   private readonly selectByKey: Database.Statement<[string], AlbumRow>
-  private readonly insert: Database.Statement<[string, string, string, number], { id: number }>
+  private readonly insert: Database.Statement<
+    [string, string, string, string | null, number],
+    { id: number }
+  >
   private readonly updateName: Database.Statement<[string, string, number]>
   private readonly deleteAlbum: Database.Statement<[number]>
   private readonly lastPosition: Database.Statement<[number], { last: number | null }>
@@ -61,9 +66,9 @@ export class SqliteAlbumRepository implements AlbumRepository {
     this.selectAll = db.prepare(`${SELECT_ALBUMS} ORDER BY albums.name_key, albums.id`)
     this.selectById = db.prepare(`${SELECT_ALBUMS} WHERE albums.id = ?`)
     this.selectByKey = db.prepare(`${SELECT_ALBUMS} WHERE albums.name_key = ?`)
-    this.insert = db.prepare(
-      'INSERT INTO albums (name, name_key, kind, created_at) VALUES (?, ?, ?, ?) RETURNING id'
-    )
+    this.insert = db.prepare(`
+      INSERT INTO albums (name, name_key, kind, filters_json, created_at) VALUES (?, ?, ?, ?, ?)
+      RETURNING id`)
     this.updateName = db.prepare('UPDATE albums SET name = ?, name_key = ? WHERE id = ?')
     this.deleteAlbum = db.prepare('DELETE FROM albums WHERE id = ?')
     this.lastPosition = db.prepare(
@@ -85,7 +90,8 @@ export class SqliteAlbumRepository implements AlbumRepository {
     )
     this.updateCover = db.prepare(`
       UPDATE albums SET cover_image_id = :image
-      WHERE id = :album AND (:image IS NULL
+      WHERE id = :album AND (:image IS NULL OR (kind = 'smart'
+          AND EXISTS (SELECT 1 FROM images WHERE id = :image))
         OR EXISTS (SELECT 1 FROM album_images WHERE album_id = :album AND image_id = :image))`)
   }
 
@@ -100,13 +106,11 @@ export class SqliteAlbumRepository implements AlbumRepository {
   }
 
   create(name: string, createdAt: number): AlbumRecord {
-    return this.db.transaction(() => {
-      const existing = this.selectByKey.get(nameKey(name))
-      if (existing) throw new DuplicateAlbumError(recordOf(existing))
-      const row = this.insert.get(name, nameKey(name), AlbumKind.Manual, createdAt)
-      if (!row) throw new Error('album insert returned no row')
-      return this.find(row.id)
-    })()
+    return this.insertAlbum(name, AlbumKind.Manual, null, createdAt)
+  }
+
+  createSmart(name: string, filters: StoredSearchFilters, createdAt: number): AlbumRecord {
+    return this.insertAlbum(name, AlbumKind.Smart, JSON.stringify(filters), createdAt)
   }
 
   rename(id: number, name: string): AlbumRecord {
@@ -165,6 +169,21 @@ export class SqliteAlbumRepository implements AlbumRepository {
     return this.db.transaction(() => {
       this.updateCover.run({ image: imageId, album: albumId })
       return this.find(albumId)
+    })()
+  }
+
+  private insertAlbum(
+    name: string,
+    kind: AlbumKind,
+    filtersJson: string | null,
+    createdAt: number
+  ): AlbumRecord {
+    return this.db.transaction(() => {
+      const existing = this.selectByKey.get(nameKey(name))
+      if (existing) throw new DuplicateAlbumError(recordOf(existing))
+      const row = this.insert.get(name, nameKey(name), kind, filtersJson, createdAt)
+      if (!row) throw new Error('album insert returned no row')
+      return this.find(row.id)
     })()
   }
 

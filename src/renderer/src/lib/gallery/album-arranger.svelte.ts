@@ -11,9 +11,9 @@ type Results = Pick<GalleryState, 'query' | 'count' | 'indexOf' | 'idAt'>
 type Selected = Pick<SelectionState, 'has' | 'list'>
 
 /**
- * The album commands of the gallery's cards: adding to an album anywhere, and in a manual
- * album removing, choosing the cover and arranging (menu steps, and dragging while the
- * album is shown in its own order). A card acts for the whole selection when it is part of it.
+ * The album commands of the gallery's cards: adding to an album anywhere, choosing the cover
+ * in any album, and in a manual album removing and arranging (menu steps, and dragging while
+ * the album is shown in its own order). A card acts for the whole selection it is part of.
  */
 export class AlbumArranger {
   /** Where a drag would drop, for the insertion marker. */
@@ -36,15 +36,18 @@ export class AlbumArranger {
     const actions: MenuAction[] = [
       { label: 'Add to album…', onselect: () => this.addToAlbum(this.targetsOf(imageId)) }
     ]
-    const shown = this.manualAlbumShown()
+    const shown = this.albumShown()
     if (shown) {
-      actions.push(
-        { label: 'Use as album cover', onselect: () => void this.albums.setCover(shown, imageId) },
-        {
-          label: 'Remove from album',
-          onselect: () => void this.albums.remove(shown, this.targetsOf(imageId))
-        }
-      )
+      actions.push({
+        label: 'Use as album cover',
+        onselect: () => void this.albums.setCover(shown, imageId)
+      })
+    }
+    if (shown?.kind === AlbumKind.Manual) {
+      actions.push({
+        label: 'Remove from album',
+        onselect: () => void this.albums.remove(shown, this.targetsOf(imageId))
+      })
     }
     const arrangeable = this.arrangeable
     return arrangeable ? [...actions, ...this.moveActions(arrangeable, imageId)] : actions
@@ -80,11 +83,9 @@ export class AlbumArranger {
     this.dropAt = undefined
   }
 
-  private manualAlbumShown(): Album | undefined {
+  private albumShown(): Album | undefined {
     const scope = this.gallery.query?.scope
-    const album =
-      scope?.kind === GalleryScopeKind.Album ? this.albums.find(scope.albumId) : undefined
-    return album?.kind === AlbumKind.Manual ? album : undefined
+    return scope?.kind === GalleryScopeKind.Album ? this.albums.find(scope.albumId) : undefined
   }
 
   private moveActions(album: Album, imageId: number): MenuAction[] {

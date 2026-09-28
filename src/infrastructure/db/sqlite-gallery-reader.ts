@@ -10,8 +10,8 @@ import {
   type ImageCard
 } from '@shared/gallery'
 import type { ImageFormat } from '@shared/image-format'
-import type { CriteriaFilter } from './search/criteria-filter'
-import { selectImages } from './search/image-selection'
+import { AlbumKind } from '@shared/album-kinds'
+import type { ImageSelector } from './search/image-selection'
 
 const NEWEST = 'created_at DESC, id DESC'
 
@@ -28,10 +28,13 @@ const ORDER_BY: Readonly<Record<Exclude<SortOrder, SortOrder.AlbumOrder>, string
 const ALBUM_ORDER = `(SELECT position FROM album_images
   WHERE album_images.album_id = ? AND album_images.image_id = images.id) ASC, id ASC`
 
-/** The ORDER BY clause and its parameters; album order outside an album is newest first. */
-function orderBy(query: GalleryQuery): { sql: string; params: readonly unknown[] } {
+/** The ORDER BY clause and its parameters; album order outside a manual album is newest. */
+function orderBy(
+  query: GalleryQuery,
+  isManualAlbum: (albumId: number) => boolean
+): { sql: string; params: readonly unknown[] } {
   if (query.sort !== SortOrder.AlbumOrder) return { sql: ORDER_BY[query.sort], params: [] }
-  return query.scope.kind === GalleryScopeKind.Album
+  return query.scope.kind === GalleryScopeKind.Album && isManualAlbum(query.scope.albumId)
     ? { sql: ALBUM_ORDER, params: [query.scope.albumId] }
     : { sql: NEWEST, params: [] }
 }
@@ -69,10 +72,10 @@ export class SqliteGalleryReader implements GalleryReader {
   private readonly cardsByIds: Database.Statement<[string], CardRow>
   private readonly directoriesOfRoot: Database.Statement<[number], DirectoryRow>
 
-  /** `filters` narrow the layout; each adds a condition when the query's filters use it. */
+  /** `selector` turns a query's scope and filters into the images it selects. */
   constructor(
     private readonly db: Database.Database,
-    private readonly filters: readonly CriteriaFilter[]
+    private readonly selector: ImageSelector
   ) {
     this.cardsByIds = db.prepare(`
       SELECT images.id, directories.root_id, images.directory_id, images.file_name,
@@ -92,8 +95,8 @@ export class SqliteGalleryReader implements GalleryReader {
   }
 
   layout(query: GalleryQuery): Int32Array<ArrayBuffer> {
-    const selection = selectImages(query, this.filters)
-    const order = orderBy(query)
+    const selection = this.selector.select(query)
+    const order = orderBy(query, (id) => this.selector.albumKind(id) === AlbumKind.Manual)
     const sql = `${selection.prefix} SELECT id, width, height FROM images ${selection.where}
       ORDER BY ${order.sql}`
     const rows = this.layoutStatement(sql).all(...selection.params, ...order.params)

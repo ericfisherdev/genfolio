@@ -5,7 +5,7 @@ import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { migratedMemoryDb } from '../testing/migrated-memory-db'
-import { createSearchFilters } from './filters'
+import { createImageSelector } from './create-image-selector'
 import { SqliteFacetReader } from './sqlite-facet-reader'
 
 const IMAGES = 100_000
@@ -142,9 +142,9 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('search performance at 100
     console.info(
       `[perf] built ${IMAGES} images in ${((performance.now() - started) / 1000).toFixed(1)} s`
     )
-    const filters = createSearchFilters()
-    gallery = new SqliteGalleryReader(db, filters)
-    facets = new SqliteFacetReader(db, filters)
+    const selector = createImageSelector(db)
+    gallery = new SqliteGalleryReader(db, selector)
+    facets = new SqliteFacetReader(db, selector)
   }, 600_000)
 
   const query = (filters: SearchFilters, sort = SortOrder.Newest): GalleryQuery => ({

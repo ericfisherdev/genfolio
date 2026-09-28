@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { albumNameSchema } from '@shared/albums'
 import { MAX_IDS_PER_MARK } from '@shared/gallery'
+import { searchFiltersSchema } from '@shared/search'
 import { IpcChannel } from '@shared/genfolio-api'
 import { ServiceMethod } from '@shared/service-contract'
 import type { ServiceRequester } from '../service/library-service-client'
@@ -16,6 +17,11 @@ export function registerAlbumChannels(ipc: IpcHandlerRegistry, service: ServiceR
   )
   ipc.register(IpcChannel.CreateAlbum, z.tuple([albumNameSchema]), (name) =>
     service.request(ServiceMethod.AlbumsCreate, { name })
+  )
+  ipc.register(
+    IpcChannel.CreateSmartAlbum,
+    z.tuple([albumNameSchema, searchFiltersSchema]),
+    (name, filters) => service.request(ServiceMethod.AlbumsCreateSmart, { name, filters })
   )
   ipc.register(IpcChannel.RenameAlbum, z.tuple([id, albumNameSchema]), (albumId, name) =>
     service.request(ServiceMethod.AlbumsRename, { id: albumId, name })

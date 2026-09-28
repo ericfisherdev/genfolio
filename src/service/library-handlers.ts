@@ -24,7 +24,9 @@ import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-im
 import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
-import { createSearchFilters } from '@infrastructure/db/search/filters'
+import { createImageSelector } from '@infrastructure/db/search/create-image-selector'
+import { SqliteSmartAlbumEvaluator } from '@infrastructure/db/search/sqlite-smart-album-evaluator'
+import { SqliteStoredFilterCodec } from '@infrastructure/db/search/stored-filter-codec'
 import { SqliteFacetReader } from '@infrastructure/db/search/sqlite-facet-reader'
 import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
@@ -68,10 +70,15 @@ export function createLibraryHandlers(
   })
   const marks = new SqliteImageMarkRepository(db)
   const tags = new TagService(new SqliteTagRepository(db), now)
-  const albums = new AlbumService(new SqliteAlbumRepository(db), now)
-  const searchFilters = createSearchFilters()
-  const gallery = new SqliteGalleryReader(db, searchFilters)
-  const facets = new SqliteFacetReader(db, searchFilters)
+  const selector = createImageSelector(db)
+  const gallery = new SqliteGalleryReader(db, selector)
+  const facets = new SqliteFacetReader(db, selector)
+  const albums = new AlbumService(
+    new SqliteAlbumRepository(db),
+    new SqliteStoredFilterCodec(db),
+    new SqliteSmartAlbumEvaluator(db, selector),
+    now
+  )
   const versions = new SqliteImageVersionCheck(db)
   const models = new SqliteModelCatalog(db)
   const generationDetails = new GenerationDetailsReader(
@@ -119,6 +126,8 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.AlbumsList]: async () => albums.list(),
     [ServiceMethod.AlbumsCreate]: async ({ name }) => albums.create(name),
+    [ServiceMethod.AlbumsCreateSmart]: async ({ name, filters }) =>
+      albums.createSmart(name, filters),
     [ServiceMethod.AlbumsRename]: async ({ id, name }) => albums.rename(id, name),
     [ServiceMethod.AlbumsDelete]: async ({ id }) => ({ deleted: albums.delete(id) }),
     [ServiceMethod.AlbumsSetCover]: async ({ id, imageId }) =>

@@ -102,6 +102,13 @@ describe('ImageMarks', () => {
     await byRating.marks.setRating([1], 2)
     expect(byRating.api.getImageLayout).toHaveBeenCalledTimes(2)
     expect(byRating.api.loadFacets).toHaveBeenCalledTimes(1)
+    // An album may be a smart one whose saved search uses marks.
+    const album = await setup({
+      scope: { kind: GalleryScopeKind.Album, albumId: 3 },
+      sort: SortOrder.AlbumOrder
+    })
+    await album.marks.setFavorite([1], true)
+    expect(album.api.getImageLayout).toHaveBeenCalledTimes(2)
   })
 
   it('leaves the layout in place but stale when the reload is deferred', async () => {

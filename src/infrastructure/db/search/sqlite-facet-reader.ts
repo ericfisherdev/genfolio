@@ -3,8 +3,7 @@ import type { GalleryQuery } from '@shared/gallery'
 import type { GeneratorKind } from '@shared/generation-kinds'
 import { SetMatchMode } from '@shared/search-kinds'
 import type { FacetValue, SearchFacets, SearchFilters } from '@shared/search'
-import type { CriteriaFilter } from './criteria-filter'
-import { selectImages, type ImageSelection } from './image-selection'
+import type { ImageSelection, ImageSelector } from './image-selection'
 
 /**
  * For the tags facet: Any is a union, so its included tags are dropped and every tag shows
@@ -55,7 +54,7 @@ export class SqliteFacetReader {
 
   constructor(
     private readonly db: Database.Database,
-    private readonly filters: readonly CriteriaFilter[]
+    private readonly selector: ImageSelector
   ) {
     db.exec(`CREATE TEMP TABLE IF NOT EXISTS facet_selection (
       selection INTEGER NOT NULL,
@@ -93,7 +92,7 @@ export class SqliteFacetReader {
    * is the view opened most; checking that is a cheap count on the directory index.
    */
   private counted(scope: GalleryQuery, cache: Map<string, Counted>): Counted {
-    const selection = selectImages(scope, this.filters)
+    const selection = this.selector.select(scope)
     if (!selection.prefix && !selection.where) return { all: true }
     if (!hasFilters(scope) && this.coversEveryImage(selection)) return { all: true }
     const key = `${selection.prefix}${selection.where}\0${JSON.stringify(selection.params)}`

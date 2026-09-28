@@ -39,6 +39,13 @@ describe('refreshAfterTagChange', () => {
     expect(gallery.refreshLayout).toHaveBeenCalled()
   })
 
+  it('reloads an album, which may be a smart one searching by tags', () => {
+    const album: GalleryQuery = { ...PLAIN, scope: { kind: GalleryScopeKind.Album, albumId: 2 } }
+    const { gallery, facets } = fakes(album)
+    refreshAfterTagChange(gallery, facets, LayoutUpdate.Now)
+    expect(gallery.refreshLayout).toHaveBeenCalled()
+  })
+
   it('only flags a tag-filtered layout stale while an image is open', () => {
     const { gallery, facets } = fakes(BY_TAG)
     refreshAfterTagChange(gallery, facets, LayoutUpdate.Deferred)

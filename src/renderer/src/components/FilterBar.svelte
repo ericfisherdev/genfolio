@@ -7,6 +7,7 @@
   import { generatorLabel } from '../lib/format/generation-labels'
   import { RouteKind, withFilters } from '../lib/routing/route'
   import FacetPicker from './FacetPicker.svelte'
+  import SaveSmartAlbum from './SaveSmartAlbum.svelte'
 
   const { router, facets } = getAppServices()
   const KEYWORD_DELAY_MS = 300
@@ -338,6 +339,10 @@
         <li>
           <button type="button" class="clear" onclick={() => apply({})}>Clear all</button>
         </li>
+        <!-- A smart album saves filters only, so only a library-wide search is offered. -->
+        {#if route?.kind === RouteKind.All}
+          <li><SaveSmartAlbum {filters} /></li>
+        {/if}
       </ul>
     {/if}
   </div>

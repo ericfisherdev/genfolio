@@ -3,7 +3,7 @@ import type { ImageId } from '@domain/library'
 import { DuplicateAlbumError, UnknownAlbumError } from '@domain/repositories'
 import { AlbumKind } from '@shared/album-kinds'
 import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder } from '@shared/gallery'
-import { createSearchFilters } from '../search/filters'
+import { createImageSelector } from '../search/create-image-selector'
 import { SqliteFacetReader } from '../search/sqlite-facet-reader'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
@@ -14,7 +14,7 @@ let albums: SqliteAlbumRepository
 const image = (n: number): ImageId => library.ids.get(n) ?? (0 as ImageId)
 /** The library's image numbers (1–6) of an album, in album order. */
 function numbersIn(albumId: number, sort = SortOrder.AlbumOrder): number[] {
-  const layout = new SqliteGalleryReader(library.db, createSearchFilters()).layout({
+  const layout = new SqliteGalleryReader(library.db, createImageSelector(library.db)).layout({
     scope: { kind: GalleryScopeKind.Album, albumId },
     sort
   })
@@ -116,7 +116,7 @@ describe('SqliteAlbumRepository', () => {
     albums.add(trip.id, [image(1), image(6), image(3)])
     const newest = numbersIn(trip.id, SortOrder.Newest)
     expect([...newest].sort()).toEqual([1, 3, 6])
-    const reader = new SqliteGalleryReader(library.db, createSearchFilters())
+    const reader = new SqliteGalleryReader(library.db, createImageSelector(library.db))
     const all = { scope: { kind: GalleryScopeKind.All } as const }
     expect(reader.layout({ ...all, sort: SortOrder.AlbumOrder })).toEqual(
       reader.layout({ ...all, sort: SortOrder.Newest })
@@ -131,8 +131,8 @@ describe('SqliteAlbumRepository', () => {
       sort: SortOrder.AlbumOrder,
       filters: { hasMetadata: false }
     } as const
-    const reader = new SqliteGalleryReader(library.db, createSearchFilters())
-    const facets = new SqliteFacetReader(library.db, createSearchFilters()).facets(query)
+    const reader = new SqliteGalleryReader(library.db, createImageSelector(library.db))
+    const facets = new SqliteFacetReader(library.db, createImageSelector(library.db)).facets(query)
     const inAlbum = reader.layout({ ...query, filters: {} }).length / LAYOUT_STRIDE
     const withoutMetadata = reader.layout(query).length / LAYOUT_STRIDE
     expect(inAlbum).toBe(3)

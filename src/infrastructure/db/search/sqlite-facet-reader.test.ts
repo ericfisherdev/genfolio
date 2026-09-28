@@ -9,7 +9,7 @@ import { SqliteImageVersionCheck } from '../repositories/sqlite-image-version-ch
 import { SqliteModelCatalog } from '../repositories/sqlite-model-catalog'
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
-import { createSearchFilters } from './filters'
+import { createImageSelector } from './create-image-selector'
 import { SqliteFacetReader } from './sqlite-facet-reader'
 
 let library: SearchLibrary
@@ -17,7 +17,7 @@ let reader: SqliteFacetReader
 
 beforeEach(() => {
   library = searchLibrary()
-  reader = new SqliteFacetReader(library.db, createSearchFilters())
+  reader = new SqliteFacetReader(library.db, createImageSelector(library.db))
 })
 
 const query = (filters?: SearchFilters, scope?: GalleryQuery['scope']): GalleryQuery => ({

@@ -27,6 +27,9 @@ function setup(): Harness {
   const api = {
     listAlbums: vi.fn(async () => [TRIP]),
     createAlbum: vi.fn(async () => ({ outcome: ChangeOutcome.Duplicate, existing: TRIP }) as const),
+    createSmartAlbum: vi.fn(
+      async () => ({ outcome: ChangeOutcome.Duplicate, existing: TRIP }) as const
+    ),
     renameAlbum: vi.fn(async () => ({ outcome: ChangeOutcome.Missing }) as const),
     deleteAlbum: vi.fn(async () => true),
     setAlbumCover: vi.fn(async () => ({ outcome: ChangeOutcome.Done, album: TRIP }) as const),
@@ -51,6 +54,12 @@ describe('AlbumsState', () => {
     expect(albums.loaded).toBe(true)
     expect(api.listAlbums).toHaveBeenCalledTimes(1)
     expect(onchange).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not save a smart album over a taken name', async () => {
+    const { albums, notices } = setup()
+    expect(await albums.createSmart('Trip', { favoritesOnly: true })).toBeUndefined()
+    expect(notices.notify).toHaveBeenCalledWith('An album named “Trip” already exists.')
   })
 
   it('says when an album is gone or a command fails', async () => {
