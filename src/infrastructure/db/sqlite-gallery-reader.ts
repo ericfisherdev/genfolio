@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import type { GalleryReader } from '@domain/gallery-reader'
 import type { RootId } from '@domain/library'
 import {
+  GalleryScopeKind,
   LAYOUT_STRIDE,
   SortOrder,
   type DirectoryNode,
@@ -12,13 +13,27 @@ import type { ImageFormat } from '@shared/image-format'
 import type { CriteriaFilter } from './search/criteria-filter'
 import { selectImages } from './search/image-selection'
 
+const NEWEST = 'created_at DESC, id DESC'
+
 /** Fixed ORDER BY clauses (never built from input); `id` breaks ties so order is stable. */
-const ORDER_BY: Readonly<Record<SortOrder, string>> = {
-  [SortOrder.Newest]: 'created_at DESC, id DESC',
+const ORDER_BY: Readonly<Record<Exclude<SortOrder, SortOrder.AlbumOrder>, string>> = {
+  [SortOrder.Newest]: NEWEST,
   [SortOrder.Oldest]: 'created_at ASC, id ASC',
   [SortOrder.RecentlyAdded]: 'added_at DESC, id DESC',
   [SortOrder.FileName]: 'file_name COLLATE NOCASE ASC, id ASC',
   [SortOrder.Rating]: 'rating DESC, created_at DESC, id DESC'
+}
+
+/** Positions can be equal (two moves into one gap before a renumber), so `id` breaks ties. */
+const ALBUM_ORDER = `(SELECT position FROM album_images
+  WHERE album_images.album_id = ? AND album_images.image_id = images.id) ASC, id ASC`
+
+/** The ORDER BY clause and its parameters; album order outside an album is newest first. */
+function orderBy(query: GalleryQuery): { sql: string; params: readonly unknown[] } {
+  if (query.sort !== SortOrder.AlbumOrder) return { sql: ORDER_BY[query.sort], params: [] }
+  return query.scope.kind === GalleryScopeKind.Album
+    ? { sql: ALBUM_ORDER, params: [query.scope.albumId] }
+    : { sql: NEWEST, params: [] }
 }
 
 /** Folder names in natural, case-insensitive order: `2` before `10`, `a` next to `B`. */
@@ -78,9 +93,10 @@ export class SqliteGalleryReader implements GalleryReader {
 
   layout(query: GalleryQuery): Int32Array<ArrayBuffer> {
     const selection = selectImages(query, this.filters)
+    const order = orderBy(query)
     const sql = `${selection.prefix} SELECT id, width, height FROM images ${selection.where}
-      ORDER BY ${ORDER_BY[query.sort]}`
-    const rows = this.layoutStatement(sql).all(...selection.params)
+      ORDER BY ${order.sql}`
+    const rows = this.layoutStatement(sql).all(...selection.params, ...order.params)
     const layout = new Int32Array(rows.length * LAYOUT_STRIDE)
     rows.forEach(([id, width, height], index) => {
       layout.set([id, width, height], index * LAYOUT_STRIDE)

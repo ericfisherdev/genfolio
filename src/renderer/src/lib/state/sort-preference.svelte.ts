@@ -7,20 +7,37 @@ export interface PreferenceStore {
 }
 
 const KEY = 'genfolio.sort'
+const ALBUM_KEY = 'genfolio.album-sort'
 const SORT_ORDERS = new Set<string>(Object.values(SortOrder))
 
-/** Gallery sort order, persisted across restarts. Defaults to Newest. */
+/**
+ * Sort orders, persisted across restarts: `current` for the library and its folders
+ * (default Newest; album order means nothing there), `album` for albums (default album order).
+ */
 export class SortPreference {
   current: SortOrder = $state(SortOrder.Newest)
+  album: SortOrder = $state(SortOrder.AlbumOrder)
 
   constructor(private readonly store: PreferenceStore) {
-    const saved = this.safely(() => store.get(KEY))
-    if (saved && SORT_ORDERS.has(saved)) this.current = saved as SortOrder
+    const saved = this.saved(KEY)
+    if (saved && saved !== SortOrder.AlbumOrder) this.current = saved
+    this.album = this.saved(ALBUM_KEY) ?? SortOrder.AlbumOrder
   }
 
   set(sort: SortOrder): void {
+    if (sort === SortOrder.AlbumOrder) return
     this.current = sort
     this.safely(() => this.store.set(KEY, sort))
+  }
+
+  setAlbum(sort: SortOrder): void {
+    this.album = sort
+    this.safely(() => this.store.set(ALBUM_KEY, sort))
+  }
+
+  private saved(key: string): SortOrder | undefined {
+    const saved = this.safely(() => this.store.get(key))
+    return saved && SORT_ORDERS.has(saved) ? (saved as SortOrder) : undefined
   }
 
   private safely<T>(read: () => T): T | undefined {

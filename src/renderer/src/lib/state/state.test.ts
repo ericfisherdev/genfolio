@@ -208,4 +208,15 @@ describe('SortPreference', () => {
     expect(() => broken.set(SortOrder.Oldest)).not.toThrow()
     expect(broken.current).toBe(SortOrder.Oldest)
   })
+
+  it('keeps a separate album order, defaulting to album order, never used for the library', () => {
+    const values: Record<string, string> = { 'genfolio.sort': 'album-order' }
+    const sort = new SortPreference(memoryStore(values))
+    expect(sort.current).toBe(SortOrder.Newest)
+    expect(sort.album).toBe(SortOrder.AlbumOrder)
+    sort.setAlbum(SortOrder.Rating)
+    sort.set(SortOrder.AlbumOrder)
+    expect(sort.current).toBe(SortOrder.Newest)
+    expect(new SortPreference(memoryStore(values)).album).toBe(SortOrder.Rating)
+  })
 })

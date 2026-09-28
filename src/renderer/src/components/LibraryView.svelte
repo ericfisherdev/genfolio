@@ -4,7 +4,7 @@
   import { findDirectory } from '../lib/routing/scope-title'
   import Gallery from './Gallery.svelte'
 
-  const { library, router, gallery } = getAppServices()
+  const { library, router, gallery, albums } = getAppServices()
   const filtered = $derived(routeFilters(router.route) !== undefined)
   const count = new Intl.NumberFormat()
 
@@ -12,9 +12,15 @@
     router.route.kind !== RouteKind.Directory ||
       findDirectory(library.roots, library.trees, router.route.directoryId) !== undefined
   )
+  const albumMissing = $derived(
+    router.route.kind === RouteKind.Album &&
+      albums.loaded &&
+      albums.find(router.route.albumId) === undefined
+  )
 
   const inScope = $derived.by(() => {
     const route = router.route
+    if (route.kind === RouteKind.Album) return albums.find(route.albumId)?.imageCount ?? 0
     if (route.kind !== RouteKind.Directory) return library.totalImages
     const match = findDirectory(library.roots, library.trees, route.directoryId)
     if (!match) return 0
@@ -33,6 +39,8 @@
     <p class="muted">Loading library…</p>
   {:else if router.route.kind === RouteKind.Directory && !directoryExists}
     <p class="muted">This folder is no longer in the library.</p>
+  {:else if albumMissing}
+    <p class="muted">This album no longer exists.</p>
   {:else if library.roots.length === 0}
     <div class="empty">
       <h2>Your library is empty</h2>

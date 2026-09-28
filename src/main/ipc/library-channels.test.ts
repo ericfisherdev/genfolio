@@ -36,6 +36,7 @@ function setup(
 
 describe('registerLibraryChannels', () => {
   it('registers every library channel', () => {
+    // Registered by the image, tag and album registrars instead.
     const imageChannels = [
       IpcChannel.RevealImage,
       IpcChannel.CopyImagePath,
@@ -48,7 +49,15 @@ describe('registerLibraryChannels', () => {
       IpcChannel.MergeTags,
       IpcChannel.DeleteTag,
       IpcChannel.ApplyTags,
-      IpcChannel.RemoveTags
+      IpcChannel.RemoveTags,
+      IpcChannel.ListAlbums,
+      IpcChannel.CreateAlbum,
+      IpcChannel.RenameAlbum,
+      IpcChannel.DeleteAlbum,
+      IpcChannel.SetAlbumCover,
+      IpcChannel.AddToAlbum,
+      IpcChannel.RemoveFromAlbum,
+      IpcChannel.MoveInAlbum
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

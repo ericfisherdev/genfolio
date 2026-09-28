@@ -9,6 +9,7 @@ import { ImageFileResolver } from '@application/image-file-resolver'
 import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
+import { AlbumService } from '@application/album-service'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
@@ -20,6 +21,7 @@ import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { SqliteImageMarkRepository } from '@infrastructure/db/repositories/sqlite-image-mark-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
+import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createSearchFilters } from '@infrastructure/db/search/filters'
@@ -66,6 +68,7 @@ export function createLibraryHandlers(
   })
   const marks = new SqliteImageMarkRepository(db)
   const tags = new TagService(new SqliteTagRepository(db), now)
+  const albums = new AlbumService(new SqliteAlbumRepository(db), now)
   const searchFilters = createSearchFilters()
   const gallery = new SqliteGalleryReader(db, searchFilters)
   const facets = new SqliteFacetReader(db, searchFilters)
@@ -113,6 +116,21 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.TagsRemove]: async ({ tagIds, imageIds }) => ({
       changed: tags.remove(tagIds, imageIds as ImageId[])
+    }),
+    [ServiceMethod.AlbumsList]: async () => albums.list(),
+    [ServiceMethod.AlbumsCreate]: async ({ name }) => albums.create(name),
+    [ServiceMethod.AlbumsRename]: async ({ id, name }) => albums.rename(id, name),
+    [ServiceMethod.AlbumsDelete]: async ({ id }) => ({ deleted: albums.delete(id) }),
+    [ServiceMethod.AlbumsSetCover]: async ({ id, imageId }) =>
+      albums.setCover(id, imageId as ImageId | null),
+    [ServiceMethod.AlbumsAdd]: async ({ albumId, imageIds }) => ({
+      changed: albums.add(albumId, imageIds as ImageId[])
+    }),
+    [ServiceMethod.AlbumsRemove]: async ({ albumId, imageIds }) => ({
+      changed: albums.remove(albumId, imageIds as ImageId[])
+    }),
+    [ServiceMethod.AlbumsMove]: async ({ albumId, imageIds, beforeId }) => ({
+      changed: albums.move(albumId, imageIds as ImageId[], beforeId as ImageId | null)
     }),
     [ServiceMethod.SetFavorite]: async ({ ids, favorite }) => ({
       changed: marks.setFavorite(ids as ImageId[], favorite)

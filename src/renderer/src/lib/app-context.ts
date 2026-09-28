@@ -1,6 +1,7 @@
 import { getContext } from 'svelte'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { RouterState } from './routing/router.svelte'
+import type { AlbumsState } from './state/albums.svelte'
 import type { FacetsState } from './state/facets.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
@@ -26,6 +27,7 @@ export interface AppServices {
   readonly marks: ImageMarks
   readonly tags: TagsState
   readonly selection: SelectionState
+  readonly albums: AlbumsState
 }
 
 const APP_SERVICES = Symbol('app-services')

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { MAX_TAG_NAME } from '@shared/tag-kinds'
   import type { Tag } from '@shared/tags'
   import { getAppServices } from '../lib/app-context'
-  import TagCombobox from './TagCombobox.svelte'
+  import NameCombobox from './NameCombobox.svelte'
 
   interface Props {
     imageId: number
@@ -56,10 +57,13 @@
       {/each}
     </ul>
   {/if}
-  <TagCombobox
-    tags={tags.tags}
-    applied={imageTags.map((tag) => tag.id)}
+  <NameCombobox
+    items={tags.tags}
+    excluded={imageTags.map((tag) => tag.id)}
     onpick={(choice) => void add(choice)}
+    maxName={MAX_TAG_NAME}
+    label="Add a tag"
+    listLabel="Tags"
   />
 </section>
 

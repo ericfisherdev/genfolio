@@ -1,10 +1,20 @@
 <script lang="ts">
+  import { MAX_TAG_NAME } from '@shared/tag-kinds'
   import type { Tag } from '@shared/tags'
+  import { AlbumKind } from '@shared/albums'
+  import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import RatingStars from './RatingStars.svelte'
-  import TagCombobox from './TagCombobox.svelte'
+  import AddToAlbumDialog from './AddToAlbumDialog.svelte'
+  import NameCombobox from './NameCombobox.svelte'
 
-  const { selection, marks, tags, library, gallery } = getAppServices()
+  const { selection, marks, tags, library, gallery, albums } = getAppServices()
+  let adding: readonly number[] | undefined = $state()
+  const shownAlbum = $derived(
+    gallery.query?.scope.kind === GalleryScopeKind.Album
+      ? albums.find(gallery.query.scope.albumId)
+      : undefined
+  )
   const count = new Intl.NumberFormat()
   const selected = $derived(selection.count)
   const images = (n: number): string => `${count.format(n)} image${n === 1 ? '' : 's'}`
@@ -62,13 +72,27 @@
     />
   </span>
   <div class="tag">
-    <TagCombobox
-      tags={tags.tags}
-      applied={[]}
+    <NameCombobox
+      items={tags.tags}
+      excluded={[]}
       onpick={(choice) => void tag(choice)}
+      maxName={MAX_TAG_NAME}
       label="Tag them"
+      listLabel="Tags"
     />
   </div>
+  <button type="button" onclick={() => (adding = selection.list())}>Add to album…</button>
+  {#if shownAlbum?.kind === AlbumKind.Manual}
+    {@const album = shownAlbum}
+    <button
+      type="button"
+      onclick={() =>
+        onSelection(
+          async (ids) => (await albums.remove(album, ids)) !== undefined,
+          (n) => `Removed ${images(n)} from “${album.name}”.`
+        )}>Remove from album</button
+    >
+  {/if}
   <span class="spacer"></span>
   {#if selected < gallery.count}
     <button type="button" onclick={() => selection.selectAll()}>
@@ -77,6 +101,8 @@
   {/if}
   <button type="button" onclick={() => selection.clear()}>Clear</button>
 </div>
+
+<AddToAlbumDialog imageIds={adding} onclose={() => (adding = undefined)} />
 
 <style>
   .bulk-bar {

@@ -21,6 +21,17 @@ const api: GenfolioApi = {
   deleteTag: (tagId) => ipcRenderer.invoke(IpcChannel.DeleteTag, tagId),
   applyTags: (tagIds, imageIds) => ipcRenderer.invoke(IpcChannel.ApplyTags, tagIds, imageIds),
   removeTags: (tagIds, imageIds) => ipcRenderer.invoke(IpcChannel.RemoveTags, tagIds, imageIds),
+  listAlbums: () => ipcRenderer.invoke(IpcChannel.ListAlbums),
+  createAlbum: (name) => ipcRenderer.invoke(IpcChannel.CreateAlbum, name),
+  renameAlbum: (albumId, name) => ipcRenderer.invoke(IpcChannel.RenameAlbum, albumId, name),
+  deleteAlbum: (albumId) => ipcRenderer.invoke(IpcChannel.DeleteAlbum, albumId),
+  setAlbumCover: (albumId, imageId) =>
+    ipcRenderer.invoke(IpcChannel.SetAlbumCover, albumId, imageId),
+  addToAlbum: (albumId, imageIds) => ipcRenderer.invoke(IpcChannel.AddToAlbum, albumId, imageIds),
+  removeFromAlbum: (albumId, imageIds) =>
+    ipcRenderer.invoke(IpcChannel.RemoveFromAlbum, albumId, imageIds),
+  moveInAlbum: (albumId, imageIds, beforeId) =>
+    ipcRenderer.invoke(IpcChannel.MoveInAlbum, albumId, imageIds, beforeId),
   getDirectoryTree: (rootId) => ipcRenderer.invoke(IpcChannel.DirectoryTree, rootId),
   revealImage: (imageId) => ipcRenderer.invoke(IpcChannel.RevealImage, imageId),
   copyImagePath: (imageId) => ipcRenderer.invoke(IpcChannel.CopyImagePath, imageId),

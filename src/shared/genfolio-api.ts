@@ -1,3 +1,4 @@
+import type { Album, AlbumChange } from './albums'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { SearchFacets } from './search'
@@ -27,6 +28,14 @@ export enum IpcChannel {
   DeleteTag = 'tags:delete',
   ApplyTags = 'tags:apply',
   RemoveTags = 'tags:remove',
+  ListAlbums = 'albums:list',
+  CreateAlbum = 'albums:create',
+  RenameAlbum = 'albums:rename',
+  DeleteAlbum = 'albums:delete',
+  SetAlbumCover = 'albums:set-cover',
+  AddToAlbum = 'albums:add',
+  RemoveFromAlbum = 'albums:remove',
+  MoveInAlbum = 'albums:move',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -76,6 +85,28 @@ export interface GenfolioApi {
   applyTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
   /** Resolves how many links were removed. */
   removeTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
+  /** Every album with its size and cover, by name. */
+  listAlbums(): Promise<readonly Album[]>
+  /** Creates an empty manual album; a name folding to an existing album's is a Duplicate. */
+  createAlbum(name: string): Promise<AlbumChange>
+  renameAlbum(albumId: number, name: string): Promise<AlbumChange>
+  /** Resolves false when the album was already gone; the images stay in the library. */
+  deleteAlbum(albumId: number): Promise<boolean>
+  /** Only an image in the album can be its cover; null goes back to the first image. */
+  setAlbumCover(albumId: number, imageId: number | null): Promise<AlbumChange>
+  /** Appends up to 10,000 images to a manual album; resolves how many were new to it. */
+  addToAlbum(albumId: number, imageIds: readonly number[]): Promise<number>
+  /** Resolves how many entries were removed. */
+  removeFromAlbum(albumId: number, imageIds: readonly number[]): Promise<number>
+  /**
+   * Moves the images, kept in their album order, to just before `beforeId` (null: the end).
+   * Resolves how many moved.
+   */
+  moveInAlbum(
+    albumId: number,
+    imageIds: readonly number[],
+    beforeId: number | null
+  ): Promise<number>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

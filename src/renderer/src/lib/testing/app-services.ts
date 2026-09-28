@@ -5,12 +5,13 @@ import type { ScanEvent } from '@shared/scan'
 import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
+import { AlbumsState } from '../state/albums.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from '../state/image-marks'
 import { LibraryState } from '../state/library.svelte'
-import { refreshAfterTagChange } from '../state/refresh-after-tag-change'
+import { refreshAfterAlbumChange, refreshAfterTagChange } from '../state/refresh-results'
 import { SelectionState } from '../state/selection.svelte'
 import { TagsState } from '../state/tags.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
@@ -92,6 +93,7 @@ export function testServices(
     getImageLayout: async () => new Int32Array(0),
     getImages: async () => [],
     listTags: async () => [],
+    listAlbums: async () => [],
     getFacets: async () => ({
       checkpoints: [],
       loras: [],
@@ -124,7 +126,10 @@ export function testServices(
     tags: new TagsState(api, libraryState, () =>
       refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
     ),
-    selection: new SelectionState(gallery)
+    selection: new SelectionState(gallery),
+    albums: new AlbumsState(api, libraryState, () =>
+      refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
+    )
   }
   return {
     services,
