@@ -1,0 +1,56 @@
+import Database from 'better-sqlite3'
+import { describe, expect, it } from 'vitest'
+import { MigrationError, MigrationRunner } from './migration-runner'
+import { migrations } from './migrations'
+import type { Migration } from './migrations/migration'
+
+const tableNames = (db: Database.Database): string[] =>
+  db
+    .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name")
+    .all()
+    .map((row) => (row as { name: string }).name)
+
+const version = (db: Database.Database): unknown => db.pragma('user_version', { simple: true })
+
+describe('MigrationRunner', () => {
+  it('migrates a fresh database to the latest version', () => {
+    const db = new Database(':memory:')
+    expect(new MigrationRunner(db, migrations).migrate()).toBe(migrations.length)
+    expect(version(db)).toBe(migrations.length)
+    expect(tableNames(db)).toEqual(['directories', 'images', 'library_roots'])
+  })
+
+  it('is a no-op when already current', () => {
+    const db = new Database(':memory:')
+    new MigrationRunner(db, migrations).migrate()
+    expect(() => new MigrationRunner(db, migrations).migrate()).not.toThrow()
+    expect(version(db)).toBe(migrations.length)
+  })
+
+  it('refuses a database written by a newer app', () => {
+    const db = new Database(':memory:')
+    db.pragma(`user_version = ${migrations.length + 1}`)
+    expect(() => new MigrationRunner(db, migrations).migrate()).toThrow(MigrationError)
+  })
+
+  it('refuses a migration list with a gap', () => {
+    const gapped: Migration[] = [{ version: 2, name: 'skipped one', sql: 'SELECT 1' }]
+    expect(() => new MigrationRunner(new Database(':memory:'), gapped).migrate()).toThrow(
+      /expected 1/
+    )
+  })
+
+  it('rolls back a failing migration completely', () => {
+    const db = new Database(':memory:')
+    const broken: Migration[] = [
+      {
+        version: 1,
+        name: 'half done',
+        sql: 'CREATE TABLE partial (id INTEGER); SELECT nope FROM x;'
+      }
+    ]
+    expect(() => new MigrationRunner(db, broken).migrate()).toThrow()
+    expect(version(db)).toBe(0)
+    expect(tableNames(db)).toEqual([])
+  })
+})

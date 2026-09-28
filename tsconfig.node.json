@@ -8,6 +8,8 @@
     "src/preload/**/*",
     "src/service/**/*",
     "src/shared/**/*",
+    "src/domain/**/*",
+    "src/infrastructure/**/*",
     "tests/e2e/**/*"
   ],
   "compilerOptions": {
@@ -17,7 +19,9 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "paths": {
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@domain/*": ["./src/domain/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"]
     }
   }
 }

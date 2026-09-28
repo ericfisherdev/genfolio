@@ -3,10 +3,15 @@ import { defineConfig } from 'electron-vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 const sharedAlias = { '@shared': resolve(__dirname, 'src/shared') }
+const nodeAlias = {
+  ...sharedAlias,
+  '@domain': resolve(__dirname, 'src/domain'),
+  '@infrastructure': resolve(__dirname, 'src/infrastructure')
+}
 
 export default defineConfig({
   main: {
-    resolve: { alias: sharedAlias }
+    resolve: { alias: nodeAlias }
   },
   preload: {
     resolve: { alias: sharedAlias }

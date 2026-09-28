@@ -1,17 +1,19 @@
-import Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
+import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
+import { migrations } from '@infrastructure/db/migrations'
 import { SqliteProbe } from './sqlite-probe'
 
 describe('SqliteProbe', () => {
-  it('reports the SQLite version and FTS5 support', async () => {
-    const result = await new SqliteProbe(() => new Database(':memory:')).probe()
+  it('reports the SQLite version, FTS5 support and schema version', async () => {
+    const result = await new SqliteProbe(migratedMemoryDb()).probe()
     expect(result.sqlite).toMatch(/^3\.\d+\.\d+$/)
     expect(result.fts5).toBe(true)
+    expect(result.schemaVersion).toBe(migrations.length)
   })
 
-  it('closes the scratch database', async () => {
-    const db = new Database(':memory:')
-    await new SqliteProbe(() => db).probe()
-    expect(db.open).toBe(false)
+  it('leaves the library connection open', async () => {
+    const db = migratedMemoryDb()
+    await new SqliteProbe(db).probe()
+    expect(db.open).toBe(true)
   })
 })
