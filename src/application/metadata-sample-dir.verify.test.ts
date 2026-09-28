@@ -19,8 +19,14 @@ const counts = (db: Database.Database, sql: string): Record<string, number> =>
     ])
   )
 
+/** Images with a record of this kind but no generation: records no parser accepted. */
+const unparsedSql = (where: string): string =>
+  `SELECT COUNT(DISTINCT r.image_id) FROM metadata_raw r
+   LEFT JOIN generations g ON g.image_id = r.image_id
+   WHERE g.image_id IS NULL AND ${where}`
+
 describe.skipIf(!sampleDir)('metadata indexing against GENFOLIO_SAMPLE_DIR', () => {
-  it('indexes every image and parses its metadata without errors', async () => {
+  it('indexes every image, and every PNG parameters chunk yields a generation', async () => {
     const db = migratedMemoryDb()
     const images = new SqliteImageRepository(db)
     const root = new SqliteLibraryRootRepository(db).add(sampleDir as string, 1)
@@ -55,15 +61,29 @@ describe.skipIf(!sampleDir)('metadata indexing against GENFOLIO_SAMPLE_DIR', () 
         .pluck()
         .get(),
       models: counts(db, 'SELECT kind AS key, COUNT(*) AS n FROM models GROUP BY 1'),
+      // Only the scheme names Fooocus writes are printed; any other MakerNote (a camera's
+      // vendor block, serial numbers) is counted as "other" so no metadata text leaks.
       embeddedSchemes: counts(
         db,
-        `SELECT value AS key, COUNT(*) AS n FROM metadata_raw
-         WHERE key IN ('fooocus_scheme', 'MakerNote') GROUP BY 1`
-      )
+        `SELECT CASE WHEN value IN ('fooocus', 'a1111') THEN value ELSE 'other' END AS key,
+           COUNT(*) AS n
+         FROM metadata_raw WHERE key IN ('fooocus_scheme', 'MakerNote') GROUP BY 1`
+      ),
+      unparsedPngParameters: db
+        .prepare(unparsedSql(`r.origin = 'png-text' AND r.key = 'parameters'`))
+        .pluck()
+        .get(),
+      unparsedExifText: db
+        .prepare(unparsedSql(`r.origin IN ('exif-user-comment', 'exif-image-description')`))
+        .pluck()
+        .get()
     }
     console.info(`[samples] ${JSON.stringify(summary, null, 2)}`)
     expect(report.added).toBeGreaterThan(0)
     expect(report.failed).toBe(0)
     expect(warn).not.toHaveBeenCalled()
+    // Only generators write a PNG `parameters` chunk, so one that yields no generation is a
+    // parse failure. EXIF text can be ordinary camera text, so it is only reported.
+    expect(summary.unparsedPngParameters).toBe(0)
   }, 600_000)
 })

@@ -118,6 +118,7 @@
       <GenerationPanel
         details={generation.details}
         loadError={generation.loadError}
+        busy={generation.loadedImageId !== imageId}
         oncopy={(variant) => void copier.copy(imageId, variant)}
         onretry={() => void generation.retry()}
       />

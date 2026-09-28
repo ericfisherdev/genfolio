@@ -1,5 +1,6 @@
-import { rmSync } from 'node:fs'
-import { expect, test, type Page } from '@playwright/test'
+import { readdirSync, rmSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
 
@@ -149,6 +150,23 @@ test('the detail page shows the generation panel and copies from it', async () =
   )
 })
 
+const FIXTURES = resolve(__dirname, '../fixtures/fooocus')
+
+/** Opens the image's detail page and waits until the panel shows that image's data. */
+async function openDetail(page: Page, fileName: string): Promise<Locator> {
+  const id = await imageIdOf(page, fileName)
+  await page.evaluate((imageId) => (location.hash = `#/image/${imageId}`), id)
+  await expect(
+    page
+      .getByRole('region', { name: 'Image' })
+      .getByRole('heading', { name: fileName, exact: true })
+  ).toBeVisible()
+  const panel = page.getByRole('region', { name: 'Generation data' })
+  // The panel keeps the previous image's data until this one's loads.
+  await expect(panel).toHaveAttribute('aria-busy', 'false')
+  return panel
+}
+
 test('every fixture shows its checkpoint and an intact UTF-8 prompt on its detail page', async () => {
   const page = await openLibrary()
   await page.setViewportSize({ width: 1400, height: 900 })
@@ -160,14 +178,37 @@ test('every fixture shows its checkpoint and an intact UTF-8 prompt on its detai
     '2026-09-27_20-47-27_2563.png': 'intorealism_sdxlV4',
     '2026-09-27_20-48-56_2563.jpeg': 'intorealism_sdxlV4'
   }
+  const fixtures = readdirSync(FIXTURES).filter((name) => /\.(png|webp|jpe?g)$/.test(name))
+  expect(Object.keys(checkpoints).sort()).toEqual(fixtures.sort())
   for (const [fileName, checkpoint] of Object.entries(checkpoints)) {
-    const id = await imageIdOf(page, fileName)
-    await page.evaluate((imageId) => (location.hash = `#/image/${imageId}`), id)
-    const panel = page.getByRole('region', { name: 'Generation data' })
+    const panel = await openDetail(page, fileName)
     await expect(panel.getByRole('listitem').first()).toContainText(checkpoint)
     // Every fixture has a log entry, so even the EXIF images whose text Fooocus mangled to
     // `caf?` show the log's UTF-8 prompt.
     await expect(panel).toContainText('café table')
     await expect(panel).toContainText('桜 petals')
+  }
+})
+
+test('without log.html, the A1111-scheme fixtures show their embedded data', async () => {
+  rmSync(library, { recursive: true, force: true })
+  library = makeLibrary()
+  const page = await openLibrary()
+  await page.setViewportSize({ width: 1400, height: 900 })
+  const a1111: Record<string, { checkpoint: string; prompt: string }> = {
+    '2026-09-27_20-38-19_1754.png': {
+      checkpoint: 'ultraRealisticByStable_v25',
+      prompt: 'café table'
+    },
+    '2026-09-27_20-43-28_2563.webp': { checkpoint: 'intorealism_sdxlV4', prompt: 'caf? table' },
+    '2026-09-27_20-48-56_2563.jpeg': { checkpoint: 'intorealism_sdxlV4', prompt: 'caf? table' }
+  }
+  for (const [fileName, { checkpoint, prompt }] of Object.entries(a1111)) {
+    const panel = await openDetail(page, fileName)
+    await expect(panel.getByRole('listitem').first()).toContainText(checkpoint)
+    await expect(panel).toContainText(prompt)
+    await expect(panel).toContainText('Embedded')
+    // The log would give dpmpp_2m_sde_gpu; only the embedded A1111 text says this.
+    await expect(panel).toContainText('DPM++ 2M SDE Karras')
   }
 })
