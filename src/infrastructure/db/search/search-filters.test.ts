@@ -8,7 +8,7 @@ import { SqliteImageMarkRepository } from '../repositories/sqlite-image-mark-rep
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
-import { createSearchFilters } from './filters'
+import { createImageSelector } from './create-image-selector'
 
 let db: Database.Database
 let reader: SqliteGalleryReader
@@ -19,7 +19,7 @@ let modelId: SearchLibrary['modelId']
 beforeEach(() => {
   const library = searchLibrary()
   ;({ db, ids, folderB, modelId } = library)
-  reader = new SqliteGalleryReader(db, createSearchFilters())
+  reader = new SqliteGalleryReader(db, createImageSelector(db))
 })
 
 /** The fixture numbers (1–6) the query returns, in display order. */

@@ -173,3 +173,44 @@ describe('an album view', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Album not found' })).toBeTruthy()
   })
 })
+
+describe('saving a smart album', () => {
+  it('saves a library search and opens it; a folder search offers no saving', async () => {
+    const smart: Album = { ...TRIP, id: 6, name: 'Faves', kind: AlbumKind.Smart }
+    const createSmartAlbum = vi.fn(
+      async () => ({ outcome: ChangeOutcome.Done, album: smart }) as const
+    )
+    const { services, context } = await servicesWith({
+      createSmartAlbum,
+      listAlbums: async () => [smart]
+    })
+    await services.library.refresh()
+    services.router.navigate({ kind: RouteKind.All, filters: { favoritesOnly: true } })
+    render(AppShell, { context })
+    await fireEvent.click(await screen.findByRole('button', { name: 'Save as smart album…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Save as smart album' })
+    await fireEvent.input(within(dialog).getByRole('textbox'), { target: { value: 'Faves' } })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(createSmartAlbum).toHaveBeenCalledWith('Faves', { favoritesOnly: true })
+    )
+    await waitFor(() =>
+      expect(services.router.route).toEqual({ kind: RouteKind.Album, albumId: 6 })
+    )
+    // A smart album sorts like the library and has no album order to offer.
+    const sort = (await screen.findByRole('combobox', { name: 'Sort by' })) as HTMLSelectElement
+    expect([...sort.options].map((option) => option.value)).not.toContain(SortOrder.AlbumOrder)
+    expect(
+      within(screen.getByRole('list', { name: 'Albums' })).getByText('Smart album')
+    ).toBeTruthy()
+
+    services.router.navigate({
+      kind: RouteKind.Directory,
+      directoryId: 11,
+      recursive: true,
+      filters: { favoritesOnly: true }
+    })
+    await screen.findByRole('button', { name: 'Remove Favourites' })
+    expect(screen.queryByRole('button', { name: 'Save as smart album…' })).toBeNull()
+  })
+})

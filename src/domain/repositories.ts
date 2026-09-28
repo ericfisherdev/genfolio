@@ -1,5 +1,6 @@
 import type { ModelKind } from '@shared/generation-kinds'
 import type { AlbumKind } from '@shared/album-kinds'
+import type { StoredSearchFilters } from '@shared/search'
 import type { StoredGeneration } from './generation'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
@@ -177,7 +178,10 @@ export interface AlbumRecord {
   readonly name: string
   readonly kind: AlbumKind
   readonly imageCount: number
-  /** The chosen cover, else the first image in album order; null when empty. */
+  /**
+   * Manual: the chosen cover while it is in the album, else the first image in album order;
+   * null when empty. Smart: the chosen cover, if any (members are evaluated elsewhere).
+   */
   readonly coverImageId: ImageId | null
 }
 
@@ -193,6 +197,8 @@ export interface AlbumRepository {
   find(id: number): AlbumRecord
   /** Creates an empty manual album; throws DuplicateAlbumError. */
   create(name: string, createdAt: number): AlbumRecord
+  /** Creates a smart album that saves `filters`; throws DuplicateAlbumError. */
+  createSmart(name: string, filters: StoredSearchFilters, createdAt: number): AlbumRecord
   /** Throws UnknownAlbumError, DuplicateAlbumError (another album has the new name's key). */
   rename(id: number, name: string): AlbumRecord
   /** Returns false when the album was already gone; its entries cascade. */
@@ -206,7 +212,10 @@ export interface AlbumRepository {
    * `beforeId`, or to the end when it is null or not in the album. Returns how many moved.
    */
   move(albumId: number, imageIds: readonly ImageId[], beforeId: ImageId | null): number
-  /** `null` goes back to the first image. Throws UnknownAlbumError. */
+  /**
+   * `null` goes back to the first image. A manual album's cover must be one of its images;
+   * a smart album takes any image. Throws UnknownAlbumError.
+   */
   setCover(albumId: number, imageId: ImageId | null): AlbumRecord
 }
 

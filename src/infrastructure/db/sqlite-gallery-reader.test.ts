@@ -7,7 +7,7 @@ import { SqliteDirectoryRepository } from './repositories/sqlite-directory-repos
 import { SqliteImageRepository } from './repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from './repositories/sqlite-library-root-repository'
 import { SqliteGalleryReader } from './sqlite-gallery-reader'
-import { createSearchFilters } from './search/filters'
+import { createImageSelector } from './search/create-image-selector'
 import { migratedMemoryDb } from './testing/migrated-memory-db'
 
 let db: Database.Database
@@ -51,7 +51,7 @@ beforeEach(() => {
   root = new SqliteLibraryRootRepository(db).add('/lib', 1)
   directories = new SqliteDirectoryRepository(db)
   images = new SqliteImageRepository(db)
-  reader = new SqliteGalleryReader(db, createSearchFilters())
+  reader = new SqliteGalleryReader(db, createImageSelector(db))
   dirIds.clear()
   // insertion order = id order
   add('', 'top.png', 300, 10)

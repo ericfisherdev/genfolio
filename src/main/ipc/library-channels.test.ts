@@ -52,6 +52,7 @@ describe('registerLibraryChannels', () => {
       IpcChannel.RemoveTags,
       IpcChannel.ListAlbums,
       IpcChannel.CreateAlbum,
+      IpcChannel.CreateSmartAlbum,
       IpcChannel.RenameAlbum,
       IpcChannel.DeleteAlbum,
       IpcChannel.SetAlbumCover,

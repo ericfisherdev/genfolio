@@ -1,7 +1,7 @@
 import type { Album, AlbumChange } from './albums'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
-import type { SearchFacets } from './search'
+import type { SearchFacets, SearchFilters } from './search'
 import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
@@ -30,6 +30,7 @@ export enum IpcChannel {
   RemoveTags = 'tags:remove',
   ListAlbums = 'albums:list',
   CreateAlbum = 'albums:create',
+  CreateSmartAlbum = 'albums:create-smart',
   RenameAlbum = 'albums:rename',
   DeleteAlbum = 'albums:delete',
   SetAlbumCover = 'albums:set-cover',
@@ -89,6 +90,8 @@ export interface GenfolioApi {
   listAlbums(): Promise<readonly Album[]>
   /** Creates an empty manual album; a name folding to an existing album's is a Duplicate. */
   createAlbum(name: string): Promise<AlbumChange>
+  /** Saves the filters as a smart album, which shows what matches them whenever it opens. */
+  createSmartAlbum(name: string, filters: SearchFilters): Promise<AlbumChange>
   renameAlbum(albumId: number, name: string): Promise<AlbumChange>
   /** Resolves false when the album was already gone; the images stay in the library. */
   deleteAlbum(albumId: number): Promise<boolean>

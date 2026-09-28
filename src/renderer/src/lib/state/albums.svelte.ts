@@ -1,5 +1,6 @@
 import { type Album, type AlbumChange, ChangeOutcome, MAX_IDS_PER_ALBUM_EDIT } from '@shared/albums'
 import type { GenfolioApi } from '@shared/genfolio-api'
+import type { SearchFilters } from '@shared/search'
 import { userMessage } from '../format/user-message'
 import type { NoticeSink } from './notice-sink'
 
@@ -7,6 +8,7 @@ type AlbumsApi = Pick<
   GenfolioApi,
   | 'listAlbums'
   | 'createAlbum'
+  | 'createSmartAlbum'
   | 'renameAlbum'
   | 'deleteAlbum'
   | 'setAlbumCover'
@@ -50,6 +52,15 @@ export class AlbumsState {
     if (change?.outcome === ChangeOutcome.Done) return change.album
     if (change?.outcome === ChangeOutcome.Duplicate) return change.existing
     return undefined
+  }
+
+  /** Saves the filters as a smart album; `undefined` (with a notice) when it wasn't created. */
+  async createSmart(name: string, filters: SearchFilters): Promise<Album | undefined> {
+    const change = await this.attempt('save the smart album', () =>
+      this.api.createSmartAlbum(name, filters)
+    )
+    this.report(change, `An album named “${name}” already exists.`)
+    return change?.outcome === ChangeOutcome.Done ? change.album : undefined
   }
 
   async rename(album: Album, name: string): Promise<void> {

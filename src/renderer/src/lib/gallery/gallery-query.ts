@@ -3,7 +3,10 @@ import type { GalleryQuery } from '@shared/gallery'
 import { filtersKey } from '../routing/filter-params'
 import { RouteKind, type GalleryRoute, type Route } from '../routing/route'
 
-/** The sort orders a view uses: albums keep their own, which defaults to album order. */
+/**
+ * The sort orders a view uses: manual albums keep their own, which defaults to album order;
+ * the library, its folders and smart albums (saved searches) share `current`.
+ */
 export interface ViewSorts {
   readonly current: SortOrder
   readonly album: SortOrder
@@ -13,7 +16,8 @@ export interface ViewSorts {
 export function queryForRoute(
   route: Route,
   sorts: ViewSorts,
-  previous: GalleryQuery | undefined
+  previous: GalleryQuery | undefined,
+  isSmartAlbum: (albumId: number) => boolean
 ): GalleryQuery | undefined {
   switch (route.kind) {
     case RouteKind.All:
@@ -31,7 +35,7 @@ export function queryForRoute(
     case RouteKind.Album:
       return {
         scope: { kind: GalleryScopeKind.Album, albumId: route.albumId },
-        sort: sorts.album,
+        sort: isSmartAlbum(route.albumId) ? sorts.current : sorts.album,
         ...filtersOf(route)
       }
     case RouteKind.Image:

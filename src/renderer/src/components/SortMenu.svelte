@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { AlbumKind } from '@shared/albums'
   import { SortOrder } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
@@ -12,9 +13,13 @@
     [SortOrder.Rating]: 'Rating'
   }
 
-  const { sort, router } = getAppServices()
-  // Albums keep their own order preference; album order means nothing elsewhere.
-  const inAlbum = $derived(router.route.kind === RouteKind.Album)
+  const { sort, router, albums } = getAppServices()
+  // Manual albums keep their own order preference; album order means nothing elsewhere.
+  // Smart albums are saved searches and sort like the library.
+  const inAlbum = $derived(
+    router.route.kind === RouteKind.Album &&
+      albums.find(router.route.albumId)?.kind !== AlbumKind.Smart
+  )
   const orders = $derived(
     Object.values(SortOrder).filter((order) => inAlbum || order !== SortOrder.AlbumOrder)
   )

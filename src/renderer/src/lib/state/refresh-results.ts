@@ -7,9 +7,10 @@ type Results = Pick<GalleryState, 'query' | 'refreshLayout' | 'markLayoutStale'>
 type Facets = Pick<FacetsState, 'load'>
 
 /**
- * After tags change: tag counts are facets, and a view filtered by tags may gain or lose
- * images. With `LayoutUpdate.Deferred` (an image is open and being stepped through) the
- * layout is only flagged stale, for the grid to reload when shown again.
+ * After tags change: tag counts are facets, and a view filtered by tags (or an album, which
+ * may be a smart one searching by tags) may gain or lose images. With `LayoutUpdate.Deferred`
+ * (an image is open and being stepped through) the layout is only flagged stale, for the
+ * grid to reload when shown again.
  */
 export function refreshAfterTagChange(
   gallery: Results,
@@ -19,7 +20,9 @@ export function refreshAfterTagChange(
   const query = gallery.query
   if (!query) return
   void facets.load(query)
-  if (query.filters?.tags) reloadLayout(gallery, update)
+  if (query.filters?.tags || query.scope.kind === GalleryScopeKind.Album) {
+    reloadLayout(gallery, update)
+  }
 }
 
 /** After an album changes: an album view may have gained, lost or reordered images. */

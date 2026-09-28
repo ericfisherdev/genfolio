@@ -23,6 +23,8 @@ const api: GenfolioApi = {
   removeTags: (tagIds, imageIds) => ipcRenderer.invoke(IpcChannel.RemoveTags, tagIds, imageIds),
   listAlbums: () => ipcRenderer.invoke(IpcChannel.ListAlbums),
   createAlbum: (name) => ipcRenderer.invoke(IpcChannel.CreateAlbum, name),
+  createSmartAlbum: (name, filters) =>
+    ipcRenderer.invoke(IpcChannel.CreateSmartAlbum, name, filters),
   renameAlbum: (albumId, name) => ipcRenderer.invoke(IpcChannel.RenameAlbum, albumId, name),
   deleteAlbum: (albumId) => ipcRenderer.invoke(IpcChannel.DeleteAlbum, albumId),
   setAlbumCover: (albumId, imageId) =>

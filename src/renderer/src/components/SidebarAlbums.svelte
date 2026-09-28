@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MAX_ALBUM_NAME, type Album } from '@shared/albums'
+  import { AlbumKind, MAX_ALBUM_NAME, type Album } from '@shared/albums'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import ActionMenu from './ActionMenu.svelte'
@@ -56,7 +56,13 @@
           aria-current={current(album) ? 'page' : undefined}
           onclick={() => openAlbum(album)}
         >
-          <span class="name">{album.name}</span>
+          <span class="name">
+            {#if album.kind === AlbumKind.Smart}
+              <span class="smart" aria-hidden="true" title="Smart album: a saved search">⌕</span>
+              <span class="visually-hidden">Smart album</span>
+            {/if}
+            {album.name}
+          </span>
           <span class="count">{count.format(album.imageCount)}</span>
         </button>
         <ActionMenu
@@ -166,5 +172,8 @@
   }
   .count {
     color: var(--color-text-muted);
+  }
+  .smart {
+    color: var(--color-accent);
   }
 </style>

@@ -145,3 +145,29 @@ test('a manual album is filled, arranged, kept through a rescan, renamed and del
   await expect(cards(page)).toHaveCount(6)
   await expect(page.getByRole('list', { name: 'Albums' })).toHaveCount(0)
 })
+
+test('a smart album saves a search and re-evaluates it when opened', async () => {
+  const page = await openGallery()
+  const [first, second] = await cardNames(page)
+  const favourite = (name: string | undefined): Promise<void> =>
+    page.getByRole('button', { name: `Favourite ${name}` }).click()
+
+  await favourite(first)
+  await page.getByRole('button', { name: '♥ Favourites' }).click()
+  await expect(cards(page)).toHaveCount(1)
+  await page.getByRole('button', { name: 'Save as smart album…' }).click()
+  const save = page.getByRole('dialog', { name: 'Save as smart album' })
+  await save.getByRole('textbox').fill('Faves')
+  await save.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Faves' })).toBeVisible()
+  await expect(cards(page)).toHaveCount(1)
+
+  // Marking another favourite in the library puts it in the album on the next open.
+  await page.getByRole('button', { name: /^All Photos/ }).click()
+  await expect(cards(page)).toHaveCount(6)
+  await favourite(second)
+  const albums = page.getByRole('list', { name: 'Albums' })
+  await albums.getByRole('button', { name: /^Smart album Faves/ }).click()
+  await expect(cards(page)).toHaveCount(2)
+  await expect(albums.getByRole('button', { name: /^Smart album Faves/ })).toContainText('2')
+})

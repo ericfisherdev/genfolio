@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createVirtualizer } from '@tanstack/svelte-virtual'
   import { tick, untrack } from 'svelte'
+  import { AlbumKind } from '@shared/albums'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
@@ -32,7 +33,8 @@
     const query = queryForRoute(
       router.route,
       sort,
-      untrack(() => gallery.query)
+      untrack(() => gallery.query),
+      (albumId) => albums.find(albumId)?.kind === AlbumKind.Smart
     )
     if (!query) return
     // A mark made on the detail page may have changed which images these results hold.

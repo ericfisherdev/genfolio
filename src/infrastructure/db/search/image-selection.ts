@@ -1,4 +1,6 @@
+import type { AlbumKind } from '@shared/album-kinds'
 import { GalleryScopeKind, type GalleryQuery } from '@shared/gallery'
+import type { SearchFilters } from '@shared/search'
 import type { CriteriaFilter, SqlCondition } from './criteria-filter'
 
 const SUBTREE = `WITH RECURSIVE subtree(id) AS (
@@ -18,39 +20,65 @@ export interface ImageSelection {
   readonly params: readonly unknown[]
 }
 
-export function selectImages(
-  query: Pick<GalleryQuery, 'scope' | 'filters'>,
-  filters: readonly CriteriaFilter[]
-): ImageSelection {
-  const conditions = query.filters
-    ? filters.flatMap((filter) => filter.condition(query.filters ?? {}) ?? [])
-    : []
-  const scope = scopeCondition(query.scope)
-  const clauses = [...(scope ? [scope] : []), ...conditions]
+/** What an album keeps, which depends on its kind and, for a smart album, its saved search. */
+export interface AlbumScopes {
+  /** The album's images: its entries or its saved search; nothing when it is gone. */
+  condition(albumId: number): SqlCondition
+  kindOf(albumId: number): AlbumKind | undefined
+}
+
+/** The conditions the filters add, one per filter in use. */
+export function filterConditions(
+  filters: SearchFilters,
+  criteria: readonly CriteriaFilter[]
+): SqlCondition[] {
+  return criteria.flatMap((filter) => filter.condition(filters) ?? [])
+}
+
+/** Joins conditions with AND; `undefined` when there are none. */
+export function allOf(conditions: readonly SqlCondition[]): SqlCondition | undefined {
+  if (conditions.length === 0) return undefined
   return {
-    prefix: query.scope.kind === GalleryScopeKind.Directory && query.scope.recursive ? SUBTREE : '',
-    where:
-      clauses.length > 0
-        ? `WHERE ${clauses.map((condition) => `(${condition.sql})`).join(' AND ')}`
-        : '',
-    params: clauses.flatMap((condition) => condition.params)
+    sql: conditions.map((condition) => `(${condition.sql})`).join(' AND '),
+    params: conditions.flatMap((condition) => condition.params)
   }
 }
 
-/** What the scope keeps, or `undefined` for the whole library. */
-function scopeCondition(scope: GalleryQuery['scope']): SqlCondition | undefined {
-  switch (scope.kind) {
-    case GalleryScopeKind.All:
-      return undefined
-    case GalleryScopeKind.Directory:
-      // The recursive form binds the subtree CTE's root, which the prefix puts first.
-      return scope.recursive
-        ? { sql: 'directory_id IN (SELECT id FROM subtree)', params: [scope.directoryId] }
-        : { sql: 'directory_id = ?', params: [scope.directoryId] }
-    case GalleryScopeKind.Album:
-      return {
-        sql: 'id IN (SELECT image_id FROM album_images WHERE album_id = ?)',
-        params: [scope.albumId]
-      }
+/** Turns gallery queries into the SQL that selects their images. */
+export class ImageSelector {
+  constructor(
+    private readonly criteria: readonly CriteriaFilter[],
+    private readonly albums: AlbumScopes
+  ) {}
+
+  select(query: Pick<GalleryQuery, 'scope' | 'filters'>): ImageSelection {
+    const scope = this.scopeCondition(query.scope)
+    const filters = query.filters ? filterConditions(query.filters, this.criteria) : []
+    const where = allOf([...(scope ? [scope] : []), ...filters])
+    return {
+      prefix:
+        query.scope.kind === GalleryScopeKind.Directory && query.scope.recursive ? SUBTREE : '',
+      where: where ? `WHERE ${where.sql}` : '',
+      params: where?.params ?? []
+    }
+  }
+
+  albumKind(albumId: number): AlbumKind | undefined {
+    return this.albums.kindOf(albumId)
+  }
+
+  /** What the scope keeps, or `undefined` for the whole library. */
+  private scopeCondition(scope: GalleryQuery['scope']): SqlCondition | undefined {
+    switch (scope.kind) {
+      case GalleryScopeKind.All:
+        return undefined
+      case GalleryScopeKind.Directory:
+        // The recursive form binds the subtree CTE's root, which the prefix puts first.
+        return scope.recursive
+          ? { sql: 'directory_id IN (SELECT id FROM subtree)', params: [scope.directoryId] }
+          : { sql: 'directory_id = ?', params: [scope.directoryId] }
+      case GalleryScopeKind.Album:
+        return this.albums.condition(scope.albumId)
+    }
   }
 }

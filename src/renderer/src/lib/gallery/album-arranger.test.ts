@@ -123,3 +123,27 @@ describe('AlbumArranger', () => {
     expect(albums.move).not.toHaveBeenCalled()
   })
 })
+
+describe('AlbumArranger in a smart album', () => {
+  it('offers the cover but no removing or arranging', () => {
+    const smart: Album = { ...TRIP, id: 4, kind: AlbumKind.Smart }
+    const albums = {
+      find: () => smart,
+      setCover: vi.fn(async () => undefined),
+      remove: vi.fn(async () => 1),
+      move: vi.fn(async () => undefined)
+    }
+    const query: GalleryQuery = {
+      scope: { kind: GalleryScopeKind.Album, albumId: 4 },
+      sort: SortOrder.AlbumOrder
+    }
+    const smartArranger = new AlbumArranger(
+      albums,
+      { ...order, query },
+      { has: () => false, list: () => [] },
+      vi.fn()
+    )
+    expect(labels(smartArranger.cardActions(20))).toEqual(['Add to album…', 'Use as album cover'])
+    expect(smartArranger.arrangeable).toBeUndefined()
+  })
+})

@@ -139,4 +139,13 @@ describe('storedSearchFiltersSchema', () => {
     expect(storedSearchFiltersSchema.safeParse({ samePromptAs: 7 }).success).toBe(false)
     expect(storedSearchFiltersSchema.safeParse({ checkpoints: [{ id: 2 }] }).success).toBe(false)
   })
+
+  it('names tags by name and keeps favourites and a minimum rating', () => {
+    const stored = { tags: { names: ['red'], mode: 'any' }, favoritesOnly: true, minRating: 3 }
+    expect(storedSearchFiltersSchema.safeParse(stored).success).toBe(true)
+    expect(storedSearchFiltersSchema.safeParse({ tags: { ids: [1], mode: 'any' } }).success).toBe(
+      false
+    )
+    expect(storedSearchFiltersSchema.safeParse({ tags: { mode: 'any' } }).success).toBe(false)
+  })
 })

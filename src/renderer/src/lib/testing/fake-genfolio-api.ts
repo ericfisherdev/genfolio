@@ -27,6 +27,7 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     removeTags: unexpected('removeTags'),
     listAlbums: unexpected('listAlbums'),
     createAlbum: unexpected('createAlbum'),
+    createSmartAlbum: unexpected('createSmartAlbum'),
     renameAlbum: unexpected('renameAlbum'),
     deleteAlbum: unexpected('deleteAlbum'),
     setAlbumCover: unexpected('setAlbumCover'),

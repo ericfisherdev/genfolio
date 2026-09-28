@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { MAX_RATING } from './gallery-kinds'
 import { GeneratorKind } from './generation-kinds'
 import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from './search-kinds'
+import { MAX_TAG_NAME } from './tag-kinds'
 
 export { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from './search-kinds'
 
@@ -88,6 +89,8 @@ export type FacetValue = z.infer<typeof facetValue>
 const storedModel = z.object({ identity: z.string().min(1).max(256) }).strict()
 const storedModels = z.array(storedModel).min(1).max(200)
 
+const storedNames = z.array(z.string().min(1).max(MAX_TAG_NAME)).min(1).max(200)
+
 /** Longest prompt a smart album can store for "same prompt". */
 export const MAX_STORED_PROMPT = 16_384
 
@@ -121,7 +124,21 @@ export const storedSearchFiltersSchema = z
     generators: z.array(z.enum(GeneratorKind)).min(1).max(10).optional(),
     seed: z.string().min(1).max(MAX_SEED_LENGTH).optional(),
     samePrompt: z.string().min(1).max(MAX_STORED_PROMPT).optional(),
-    hasMetadata: z.boolean().optional()
+    hasMetadata: z.boolean().optional(),
+    /** Tags by name (tag ids are recycled too), compared by nameKey() when resolved. */
+    tags: z
+      .object({
+        names: storedNames.optional(),
+        mode: z.enum(SetMatchMode),
+        excludeNames: storedNames.optional()
+      })
+      .strict()
+      .refine(({ names, excludeNames }) => names !== undefined || excludeNames !== undefined, {
+        message: 'a tag filter needs tags to include or exclude'
+      })
+      .optional(),
+    favoritesOnly: z.literal(true).optional(),
+    minRating: z.number().int().min(1).max(MAX_RATING).optional()
   })
   .strict()
 

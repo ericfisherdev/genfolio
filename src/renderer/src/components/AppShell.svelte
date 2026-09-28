@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import BulkBar from './BulkBar.svelte'
@@ -35,6 +36,15 @@
       void tags.load()
       void albums.load()
     })
+  })
+
+  // A smart album's size is evaluated, so whenever an album view's results reload (it opened,
+  // or marks, tags or a scan changed them), reload the albums for current counts.
+  $effect(() => {
+    void gallery.layout
+    if (untrack(() => gallery.query?.scope.kind) === GalleryScopeKind.Album) {
+      untrack(() => void albums.load())
+    }
   })
 
   // Cancelled scans send no end event; forget progress for roots that are gone.

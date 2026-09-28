@@ -11,7 +11,7 @@ import {
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
-import { searchFacetsSchema } from './search'
+import { searchFacetsSchema, searchFiltersSchema } from './search'
 import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
 
@@ -41,6 +41,7 @@ export enum ServiceMethod {
   TagsRemove = 'tags.remove',
   AlbumsList = 'albums.list',
   AlbumsCreate = 'albums.create',
+  AlbumsCreateSmart = 'albums.create-smart',
   AlbumsRename = 'albums.rename',
   AlbumsDelete = 'albums.delete',
   AlbumsSetCover = 'albums.set-cover',
@@ -117,6 +118,10 @@ export const serviceContract = {
   [ServiceMethod.AlbumsList]: { params: noParams, result: z.array(albumSchema).readonly() },
   [ServiceMethod.AlbumsCreate]: {
     params: z.object({ name: albumNameSchema }).strict(),
+    result: albumChangeSchema
+  },
+  [ServiceMethod.AlbumsCreateSmart]: {
+    params: z.object({ name: albumNameSchema, filters: searchFiltersSchema }).strict(),
     result: albumChangeSchema
   },
   [ServiceMethod.AlbumsRename]: {

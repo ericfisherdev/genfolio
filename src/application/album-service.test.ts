@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import type { ImageId } from '@domain/library'
 import { SqliteAlbumRepository } from '@infrastructure/db/repositories/sqlite-album-repository'
+import { createImageSelector } from '@infrastructure/db/search/create-image-selector'
+import { SqliteSmartAlbumEvaluator } from '@infrastructure/db/search/sqlite-smart-album-evaluator'
+import { SqliteStoredFilterCodec } from '@infrastructure/db/search/stored-filter-codec'
 import { searchLibrary } from '@infrastructure/db/testing/search-library'
 import { ChangeOutcome } from '@shared/albums'
 import { AlbumService } from './album-service'
 
 function service(): AlbumService {
-  return new AlbumService(new SqliteAlbumRepository(searchLibrary().db), () => 42)
+  const { db } = searchLibrary()
+  return new AlbumService(
+    new SqliteAlbumRepository(db),
+    new SqliteStoredFilterCodec(db),
+    new SqliteSmartAlbumEvaluator(db, createImageSelector(db)),
+    () => 42
+  )
 }
 
 describe('AlbumService', () => {

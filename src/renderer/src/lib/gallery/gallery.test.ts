@@ -20,24 +20,27 @@ describe('gridGeometry', () => {
 
 describe('queryForRoute', () => {
   const sorts = { current: SortOrder.Oldest, album: SortOrder.AlbumOrder }
+  const never = (): boolean => false
 
   it('maps routes to queries and keeps the previous one for image routes', () => {
-    const all = queryForRoute({ kind: RouteKind.All }, sorts, undefined)
+    const all = queryForRoute({ kind: RouteKind.All }, sorts, undefined, never)
     expect(all).toEqual({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Oldest })
     const dir = queryForRoute(
       { kind: RouteKind.Directory, directoryId: 5, recursive: false },
       sorts,
-      all
+      all,
+      never
     )
     expect(dir && queryKey(dir)).toBe('dir:5:0|oldest')
-    expect(queryForRoute({ kind: RouteKind.Image, imageId: 1 }, sorts, dir)).toBe(dir)
+    expect(queryForRoute({ kind: RouteKind.Image, imageId: 1 }, sorts, dir, never)).toBe(dir)
   })
 
   it('sorts an album by the album preference', () => {
     const album = queryForRoute(
       { kind: RouteKind.Album, albumId: 3, filters: { favoritesOnly: true } },
       sorts,
-      undefined
+      undefined,
+      never
     )
     expect(album).toEqual({
       scope: { kind: GalleryScopeKind.Album, albumId: 3 },
@@ -45,6 +48,11 @@ describe('queryForRoute', () => {
       filters: { favoritesOnly: true }
     })
     expect(album && queryKey(album)).toMatch(/^album:3\|album-order\|/)
+  })
+
+  it('sorts a smart album like the library', () => {
+    const smart = queryForRoute({ kind: RouteKind.Album, albumId: 3 }, sorts, undefined, () => true)
+    expect(smart?.sort).toBe(SortOrder.Oldest)
   })
 })
 
