@@ -41,10 +41,12 @@ beforeAll(async () => {
   }).run(root, new AbortController().signal)
   for (const stat of images.fileStatsByRoot(root.id)) ids.set(stat.fileName, stat.id)
   const versions = new SqliteImageVersionCheck(db)
+  const models = new SqliteModelCatalog(db)
   reader = new GenerationDetailsReader(
-    new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions),
+    new SqliteGenerationRepository(db, models, versions),
     new SqliteMetadataRecordRepository(db, versions),
-    createGenerationParser()
+    createGenerationParser(),
+    models
   )
 })
 
@@ -94,6 +96,7 @@ describe('GenerationDetailsReader', () => {
     expect(details.resources).toEqual([
       {
         kind: ResourceKind.Checkpoint,
+        modelId: expect.any(Number),
         name: 'ultraRealisticByStable_v25',
         hash: 'c69e98fa77',
         weight: null,
@@ -101,6 +104,7 @@ describe('GenerationDetailsReader', () => {
       },
       {
         kind: ResourceKind.Lora,
+        modelId: expect.any(Number),
         name: 'add-detail-xl',
         hash: '0d9bd1b873',
         weight: 0.6,
@@ -108,6 +112,7 @@ describe('GenerationDetailsReader', () => {
       },
       {
         kind: ResourceKind.Lora,
+        modelId: expect.any(Number),
         name: 'Pony Realism Slider',
         hash: '0fc4c9f8d8',
         weight: 1,
@@ -175,7 +180,14 @@ describe('generationText', () => {
       prompt: 'p <lora:add-detail-xl:0.2>',
       resources: [
         ...base.resources,
-        { kind: ResourceKind.Lora, name: 'mystery', hash: null, weight: null, weightSource: null }
+        {
+          kind: ResourceKind.Lora,
+          modelId: null,
+          name: 'mystery',
+          hash: null,
+          weight: null,
+          weightSource: null
+        }
       ]
     }
     expect(generationText(withTagged, CopyVariant.PromptWithLoras)).toBe(

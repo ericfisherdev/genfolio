@@ -3,6 +3,7 @@
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
+  import { filtersToFind, type FindSimilar } from '../lib/gallery/find-similar'
   import { routeForQuery } from '../lib/gallery/route-for-query'
   import { RouteKind } from '../lib/routing/route'
   import FileInfoPanel from './FileInfoPanel.svelte'
@@ -64,6 +65,15 @@
   }
   const back = (): void => router.navigate(routeForQuery(gallery.query))
 
+  /** Opens All Photos filtered to images sharing what was picked with this one. */
+  function find(similar: FindSimilar): void {
+    const details = generation.details
+    // While the next image loads, the panel still shows the previous one's data.
+    if (!details || generation.loadedImageId !== imageId) return
+    const filters = filtersToFind(similar, imageId, details)
+    if (filters) router.navigate({ kind: RouteKind.All, filters })
+  }
+
   /** Keys aimed at form fields, the folder tree, an open menu or a dialog are theirs. */
   const ownedByAnotherWidget = (target: EventTarget | null): boolean =>
     target instanceof Element &&
@@ -121,6 +131,7 @@
         busy={generation.loadedImageId !== imageId}
         oncopy={(variant) => void copier.copy(imageId, variant)}
         onretry={() => void generation.retry()}
+        onfind={find}
       />
       <FileInfoPanel
         {card}

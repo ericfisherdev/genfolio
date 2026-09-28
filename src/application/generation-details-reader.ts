@@ -7,9 +7,13 @@ import { byPrecedence } from '@domain/generation-merger'
 import type { ImageId } from '@domain/library'
 import type { MetadataRecord } from '@domain/metadata-record'
 import { modelIdentity } from '@domain/model-name'
-import type { GenerationRepository, MetadataRecordRepository } from '@domain/repositories'
+import type {
+  GenerationRepository,
+  MetadataRecordRepository,
+  ModelDirectory
+} from '@domain/repositories'
 import type { GenerationDetails, GenerationResource, MetadataSource } from '@shared/generation'
-import { GenerationFormat, ResourceKind } from '@shared/generation-kinds'
+import { GenerationFormat, ModelKind, ResourceKind } from '@shared/generation-kinds'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
 
 /** What the detail page shows for an image: its stored generation, resources and raw sources. */
@@ -17,7 +21,8 @@ export class GenerationDetailsReader {
   constructor(
     private readonly generations: GenerationRepository,
     private readonly records: MetadataRecordRepository,
-    private readonly parser: GenerationSourceParser
+    private readonly parser: GenerationSourceParser,
+    private readonly models: ModelDirectory
   ) {}
 
   /** `null` when the image has no generation (unknown image, or no metadata). */
@@ -41,7 +46,7 @@ export class GenerationDetailsReader {
       vae: generation.vae ?? null,
       styles: generation.styles ?? null,
       performance: generation.performance ?? null,
-      resources: resourcesOf(generation, ranked),
+      resources: resourcesOf(generation, ranked, this.models),
       // The merger stores the best-ranked source's params.
       paramsFormat: ranked[0]?.format ?? GenerationFormat.A1111Infotext,
       params: { ...generation.params },
@@ -52,15 +57,30 @@ export class GenerationDetailsReader {
 
 function resourcesOf(
   generation: StoredGeneration,
-  ranked: readonly SourcedGeneration[]
+  ranked: readonly SourcedGeneration[],
+  models: ModelDirectory
 ): GenerationResource[] {
+  const checkpointId = (name: string): number | null =>
+    models.idOfDisplayName(ModelKind.Checkpoint, name) ?? null
   const model = (kind: ResourceKind, ref: StoredGeneration['checkpoint']): GenerationResource[] =>
-    ref ? [{ kind, name: ref.name, hash: ref.hash, weight: null, weightSource: null }] : []
+    ref
+      ? [
+          {
+            kind,
+            modelId: checkpointId(ref.name),
+            name: ref.name,
+            hash: ref.hash,
+            weight: null,
+            weightSource: null
+          }
+        ]
+      : []
   return [
     ...model(ResourceKind.Checkpoint, generation.checkpoint),
     ...model(ResourceKind.Refiner, generation.refiner),
     ...(generation.loras ?? []).map((lora) => ({
       kind: ResourceKind.Lora,
+      modelId: models.idOfDisplayName(ModelKind.Lora, lora.name) ?? null,
       name: lora.name,
       hash: lora.hash,
       weight: lora.weight,

@@ -107,3 +107,58 @@ test('filters live in the route: back, forward and deep links restore them', asy
   await expect(page.getByText('No images match these filters.')).toBeVisible()
   await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Seed: nope')
 })
+
+async function openDetailOf(page: Page, fileName: string): Promise<void> {
+  await page
+    .getByRole('article', { name: fileName })
+    .getByRole('button', { name: /^Open / })
+    .click()
+  await expect(page.getByRole('region', { name: 'Generation data' })).toContainText(
+    'Resources used'
+  )
+}
+
+test('resource rows and Same seed / Same prompt open the matching images', async () => {
+  const page = await openGallery()
+  await openDetailOf(page, '2026-09-27_20-38-19_1754.png')
+  await page.getByRole('button', { name: 'Pony Realism Slider' }).click()
+  await expect(cards(page)).toHaveCount(1)
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText(
+    'Pony Realism Slider'
+  )
+
+  await page.getByRole('button', { name: 'Clear all' }).click()
+  await openDetailOf(page, '2026-09-27_20-43-28_2563.webp')
+  await page.getByRole('button', { name: 'Same seed' }).click()
+  await expect(cards(page)).toHaveCount(4)
+
+  await page.getByRole('button', { name: 'Clear all' }).click()
+  const card = page.getByRole('article', { name: '2026-09-27_20-36-27_8675.png' })
+  await card.hover()
+  await card.getByRole('button', { name: /^Actions for / }).click()
+  await page.getByRole('menuitem', { name: 'Same prompt' }).click()
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Same prompt')
+  // Every fixture was generated from the same prompt.
+  await expect(cards(page)).toHaveCount(6)
+})
+
+test('selected prompt text can be searched as a phrase', async () => {
+  const page = await openGallery()
+  await openDetailOf(page, '2026-09-27_20-38-19_1754.png')
+  // The prompt's own paragraph; the collapsed Sources list holds the same text too.
+  const prompt = page.getByRole('region', { name: 'Generation data' }).locator('.prompt p')
+  await prompt.evaluate((element) => {
+    const text = element.firstChild as Text
+    const start = text.data.indexOf('snail')
+    const range = document.createRange()
+    range.setStart(text, start)
+    range.setEnd(text, start + 'snail on a wooden'.length)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+  })
+  await page.getByRole('button', { name: 'Search for “snail on a wooden”' }).click()
+  await expect(page.getByRole('searchbox', { name: 'Search prompts' })).toHaveValue(
+    '"snail on a wooden"'
+  )
+  await expect(cards(page)).toHaveCount(6)
+})

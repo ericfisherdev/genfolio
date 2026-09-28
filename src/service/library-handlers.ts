@@ -65,10 +65,12 @@ export function createLibraryHandlers(
   const gallery = new SqliteGalleryReader(db, searchFilters)
   const facets = new SqliteFacetReader(db, searchFilters)
   const versions = new SqliteImageVersionCheck(db)
+  const models = new SqliteModelCatalog(db)
   const generationDetails = new GenerationDetailsReader(
-    new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions),
+    new SqliteGenerationRepository(db, models, versions),
     new SqliteMetadataRecordRepository(db, versions),
-    createGenerationParser()
+    createGenerationParser(),
+    models
   )
   const displayCopies = new DisplayCopies(
     new ImageFileResolver(new SqliteImageLocator(db), {

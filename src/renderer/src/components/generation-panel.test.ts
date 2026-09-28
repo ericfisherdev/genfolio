@@ -8,6 +8,7 @@ import {
   ResourceKind
 } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
+import { FindKind } from '../lib/gallery/find-similar'
 import GalleryCard from './GalleryCard.svelte'
 import GenerationPanel from './GenerationPanel.svelte'
 
@@ -31,6 +32,7 @@ const FIXTURE: GenerationDetails = {
   resources: [
     {
       kind: ResourceKind.Checkpoint,
+      modelId: 1,
       name: 'ultraRealisticByStable_v25',
       hash: 'c69e98fa77',
       weight: null,
@@ -38,6 +40,7 @@ const FIXTURE: GenerationDetails = {
     },
     {
       kind: ResourceKind.Lora,
+      modelId: 2,
       name: 'add-detail-xl',
       hash: '0d9bd1b873',
       weight: 0.6,
@@ -45,6 +48,7 @@ const FIXTURE: GenerationDetails = {
     },
     {
       kind: ResourceKind.Lora,
+      modelId: 3,
       name: 'mystery',
       hash: null,
       weight: null,
@@ -62,11 +66,18 @@ const FIXTURE: GenerationDetails = {
 function renderPanel(
   details: GenerationDetails | null | undefined,
   loadError?: string
-): { oncopy: ReturnType<typeof vi.fn>; onretry: ReturnType<typeof vi.fn> } {
+): {
+  oncopy: ReturnType<typeof vi.fn>
+  onretry: ReturnType<typeof vi.fn>
+  onfind: ReturnType<typeof vi.fn>
+} {
   const oncopy = vi.fn()
   const onretry = vi.fn()
-  render(GenerationPanel, { props: { details, loadError, busy: false, oncopy, onretry } })
-  return { oncopy, onretry }
+  const onfind = vi.fn()
+  render(GenerationPanel, {
+    props: { details, loadError, busy: false, oncopy, onretry, onfind }
+  })
+  return { oncopy, onretry, onfind }
 }
 
 const section = (): HTMLElement => screen.getByRole('region', { name: 'Generation data' })
@@ -149,6 +160,7 @@ describe('GenerationPanel', () => {
   it('shows at most five resources until asked for all', async () => {
     const loras = Array.from({ length: 7 }, (_, index) => ({
       kind: ResourceKind.Lora,
+      modelId: 4,
       name: `lora-${index}`,
       hash: null,
       weight: 1,
@@ -190,6 +202,26 @@ describe('GenerationPanel', () => {
   })
 })
 
+describe('GalleryCard menu', () => {
+  it('offers Same prompt', async () => {
+    const onsameprompt = vi.fn()
+    render(GalleryCard, {
+      props: {
+        imageId: 7,
+        card: undefined,
+        onopen: vi.fn(),
+        onreveal: vi.fn(),
+        oncopypath: vi.fn(),
+        oncopy: vi.fn(),
+        onsameprompt
+      }
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Actions for Image 7' }))
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Same prompt' }))
+    expect(onsameprompt).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('GalleryCard copy button', () => {
   it('copies the prompt on click and everything on Shift-click', async () => {
     const oncopy = vi.fn()
@@ -200,7 +232,8 @@ describe('GalleryCard copy button', () => {
         onopen: vi.fn(),
         onreveal: vi.fn(),
         oncopypath: vi.fn(),
-        oncopy
+        oncopy,
+        onsameprompt: vi.fn()
       }
     })
     const button = screen.getByRole('button', { name: 'Copy prompt of Image 7' })
@@ -210,5 +243,112 @@ describe('GalleryCard copy button', () => {
       CopyVariant.Prompt,
       CopyVariant.All
     ])
+  })
+})
+
+describe('finding similar images from the panel', () => {
+  it('links stored resources, and not unstored ones', async () => {
+    const { onfind } = renderPanel({
+      ...FIXTURE,
+      resources: [...FIXTURE.resources.slice(0, 2), { ...FIXTURE.resources[2]!, modelId: null }]
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'add-detail-xl' }))
+    expect(onfind).toHaveBeenCalledWith({
+      kind: FindKind.Resource,
+      resource: expect.objectContaining({ name: 'add-detail-xl' })
+    })
+    expect(screen.queryByRole('button', { name: 'mystery' })).toBeNull()
+    expect(screen.getByText('mystery')).toBeTruthy()
+  })
+
+  it('offers the same seed and the same prompt', async () => {
+    const { onfind } = renderPanel(FIXTURE)
+    await fireEvent.click(screen.getByRole('button', { name: 'Same seed' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Same prompt' }))
+    expect(onfind.mock.calls.map(([find]) => find)).toEqual([
+      { kind: FindKind.SameSeed },
+      { kind: FindKind.SamePrompt }
+    ])
+  })
+
+  it('offers selected prompt text as a search', async () => {
+    const { onfind } = renderPanel(FIXTURE)
+    const text = screen.getByText(/ceramic teapot/)
+    const range = document.createRange()
+    const node = text.firstChild as Text
+    range.setStart(node, 2)
+    range.setEnd(node, 16)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    // jsdom doesn't fire selectionchange on addRange; browsers do.
+    await fireEvent(document, new Event('selectionchange'))
+    await fireEvent.click(screen.getByRole('button', { name: 'Search for “ceramic teapot”' }))
+    expect(onfind).toHaveBeenCalledWith({ kind: FindKind.Keywords, text: 'ceramic teapot' })
+  })
+})
+
+describe('selection search boundaries', () => {
+  function select(node: Node, start: number, end: number, endNode: Node = node): void {
+    const range = document.createRange()
+    range.setStart(node, start)
+    range.setEnd(endNode, end)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+  }
+
+  it('ignores a selection that starts outside the prompt', async () => {
+    renderPanel(FIXTURE)
+    const heading = screen.getByRole('heading', { name: 'Prompt' }).firstChild as Text
+    const prompt = screen.getByText(/ceramic teapot/).firstChild as Text
+    select(heading, 0, 10, prompt)
+    await Promise.resolve()
+    expect(screen.queryByRole('button', { name: /^Search for/ })).toBeNull()
+  })
+
+  it('forgets the selection when the image changes', async () => {
+    const onfind = vi.fn()
+    const { rerender } = render(GenerationPanel, {
+      props: {
+        details: FIXTURE,
+        loadError: undefined,
+        busy: false,
+        oncopy: vi.fn(),
+        onretry: vi.fn(),
+        onfind
+      }
+    })
+    select(screen.getByText(/ceramic teapot/).firstChild as Text, 2, 16)
+    await Promise.resolve()
+    expect(screen.getByRole('button', { name: /^Search for/ })).toBeTruthy()
+    await rerender({ details: { ...FIXTURE, prompt: 'a different prompt' } })
+    expect(screen.queryByRole('button', { name: /^Search for/ })).toBeNull()
+  })
+
+  it('disables the find actions while the next image loads', () => {
+    render(GenerationPanel, {
+      props: {
+        details: FIXTURE,
+        loadError: undefined,
+        busy: true,
+        oncopy: vi.fn(),
+        onretry: vi.fn(),
+        onfind: vi.fn()
+      }
+    })
+    expect((screen.getByRole('button', { name: 'Same seed' }) as HTMLButtonElement).disabled).toBe(
+      true
+    )
+    expect(
+      (screen.getByRole('button', { name: 'Same prompt' }) as HTMLButtonElement).disabled
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'add-detail-xl' }) as HTMLButtonElement).disabled
+    ).toBe(true)
+  })
+
+  it('offers Same seed only for a seed a filter can hold', () => {
+    renderPanel({ ...FIXTURE, seed: '9'.repeat(41) })
+    expect(screen.queryByRole('button', { name: 'Same seed' })).toBeNull()
   })
 })

@@ -7,9 +7,13 @@
     resources: readonly GenerationResource[]
     /** Rows shown before "Show all". */
     limit?: number
+    /** Opens the gallery filtered to a stored model; rows without a model id aren't links. */
+    onpick: (resource: GenerationResource) => void
+    /** While the panel shows the previous image's data, links wait for the new one. */
+    disabled?: boolean
   }
 
-  let { resources, limit = 5 }: Props = $props()
+  let { resources, limit = 5, onpick, disabled = false }: Props = $props()
   let showAll = $state(false)
   const shown = $derived(showAll ? resources : resources.slice(0, limit))
 
@@ -23,7 +27,17 @@
 <ul class="resources">
   {#each shown as resource (`${resource.kind}:${resource.name}`)}
     <li>
-      <span class="name" title={resource.name}>{resource.name}</span>
+      {#if resource.modelId !== null}
+        <button
+          type="button"
+          class="name link"
+          {disabled}
+          title={`Show images made with ${resource.name}`}
+          onclick={() => onpick(resource)}>{resource.name}</button
+        >
+      {:else}
+        <span class="name" title={resource.name}>{resource.name}</span>
+      {/if}
       {#if resource.hash}
         <span class="hash" title={resource.hash}>{shortHash(resource.hash)}</span>
       {/if}
@@ -65,6 +79,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .link {
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .link:hover,
+  .link:focus-visible {
+    color: var(--color-accent);
+    text-decoration: underline;
   }
   .hash {
     color: var(--color-text-muted);

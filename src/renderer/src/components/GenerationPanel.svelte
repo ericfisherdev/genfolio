@@ -2,6 +2,7 @@
   import type { GenerationDetails } from '@shared/generation'
   import { CopyVariant } from '@shared/generation-kinds'
   import { generatorLabel, originDescription, originLabel } from '../lib/format/generation-labels'
+  import { canFindSeed, FindKind, type FindSimilar } from '../lib/gallery/find-similar'
   import ClampedText from './ClampedText.svelte'
   import ResourceList from './ResourceList.svelte'
 
@@ -13,9 +14,35 @@
     busy: boolean
     oncopy: (variant: CopyVariant) => void
     onretry: () => void
+    /** Opens the gallery filtered to what this image shares with others. */
+    onfind: (find: FindSimilar) => void
   }
 
-  let { details, loadError, busy, oncopy, onretry }: Props = $props()
+  let { details, loadError, busy, oncopy, onretry, onfind }: Props = $props()
+
+  /** Text selected in the prompt, offered as a search. */
+  let selection = $state('')
+  const MAX_SELECTION = 200
+  let promptElement: HTMLElement | undefined = $state()
+
+  // A new image's prompt starts with nothing selected.
+  $effect.pre(() => {
+    void details
+    selection = ''
+  })
+
+  /** Only a selection that starts and ends inside the prompt text counts. */
+  function readSelection(): void {
+    const current = document.getSelection()
+    const inside =
+      current !== null &&
+      current.rangeCount > 0 &&
+      promptElement !== undefined &&
+      promptElement.contains(current.anchorNode) &&
+      promptElement.contains(current.focusNode)
+    const text = inside ? current.toString().trim() : ''
+    selection = text.length <= MAX_SELECTION ? text : ''
+  }
   let collapsed = $state(false)
 
   /** The chips under "Other metadata": only values the source recorded. */
@@ -41,6 +68,8 @@
     )
   })
 </script>
+
+<svelte:document onselectionchange={readSelection} />
 
 <section class="generation" aria-labelledby="generation-heading" aria-busy={busy}>
   <header>
@@ -71,7 +100,11 @@
     {:else}
       {#if details.resources.length > 0}
         <h3>Resources used</h3>
-        <ResourceList resources={details.resources} />
+        <ResourceList
+          resources={details.resources}
+          disabled={busy}
+          onpick={(resource) => onfind({ kind: FindKind.Resource, resource })}
+        />
       {/if}
 
       {#if details.prompt}
@@ -82,6 +115,13 @@
             {originLabel(details.origin)}
           </span>
           <span class="actions">
+            <button
+              type="button"
+              disabled={busy}
+              onclick={() => onfind({ kind: FindKind.SamePrompt })}
+            >
+              Same prompt
+            </button>
             <button type="button" onclick={() => oncopy(CopyVariant.Prompt)}>Copy prompt</button>
             <button
               type="button"
@@ -90,7 +130,18 @@
             >
           </span>
         </div>
-        <ClampedText text={details.prompt} />
+        <div class="prompt" bind:this={promptElement}>
+          <ClampedText text={details.prompt} />
+        </div>
+        {#if selection}
+          <button
+            type="button"
+            class="search-selection"
+            disabled={busy}
+            onclick={() => onfind({ kind: FindKind.Keywords, text: selection })}
+            >Search for “{selection.length > 40 ? `${selection.slice(0, 40)}…` : selection}”</button
+          >
+        {/if}
       {/if}
 
       {#if details.negativePrompt}
@@ -108,6 +159,15 @@
       {#if chips.length > 0}
         <h3>Other metadata</h3>
         <ul class="chips" aria-label="Other metadata">
+          {#if canFindSeed(details.seed)}
+            <li class="find">
+              <button
+                type="button"
+                disabled={busy}
+                onclick={() => onfind({ kind: FindKind.SameSeed })}>Same seed</button
+              >
+            </li>
+          {/if}
           {#each chips as [label, value] (label)}
             <li><span class="chip-label">{label}</span> {value}</li>
           {/each}
@@ -214,6 +274,10 @@
   }
   .chip-label {
     color: var(--color-text-muted);
+  }
+  .find button,
+  .search-selection {
+    margin-top: var(--space-1);
   }
   .sources {
     margin-top: var(--space-4);
