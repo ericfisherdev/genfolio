@@ -69,3 +69,46 @@ export const searchFacetsSchema = z
 
 export type SearchFacets = z.infer<typeof searchFacetsSchema>
 export type FacetValue = z.infer<typeof facetValue>
+
+/** A model named by its stable key: `models.identity` (case-folded name, no folders or extension). */
+const storedModel = z.object({ identity: z.string().min(1).max(256) }).strict()
+const storedModels = z.array(storedModel).min(1).max(200)
+
+/** Longest prompt a smart album can store for "same prompt". */
+export const MAX_STORED_PROMPT = 16_384
+
+/**
+ * SearchFilters as a smart album stores them (albums.filters_json). Row ids are recycled
+ * after models are pruned or images deleted, so models are named by identity and "same
+ * prompt" by the prompt's text; both are resolved to ids when the album is opened, and an
+ * identity that no longer exists matches nothing.
+ */
+export const storedSearchFiltersSchema = z
+  .object({
+    checkpoints: storedModels.optional(),
+    loras: z
+      .object({
+        models: storedModels,
+        mode: z.enum(SetMatchMode),
+        minWeight: z.number().finite().optional(),
+        maxWeight: z.number().finite().optional()
+      })
+      .strict()
+      .refine(
+        ({ minWeight, maxWeight }) =>
+          minWeight === undefined || maxWeight === undefined || minWeight <= maxWeight,
+        { message: 'minWeight must not exceed maxWeight' }
+      )
+      .optional(),
+    keywords: z
+      .object({ query: z.string().max(1000), scope: z.enum(KeywordScope) })
+      .strict()
+      .optional(),
+    generators: z.array(z.enum(GeneratorKind)).min(1).max(10).optional(),
+    seed: z.string().min(1).max(MAX_SEED_LENGTH).optional(),
+    samePrompt: z.string().min(1).max(MAX_STORED_PROMPT).optional(),
+    hasMetadata: z.boolean().optional()
+  })
+  .strict()
+
+export type StoredSearchFilters = z.infer<typeof storedSearchFiltersSchema>

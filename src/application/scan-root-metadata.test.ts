@@ -180,9 +180,11 @@ describe('ScanRoot metadata indexing', () => {
     await scan()
     const id = imageId('day', A1111_WEBP)
     db.prepare('UPDATE images SET is_favorite = 1, rating = 4 WHERE id = ?').run(id)
-    db.exec("INSERT INTO tags (id, name, created_at) VALUES (1, 'keeper', 1)")
+    db.exec("INSERT INTO tags (id, name, name_key, created_at) VALUES (1, 'keeper', 'keeper', 1)")
     db.prepare('INSERT INTO image_tags VALUES (?, 1)').run(id)
-    db.exec("INSERT INTO albums (id, name, kind, created_at) VALUES (1, 'best', 'manual', 1)")
+    db.exec(
+      "INSERT INTO albums (id, name, name_key, kind, created_at) VALUES (1, 'best', 'best', 'manual', 1)"
+    )
     db.prepare('INSERT INTO album_images VALUES (1, ?, 1.0)').run(id)
     const path = join(dir, 'day', A1111_WEBP)
     utimesSync(path, new Date(), new Date(Date.now() + 5000))
