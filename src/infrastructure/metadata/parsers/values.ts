@@ -1,4 +1,6 @@
 const INTEGER = /^-?\d+$/
+/** Plain decimal notation only: Number() would also take `0x10`, `0b1` and `Infinity`. */
+const DECIMAL = /^-?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i
 
 export function parseInteger(text: string | undefined): number | undefined {
   const value = text?.trim()
@@ -9,7 +11,7 @@ export function parseInteger(text: string | undefined): number | undefined {
 
 export function parseDecimal(text: string | undefined): number | undefined {
   const value = text?.trim()
-  if (!value) return undefined
+  if (!value || !DECIMAL.test(value)) return undefined
   const number = Number(value)
   return Number.isFinite(number) ? number : undefined
 }

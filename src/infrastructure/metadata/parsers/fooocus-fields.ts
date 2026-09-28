@@ -7,6 +7,8 @@ import { definedFields, parseDecimal, parseInteger, presentText } from './values
 
 const RESOLUTION = /^\(\s*(\d+)\s*,\s*(\d+)\s*\)$/
 const PYTHON_STRING = /'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"/g
+/** Far above any real style list; bounds PYTHON_STRING's rescans of unclosed quotes. */
+const MAX_STYLES_REPR = 4096
 const LORA_COMBINED = /^lora_combined_(\d+)$/
 const COMBINED_SEPARATOR = ' : '
 
@@ -84,7 +86,7 @@ function combinedLoras(fields: Readonly<Record<string, unknown>>): [string, stri
 function stylesFrom(value: unknown): string[] | undefined {
   const styles = Array.isArray(value)
     ? value.filter((style): style is string => typeof style === 'string')
-    : typeof value === 'string'
+    : typeof value === 'string' && value.length <= MAX_STYLES_REPR
       ? [...value.matchAll(PYTHON_STRING)].map((match) => match[1] ?? match[2] ?? '')
       : []
   return styles.length > 0 ? styles : undefined

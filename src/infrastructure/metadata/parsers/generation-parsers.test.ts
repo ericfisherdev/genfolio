@@ -69,6 +69,14 @@ describe('A1111InfotextParser', () => {
     expect(a1111.parse('a photo\nstyle: noir, mood: dark, light: low')?.prompt).toBe('a photo')
   })
 
+  it('reads only plain decimal numbers', () => {
+    const generation = a1111.parse(`p\nSteps: 0x10, CFG scale: 0x10, Seed: 1, Size: 1x1`)
+    expect(generation).not.toHaveProperty('steps')
+    expect(generation).not.toHaveProperty('cfgScale')
+    expect(a1111.parse(`p\nSteps: 20, CFG scale: 7.5, Seed: 1`)?.cfgScale).toBe(7.5)
+    expect(a1111.parse(`p\nSteps: 20, CFG scale: .5, Seed: 1`)?.cfgScale).toBe(0.5)
+  })
+
   it('keeps an old combined sampler name without inventing a schedule type', () => {
     const generation = a1111.parse(`p\nSteps: 20, Sampler: DPM++ 2M Karras, Seed: 1`)
     expect(generation?.sampler).toBe('DPM++ 2M Karras')
@@ -210,6 +218,10 @@ describe('robustness', () => {
     const long = 'a'.repeat(200_000)
     const started = performance.now()
     a1111.parse(`p\n${long}`)
+    a1111.parse(`p\n${'ab '.repeat(100_000)}`)
+    a1111.parse(`p\n${' '.repeat(300_000)}x`)
+    a1111.parse(`p\nSteps: 1, Seed: 2, Model: a${' '.repeat(200_000)}x]`)
+    fooocusJson.parse(JSON.stringify({ base_model: 'm', styles: "'\\".repeat(100_000) }))
     a1111.parse(`${'<lora:a'.repeat(30_000)}\nSteps: 1, Seed: 2, CFG scale: 3`)
     expect(performance.now() - started).toBeLessThan(1000)
   })

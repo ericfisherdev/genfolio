@@ -6,15 +6,18 @@ import { LoraCollector } from './lora-collector'
 import { definedFields, parseDecimal, parseInteger, presentText } from './values'
 
 // Ported from A1111 modules/infotext_utils.py (re_param, re_imagesize, parse_generation_parameters).
-// Python's \w is Unicode-aware, hence the \p classes. The key is capped at 128 characters
-// (A1111's is unbounded): unbounded, a long line with no colon backtracks quadratically.
-const PARAM = /\s*([\p{L}\p{N}_][\p{L}\p{N}_ \-/]{1,127}):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)/gu
+// Python's \w is Unicode-aware, hence the \p classes. Two changes keep matching linear on
+// hostile text: keys are capped at 128 characters, and the original's leading \s* is dropped
+// (a key can't start with whitespace, so it never reached a capture, but it made every start
+// in a long whitespace run rescan to its end).
+const PARAM = /([\p{L}\p{N}_][\p{L}\p{N}_ \-/]{1,127}):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)/gu
 const IMAGE_SIZE = /^(\d+)x(\d+)$/
 const NEGATIVE_PREFIX = 'Negative prompt:'
 const MIN_PARAMS_ON_LAST_LINE = 3
 /** Bounded parts, so many unclosed `<lora:` prefixes can't make matching quadratic. */
 const LORA_TAG = /<lora:([^:>]{1,256})(?::([^:>]{0,32}))?(?::[^:>]{0,32})?>/g
-const NAME_WITH_HASH = /^(.*?)\s*\[([0-9a-fA-F]+)\]$/
+/** Only the trailing `[hash]`; the name is sliced off before it (a lazy name group backtracks). */
+const TRAILING_HASH = /\[([0-9a-fA-F]+)\]$/
 
 /**
  * A1111 infotext: prompt lines, an optional `Negative prompt:` section, and a last line of
@@ -100,10 +103,10 @@ function fieldsFrom(
 function modelRef(name: string | undefined, hash: string | undefined): ModelRef | undefined {
   const named = presentText(name)
   if (named === undefined) return undefined
-  const withHash = NAME_WITH_HASH.exec(named)
-  const displayName = modelDisplayName(withHash?.[1] ?? named)
+  const withHash = TRAILING_HASH.exec(named)
+  const displayName = modelDisplayName(withHash ? named.slice(0, withHash.index) : named)
   if (!displayName) return undefined
-  return { name: displayName, hash: normalizeHash(hash ?? withHash?.[2]) }
+  return { name: displayName, hash: normalizeHash(hash ?? withHash?.[1]) }
 }
 
 /** LoRA weight precedence within one infotext: `Lora weights` > legacy 3-part hashes > prompt tag. */
