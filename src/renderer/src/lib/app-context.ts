@@ -2,6 +2,8 @@ import { getContext } from 'svelte'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { RouterState } from './routing/router.svelte'
 import type { GalleryState } from './state/gallery.svelte'
+import type { GenerationCopier } from './state/generation-copier'
+import type { GenerationDetailsState } from './state/generation-details.svelte'
 import type { LibraryState } from './state/library.svelte'
 import type { ScanProgressState } from './state/scan-progress.svelte'
 import type { SortPreference } from './state/sort-preference.svelte'
@@ -14,6 +16,8 @@ export interface AppServices {
   readonly gallery: GalleryState
   readonly scans: ScanProgressState
   readonly sort: SortPreference
+  readonly generation: GenerationDetailsState
+  readonly copier: GenerationCopier
 }
 
 const APP_SERVICES = Symbol('app-services')

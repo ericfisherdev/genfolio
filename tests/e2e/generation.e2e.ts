@@ -109,3 +109,42 @@ test('an image without any generation has no details and nothing to copy', async
     )
   ).toBe(false)
 })
+
+test('the card copy button copies the prompt, and Shift-click copies everything', async () => {
+  const page = await openLibrary()
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.evaluate(() => (location.hash = '#/'))
+  const name = '2026-09-27_20-38-19_1754.png'
+  const card = page.getByRole('article', { name })
+  await card.hover()
+  const button = card.getByRole('button', { name: `Copy prompt of ${name}` })
+
+  await button.click()
+  await expect.poll(readClipboard).toMatch(/^a ceramic teapot .* shallow depth of field$/)
+  await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toContainText(
+    'Copied the prompt.'
+  )
+
+  await button.click({ modifiers: ['Shift'] })
+  await expect.poll(readClipboard).toContain('\nSteps: 30, Sampler: dpmpp_2m_sde_gpu')
+})
+
+test('the detail page shows the generation panel and copies from it', async () => {
+  const page = await openLibrary()
+  await page.setViewportSize({ width: 1400, height: 900 })
+  const id = await imageIdOf(page, '2026-09-27_20-43-28_2563.webp')
+  await page.evaluate((imageId) => (location.hash = `#/image/${imageId}`), id)
+
+  const panel = page.getByRole('region', { name: 'Generation data' })
+  await expect(panel).toContainText('intorealism_sdxlV4')
+  await expect(panel).toContainText('café table')
+  await expect(panel).toContainText('桜 petals')
+  await expect(panel.getByRole('listitem').filter({ hasText: 'add-detail-xl' })).toContainText(
+    '0.6'
+  )
+  await panel.getByRole('button', { name: 'Copy negative prompt' }).click()
+  await expect.poll(readClipboard).toContain('watermark, "signature"')
+  await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toContainText(
+    'Copied the negative prompt.'
+  )
+})

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ImageCard } from '@shared/gallery'
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
+  import { CopyVariant } from '@shared/generation-kinds'
   import ActionMenu from './ActionMenu.svelte'
 
   interface Props {
@@ -9,9 +10,11 @@
     onopen: () => void
     onreveal: () => void
     oncopypath: () => void
+    /** Click copies the prompt; Shift-click copies all generation data. */
+    oncopy: (variant: CopyVariant) => void
   }
 
-  let { imageId, card, onopen, onreveal, oncopypath }: Props = $props()
+  let { imageId, card, onopen, onreveal, oncopypath, oncopy }: Props = $props()
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
 </script>
 
@@ -28,6 +31,13 @@
         { label: 'Copy path', onselect: oncopypath }
       ]}
     />
+    <button
+      type="button"
+      class="copy"
+      aria-label={`Copy prompt of ${name}`}
+      title="Copy prompt (Shift-click: all generation data)"
+      onclick={(event) => oncopy(event.shiftKey ? CopyVariant.All : CopyVariant.Prompt)}>⧉</button
+    >
   </div>
 </article>
 
@@ -62,10 +72,29 @@
     position: absolute;
     top: var(--space-2);
     right: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
     color: #fff;
     text-shadow: 0 0 4px rgb(0 0 0 / 80%);
     opacity: 0;
     transition: opacity 120ms;
+  }
+  .copy {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: rgb(0 0 0 / 55%);
+    color: #fff;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .copy:hover,
+  .copy:focus-visible {
+    background: rgb(0 0 0 / 80%);
   }
   .card:hover .actions,
   .card:focus-within .actions {

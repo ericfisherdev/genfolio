@@ -6,9 +6,11 @@
   import { routeForQuery } from '../lib/gallery/route-for-query'
   import { RouteKind } from '../lib/routing/route'
   import FileInfoPanel from './FileInfoPanel.svelte'
+  import GenerationPanel from './GenerationPanel.svelte'
   import ImageViewer from './ImageViewer.svelte'
+  import NoticeBar from './NoticeBar.svelte'
 
-  const { router, gallery, sort, library, api } = getAppServices()
+  const { router, gallery, sort, library, api, generation, copier } = getAppServices()
   const count = new Intl.NumberFormat()
 
   const imageId = $derived(router.route.kind === RouteKind.Image ? router.route.imageId : 0)
@@ -39,6 +41,11 @@
     if (id > 0 && card === undefined) untrack(() => void gallery.ensureCards([id]))
   })
 
+  $effect(() => {
+    const id = imageId
+    if (id > 0) untrack(() => void generation.load(id))
+  })
+
   // Decode neighbours ahead of time so stepping through feels instant.
   $effect(() => {
     for (const neighbour of [previousId, nextId]) {
@@ -58,8 +65,9 @@
   /** Keys aimed at form fields, the folder tree, an open menu or a dialog are theirs. */
   const ownedByAnotherWidget = (target: EventTarget | null): boolean =>
     target instanceof Element &&
-    target.closest('input, select, textarea, [role="tree"], [aria-expanded="true"], dialog') !==
-      null
+    target.closest(
+      'input, select, textarea, [role="tree"], [aria-haspopup][aria-expanded="true"], dialog'
+    ) !== null
 
   function onkeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || ownedByAnotherWidget(event.target)) return
@@ -94,6 +102,7 @@
       >
     </div>
   </header>
+  <NoticeBar />
   <div class="body">
     {#key imageId}
       <ImageViewer
@@ -103,12 +112,21 @@
         alt={card?.fileName ?? 'Image'}
       />
     {/key}
-    <FileInfoPanel
-      {card}
-      {rootPath}
-      onreveal={() => void api.revealImage(imageId)}
-      oncopypath={() => void api.copyImagePath(imageId)}
-    />
+    <div class="side">
+      <GenerationPanel
+        details={generation.details}
+        loadError={generation.loadError}
+        oncopy={(variant) => void copier.copy(imageId, variant)}
+        onretry={() => void generation.retry()}
+      />
+      <FileInfoPanel
+        {card}
+        {rootPath}
+        onreveal={() => void library.fileAction('show the file', () => api.revealImage(imageId))}
+        oncopypath={() =>
+          void library.fileAction('copy the path', () => api.copyImagePath(imageId))}
+      />
+    </div>
   </div>
 </section>
 
@@ -149,5 +167,12 @@
     flex: 1;
     min-height: 0;
     display: flex;
+  }
+  .side {
+    width: 380px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background: var(--color-surface);
+    border-left: 1px solid var(--color-border);
   }
 </style>

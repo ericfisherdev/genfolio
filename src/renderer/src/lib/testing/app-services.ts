@@ -5,6 +5,8 @@ import type { ScanEvent } from '@shared/scan'
 import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
+import { GenerationCopier } from '../state/generation-copier'
+import { GenerationDetailsState } from '../state/generation-details.svelte'
 import { LibraryState } from '../state/library.svelte'
 import { ScanProgressState } from '../state/scan-progress.svelte'
 import { SortPreference, type PreferenceStore } from '../state/sort-preference.svelte'
@@ -95,7 +97,9 @@ export function testServices(
     library: libraryState,
     gallery: new GalleryState(api),
     scans: new ScanProgressState(api, () => void libraryState.refresh()),
-    sort: new SortPreference(memoryStore())
+    sort: new SortPreference(memoryStore()),
+    generation: new GenerationDetailsState(api),
+    copier: new GenerationCopier(api, libraryState)
   }
   return {
     services,
