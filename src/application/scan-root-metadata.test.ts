@@ -1,4 +1,12 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -18,6 +26,7 @@ import { MetadataRecordReader } from '@infrastructure/metadata/metadata-record-r
 import { GeneratorKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { createScanRoot } from '../service/scan-root-factory'
+import { FooocusLogIndexer } from './fooocus-log-indexer'
 
 const FIXTURES = resolve(__dirname, '../../tests/fixtures/fooocus')
 const NO_METADATA_PNG = '2026-09-27_20-47-27_2563.png'
@@ -123,6 +132,19 @@ describe('ScanRoot metadata indexing', () => {
     expect(await scan()).toMatchObject({ unchanged: 6 })
     expect(parse).toHaveBeenCalledTimes(1)
     expect(generationOf(NO_METADATA_PNG)?.loras?.[0]?.weight).toBe(0.9)
+  })
+
+  it('re-applies the log after a scan that stopped between indexing and the log pass', async () => {
+    await scan()
+    const png = join(dir, 'day', NO_METADATA_PNG)
+    utimesSync(png, new Date(), new Date(Date.now() + 5000))
+    const refresh = vi
+      .spyOn(FooocusLogIndexer.prototype, 'refresh')
+      .mockRejectedValueOnce(new Error('aborted'))
+    await expect(scan()).rejects.toThrow('aborted')
+    refresh.mockRestore()
+    await scan()
+    expect(generationOf(NO_METADATA_PNG)?.origin).toBe(MetadataOrigin.FooocusLog)
   })
 
   it('drops log data when the log is deleted', async () => {

@@ -149,8 +149,7 @@ export class ScanRoot {
     )
     const classified = await this.classify(root, stored, signal, report)
     const counts = await this.index(root, classified.toIndex, stored, signal, report)
-    const touchedDirs = new Set(classified.toIndex.map((file) => file.relDir))
-    await this.deps.logs.refresh(root, classified.dirs, touchedDirs, signal)
+    await this.deps.logs.refresh(root, classified.dirs, signal)
 
     report(ScanPhase.Pruning, 0, undefined, true)
     const removed = this.removeMissing(stored, classified)
@@ -227,6 +226,11 @@ export class ScanRoot {
       versions.forEach((version, index) =>
         this.deps.metadata.index(version, batch[index]?.records ?? [])
       )
+      // Re-indexing dropped these images' log records; forget the log stamps in the same
+      // transaction so the log is re-applied even if the scan stops before refreshing.
+      for (const directoryId of new Set(batch.map((described) => described.image.directoryId))) {
+        this.deps.logs.forget(directoryId)
+      }
     })
   }
 
