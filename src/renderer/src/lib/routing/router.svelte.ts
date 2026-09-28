@@ -22,7 +22,9 @@ export function windowHashLocation(target: Window): HashLocation {
 
 /** Current route, kept in sync with the location hash in both directions. */
 export class RouterState {
-  route: Route = $state(parseRoute(''))
+  // Raw: routes are replaced whole, never mutated, and their filters are sent over IPC,
+  // which can't clone Svelte's deep-state proxies.
+  route: Route = $state.raw(parseRoute(''))
   private readonly unsubscribe: () => void
 
   constructor(private readonly location: HashLocation) {

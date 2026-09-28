@@ -1,10 +1,11 @@
 <script lang="ts">
   import { getAppServices } from '../lib/app-context'
-  import { RouteKind } from '../lib/routing/route'
+  import { routeFilters, RouteKind } from '../lib/routing/route'
   import { findDirectory } from '../lib/routing/scope-title'
   import Gallery from './Gallery.svelte'
 
-  const { library, router } = getAppServices()
+  const { library, router, gallery } = getAppServices()
+  const filtered = $derived(routeFilters(router.route) !== undefined)
   const count = new Intl.NumberFormat()
 
   const directoryExists = $derived(
@@ -39,7 +40,11 @@
       <button type="button" class="primary" onclick={() => library.addFolder()}>Add folder</button>
     </div>
   {:else}
-    <p class="summary">{count.format(inScope)} images</p>
+    <p class="summary" aria-live="polite">
+      {filtered
+        ? `${count.format(gallery.count)} of ${count.format(inScope)} images`
+        : `${count.format(inScope)} images`}
+    </p>
     <Gallery />
   {/if}
 </section>

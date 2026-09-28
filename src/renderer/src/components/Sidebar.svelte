@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getAppServices } from '../lib/app-context'
   import { folderName } from '../lib/format/folder-name'
-  import { ALL_PHOTOS, RouteKind } from '../lib/routing/route'
+  import { ALL_PHOTOS, RouteKind, routeFilters, withFilters } from '../lib/routing/route'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import DirectoryTree from './DirectoryTree.svelte'
   import RootMenu from './RootMenu.svelte'
@@ -18,7 +18,10 @@
 
   function openDirectory(directoryId: number): void {
     const recursive = router.route.kind === RouteKind.Directory ? router.route.recursive : true
-    router.navigate({ kind: RouteKind.Directory, directoryId, recursive })
+    // Filters carry across folders: they narrow whatever scope is chosen.
+    router.navigate(
+      withFilters({ kind: RouteKind.Directory, directoryId, recursive }, routeFilters(router.route))
+    )
   }
 
   async function confirmRemove(): Promise<void> {
@@ -35,7 +38,8 @@
     type="button"
     class="all"
     aria-current={router.route.kind === RouteKind.All ? 'page' : undefined}
-    onclick={() => router.navigate(ALL_PHOTOS)}
+    onclick={() =>
+      router.navigate(withFilters({ kind: RouteKind.All }, routeFilters(router.route)))}
   >
     <span>All Photos</span>
     <span class="count">{count.format(library.totalImages)}</span>

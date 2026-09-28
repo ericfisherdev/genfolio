@@ -5,6 +5,7 @@ import type { ScanEvent } from '@shared/scan'
 import { appServicesContext, type AppServices } from '../app-context'
 import { RouterState, type HashLocation } from '../routing/router.svelte'
 import { GalleryState } from '../state/gallery.svelte'
+import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
 import { GenerationDetailsState } from '../state/generation-details.svelte'
 import { LibraryState } from '../state/library.svelte'
@@ -83,6 +84,7 @@ export function testServices(
     getDirectoryTree: async (rootId) => library.trees[rootId] ?? null,
     getImageLayout: async () => new Int32Array(0),
     getImages: async () => [],
+    getFacets: async () => ({ checkpoints: [], loras: [], generators: [], withoutMetadata: 0 }),
     onScanEvent: (listener) => {
       scanListener = listener
       return () => undefined
@@ -99,7 +101,8 @@ export function testServices(
     scans: new ScanProgressState(api, () => void libraryState.refresh()),
     sort: new SortPreference(memoryStore()),
     generation: new GenerationDetailsState(api),
-    copier: new GenerationCopier(api, libraryState)
+    copier: new GenerationCopier(api, libraryState),
+    facets: new FacetsState(api)
   }
   return {
     services,

@@ -1,6 +1,7 @@
 import { getContext } from 'svelte'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { RouterState } from './routing/router.svelte'
+import type { FacetsState } from './state/facets.svelte'
 import type { GalleryState } from './state/gallery.svelte'
 import type { GenerationCopier } from './state/generation-copier'
 import type { GenerationDetailsState } from './state/generation-details.svelte'
@@ -18,6 +19,7 @@ export interface AppServices {
   readonly sort: SortPreference
   readonly generation: GenerationDetailsState
   readonly copier: GenerationCopier
+  readonly facets: FacetsState
 }
 
 const APP_SERVICES = Symbol('app-services')
