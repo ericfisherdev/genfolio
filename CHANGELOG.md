@@ -1,0 +1,49 @@
+# Changelog
+
+## 0.1.0 — first release
+
+The first usable Genfolio: a desktop gallery for images generated with AUTOMATIC1111 and
+Fooocus, for Linux (AppImage, pacman, deb).
+
+### Library
+
+- Add folders; each is indexed (PNG, JPEG, WebP, AVIF, GIF) and nested folders merge into one
+  library. Remove a folder without touching its files.
+- Live updates: images written by a running generator appear within about 3 s, deleted and
+  moved files follow, and changes made while Genfolio was closed are picked up when it starts.
+  A folder that can't be watched (the system's watch limit) is rescanned every 10 minutes.
+- A virtualized masonry gallery that stays smooth at 100k images, sorted by date, name or
+  rating, with a folder tree.
+
+### Generation data
+
+- Prompts, negative prompts, seeds, samplers, checkpoints, refiners and LoRAs (with weights)
+  from A1111 PNG text and EXIF, `.txt` sidecars, Fooocus JSON and Fooocus `log.html`.
+- A generation panel on the detail page, copying the prompt or everything in one click.
+
+### Search
+
+- Full-text prompt search with phrases, prefixes and exclusions; filters for checkpoints,
+  LoRAs (any/all, weight range), generator, seed, same prompt, tags, favourites and minimum
+  rating, with live counts; filters live in the URL.
+
+### Organizing
+
+- Favourites and 0–5 ratings from the card, the detail page and the keyboard (F, 0–5).
+- Tags with bulk apply, rename, merge and delete.
+- Multi-select (Ctrl, Shift, Ctrl+A) with a bulk bar.
+- Manual albums you arrange by menu or drag, and smart albums that save a search.
+- Deletion to the system trash, or permanently after a confirmation shown by the app itself;
+  every path is verified against its folder, and a report lists what couldn't be deleted.
+- A full-screen slideshow with shuffle, loop, a prompt overlay and saved presets.
+
+### Look-alikes
+
+- Exact and near-duplicate detection (SHA-256, dHash and pHash), grouped with a threshold you
+  can change, an `≈ N` badge on cards, a suggested keeper and "trash all but keeper".
+
+### Reliability
+
+- The library runs in its own process and restarts after a crash.
+- Logs in `~/.config/Genfolio/logs` (no file paths or prompts), reachable from
+  Help → Open Logs Folder and from notices about unreadable files or unexpected errors.
