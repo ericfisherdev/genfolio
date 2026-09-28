@@ -3,6 +3,7 @@ import type { ImageId } from '@domain/library'
 import { HASH_VERSION } from '@domain/perceptual-hash'
 import type { SimilarityRepository } from '@domain/repositories'
 import { groupSimilar, type SimilarPair } from '@domain/similarity'
+import { GROUP_PREVIEW_SIZE, type SimilarGroupsPage } from '@shared/similarity'
 import { DEFAULT_SIMILARITY_THRESHOLD, MAX_SIMILARITY_DISTANCE } from '@shared/similarity-kinds'
 
 const THRESHOLD_KEY = 'similarity.threshold'
@@ -52,6 +53,14 @@ export class SimilarityService {
       await this.compare(this.repository.hashed().map((image) => image.id))
       this.repository.saveSetting(PAIRS_KEY, PAIRS_VERSION)
     })
+  }
+
+  /** A page of groups, largest first, each with its first members, keeper first. */
+  groups(offset: number, limit: number): SimilarGroupsPage {
+    return {
+      total: this.repository.groupCount(),
+      groups: this.repository.groups(offset, limit, GROUP_PREVIEW_SIZE)
+    }
   }
 
   regroup(): void {

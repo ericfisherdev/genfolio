@@ -18,5 +18,7 @@ export function routeForQuery(query: GalleryQuery | undefined): Route {
       }
     case GalleryScopeKind.Album:
       return { kind: RouteKind.Album, albumId: query.scope.albumId, ...filters }
+    case GalleryScopeKind.Similar:
+      return { kind: RouteKind.SimilarGroup, groupId: query.scope.groupId, ...filters }
   }
 }

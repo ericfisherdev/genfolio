@@ -218,7 +218,8 @@ describe('GalleryCard menu', () => {
         onrate: vi.fn(),
         selected: false,
         selecting: false,
-        onselect: vi.fn()
+        onselect: vi.fn(),
+        onsimilar: vi.fn()
       }
     })
     await fireEvent.click(screen.getByRole('button', { name: 'Actions for Image 7' }))
@@ -243,7 +244,8 @@ describe('GalleryCard copy button', () => {
         onrate: vi.fn(),
         selected: false,
         selecting: false,
-        onselect: vi.fn()
+        onselect: vi.fn(),
+        onsimilar: vi.fn()
       }
     })
     const button = screen.getByRole('button', { name: 'Copy prompt of Image 7' })

@@ -12,7 +12,11 @@ import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
-import { MAX_SIMILARITY_DISTANCE } from './similarity-kinds'
+import {
+  MAX_GROUPS_PER_PAGE,
+  similarGroupsPageSchema,
+  similarityThresholdSchema as similarityThresholdValue
+} from './similarity'
 import { presetNameSchema, slideshowPresetSchema, slideshowSettingsSchema } from './slideshow'
 import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
@@ -55,7 +59,8 @@ export enum ServiceMethod {
   PresetsSave = 'slideshow.presets-save',
   PresetsDelete = 'slideshow.presets-delete',
   SimilarityThreshold = 'similarity.threshold',
-  SetSimilarityThreshold = 'similarity.set-threshold'
+  SetSimilarityThreshold = 'similarity.set-threshold',
+  SimilarGroups = 'similarity.groups'
 }
 
 const noParams = z.object({}).strict()
@@ -67,9 +72,7 @@ const tagIds = z.array(tagId).min(1).max(200)
 const albumId = z.number().int().positive()
 const changed = z.object({ changed: z.number().int().nonnegative() })
 
-const similarityThresholdSchema = z
-  .object({ threshold: z.number().int().min(0).max(MAX_SIMILARITY_DISTANCE) })
-  .strict()
+const similarityThresholdSchema = z.object({ threshold: similarityThresholdValue }).strict()
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -187,6 +190,15 @@ export const serviceContract = {
     /** Regroups every image at the new threshold before resolving. */
     params: similarityThresholdSchema,
     result: similarityThresholdSchema
+  },
+  [ServiceMethod.SimilarGroups]: {
+    params: z
+      .object({
+        offset: z.number().int().nonnegative(),
+        limit: z.number().int().min(1).max(MAX_GROUPS_PER_PAGE)
+      })
+      .strict(),
+    result: similarGroupsPageSchema
   },
   [ServiceMethod.GalleryImages]: {
     params: z

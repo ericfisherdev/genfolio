@@ -5,6 +5,7 @@ import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
 import type { StoredGeneration } from './generation'
 import type { ImageHashes } from './image-hashes'
 import type { SimilarPair } from './similarity'
+import type { SimilarGroup } from '@shared/similarity'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
 
@@ -281,6 +282,9 @@ export interface SimilarityRepository {
   pairsWithin(distance: number): SimilarPair[]
   /** Sets each image's group (image id → group id); every other image gets none. */
   writeGroups(groups: ReadonlyMap<number, number>): void
+  /** Groups largest first, each with its first `preview` members in keeper order. */
+  groups(offset: number, limit: number, preview: number): SimilarGroup[]
+  groupCount(): number
   /** A stored setting, or undefined. */
   setting(key: string): string | undefined
   saveSetting(key: string, value: string): void

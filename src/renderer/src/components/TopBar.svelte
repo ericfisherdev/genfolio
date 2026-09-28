@@ -15,6 +15,12 @@
   const title = $derived.by(() => {
     if (directory) return directoryTitle(directory)
     if (router.route.kind === RouteKind.Directory && library.loaded) return 'Folder not found'
+    if (
+      router.route.kind === RouteKind.SimilarGroups ||
+      router.route.kind === RouteKind.SimilarGroup
+    ) {
+      return 'Look-alikes'
+    }
     if (router.route.kind === RouteKind.Album) {
       const album = albums.find(router.route.albumId)
       if (album) return album.name
@@ -42,13 +48,15 @@
         Include subfolders
       </label>
     {/if}
-    <button
-      type="button"
-      class="slideshow"
-      disabled={gallery.count === 0}
-      onclick={() => slideshowNavigator.start()}>▶ Slideshow</button
-    >
-    <SortMenu />
+    {#if router.route.kind !== RouteKind.SimilarGroups}
+      <button
+        type="button"
+        class="slideshow"
+        disabled={gallery.count === 0}
+        onclick={() => slideshowNavigator.start()}>▶ Slideshow</button
+      >
+      <SortMenu />
+    {/if}
   </div>
 </header>
 

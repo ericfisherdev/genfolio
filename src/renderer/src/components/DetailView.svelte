@@ -167,6 +167,15 @@
         onclick={() => show(nextId)}>›</button
       >
     </div>
+    {#if card && card.similarGroupId !== null && card.similarCount > 0}
+      {@const groupId = card.similarGroupId}
+      <button
+        type="button"
+        title="Find similar"
+        onclick={() => router.navigate({ kind: RouteKind.SimilarGroup, groupId })}
+        >≈ {card.similarCount} look-alike{card.similarCount === 1 ? '' : 's'}</button
+      >
+    {/if}
     <button type="button" onclick={() => slideshowNavigator.start(imageId)}>▶ Slideshow</button>
     <button
       type="button"

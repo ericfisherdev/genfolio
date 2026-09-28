@@ -62,7 +62,10 @@ describe('registerLibraryChannels', () => {
       IpcChannel.DeleteImages,
       IpcChannel.ListPresets,
       IpcChannel.SavePreset,
-      IpcChannel.DeletePreset
+      IpcChannel.DeletePreset,
+      IpcChannel.SimilarityThreshold,
+      IpcChannel.SetSimilarityThreshold,
+      IpcChannel.SimilarGroups
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

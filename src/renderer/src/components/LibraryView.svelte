@@ -4,7 +4,7 @@
   import { findDirectory } from '../lib/routing/scope-title'
   import Gallery from './Gallery.svelte'
 
-  const { library, router, gallery, albums } = getAppServices()
+  const { library, router, gallery, albums, similarity } = getAppServices()
   const filtered = $derived(routeFilters(router.route) !== undefined)
   const count = new Intl.NumberFormat()
 
@@ -21,6 +21,9 @@
   const inScope = $derived.by(() => {
     const route = router.route
     if (route.kind === RouteKind.Album) return albums.find(route.albumId)?.imageCount ?? 0
+    if (route.kind === RouteKind.SimilarGroup) {
+      return similarity.sizeOf(route.groupId) ?? gallery.count
+    }
     if (route.kind !== RouteKind.Directory) return library.totalImages
     const match = findDirectory(library.roots, library.trees, route.directoryId)
     if (!match) return 0

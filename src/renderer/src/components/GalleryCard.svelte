@@ -22,6 +22,8 @@
     selecting: boolean
     /** `range`: from the last selected image to this one (Shift); otherwise toggle. */
     onselect: (range: boolean) => void
+    /** Opens the image's look-alike group (the `≈ N` badge). */
+    onsimilar: () => void
     /** Menu items that depend on the view, such as arranging an album. */
     moreActions?: readonly MenuAction[]
   }
@@ -39,6 +41,7 @@
     selected,
     selecting,
     onselect,
+    onsimilar,
     moreActions = []
   }: Props = $props()
 
@@ -86,7 +89,7 @@
   </div>
   {#if card}
     <!-- Always shown once the image is a favourite or rated; otherwise on hover or focus. -->
-    <div class="footer" class:marked={card.favorite || card.rating > 0}>
+    <div class="footer" class:marked={card.favorite || card.rating > 0 || card.similarCount > 0}>
       <button
         type="button"
         class="favorite"
@@ -96,6 +99,15 @@
         onclick={() => onfavorite(!card.favorite)}>{card.favorite ? '♥' : '♡'}</button
       >
       <RatingStars rating={card.rating} {onrate} label={`Rating of ${name}`} />
+      {#if card.similarCount > 0}
+        <button
+          type="button"
+          class="similar"
+          aria-label={`${card.similarCount} look-alike${card.similarCount === 1 ? '' : 's'} of ${name}`}
+          title="Look-alikes"
+          onclick={onsimilar}>≈ {card.similarCount}</button
+        >
+      {/if}
     </div>
   {/if}
 </article>
@@ -204,6 +216,15 @@
     color: #fff;
     font-size: 1.1rem;
     line-height: 1;
+    cursor: pointer;
+  }
+  .similar {
+    padding: 0 var(--space-1);
+    border: none;
+    border-radius: var(--radius-1);
+    background: rgb(0 0 0 / 55%);
+    color: #fff;
+    font-size: 0.85rem;
     cursor: pointer;
   }
   .favorite.on {

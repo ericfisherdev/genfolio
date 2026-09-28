@@ -50,7 +50,8 @@ describe('GalleryCard selection', () => {
         onrate: vi.fn(),
         selected: false,
         selecting,
-        onselect
+        onselect,
+        onsimilar: vi.fn()
       }
     })
     return { onopen, onselect }
