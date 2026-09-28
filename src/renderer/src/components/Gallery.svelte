@@ -4,10 +4,10 @@
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
-  import { RouteKind } from '../lib/routing/route'
+  import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api, copier } = getAppServices()
+  const { gallery, router, sort, library, scans, api, copier, facets } = getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
@@ -33,6 +33,7 @@
     untrack(() => {
       onscroll()
       void gallery.load(query)
+      void facets.load(query)
     })
   })
 
@@ -82,6 +83,10 @@
   })
 
   const open = (imageId: number): void => router.navigate({ kind: RouteKind.Image, imageId })
+  const filtered = $derived(routeFilters(router.route) !== undefined)
+  function clearFilters(): void {
+    if (router.route.kind !== RouteKind.Image) router.navigate(withFilters(router.route, undefined))
+  }
 </script>
 
 <div class="scroller" bind:this={scroller} {onscroll}>
@@ -91,6 +96,11 @@
       <div class="empty" role="alert">
         <p>The images could not be loaded: {gallery.loadError}</p>
         <button type="button" onclick={() => gallery.reload()}>Retry</button>
+      </div>
+    {:else if gallery.count === 0 && !gallery.loading && filtered}
+      <div class="empty">
+        <p>No images match these filters.</p>
+        <button type="button" onclick={clearFilters}>Clear filters</button>
       </div>
     {:else if gallery.count === 0 && !gallery.loading}
       <p class="empty">

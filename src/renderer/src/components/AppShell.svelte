@@ -3,12 +3,13 @@
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import DetailView from './DetailView.svelte'
+  import FilterBar from './FilterBar.svelte'
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans, router, gallery } = getAppServices()
+  const { library, scans, router, gallery, facets } = getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
   // changed, whether the gallery or the detail view is on screen. The shell stays mounted in
@@ -20,7 +21,10 @@
       rootsSeen = true
       return
     }
-    untrack(() => void gallery.reload())
+    untrack(() => {
+      void gallery.reload()
+      if (gallery.query) void facets.load(gallery.query)
+    })
   })
 
   // Cancelled scans send no end event; forget progress for roots that are gone.
@@ -37,6 +41,7 @@
       <DetailView />
     {:else}
       <TopBar />
+      <FilterBar />
       <NoticeBar />
       <LibraryView />
     {/if}

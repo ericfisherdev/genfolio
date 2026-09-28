@@ -3,6 +3,7 @@ import App from './App.svelte'
 import { appServicesContext, type AppServices } from './lib/app-context'
 import { RouterState, windowHashLocation } from './lib/routing/router.svelte'
 import { GalleryState } from './lib/state/gallery.svelte'
+import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
 import { LibraryState } from './lib/state/library.svelte'
@@ -25,7 +26,8 @@ const services: AppServices = {
   scans: new ScanProgressState(api, () => void library.refresh()),
   sort: new SortPreference(localPreferenceStore(() => window.localStorage)),
   generation: new GenerationDetailsState(api),
-  copier: new GenerationCopier(api, library)
+  copier: new GenerationCopier(api, library),
+  facets: new FacetsState(api)
 }
 
 export default mount(App, {
