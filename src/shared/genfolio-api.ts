@@ -1,5 +1,6 @@
 import type { Album, AlbumChange } from './albums'
 import type { DeleteMode, DeleteReport } from './deletion'
+import type { AppDiagnostics } from './diagnostics'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { SearchFacets, SearchFilters } from './search'
@@ -48,6 +49,9 @@ export enum IpcChannel {
   SetSimilarityThreshold = 'similarity:set-threshold',
   SimilarGroups = 'similarity:groups',
   SimilarGroupMembers = 'similarity:group-members',
+  OpenLogs = 'app:open-logs',
+  ReportRendererError = 'app:report-renderer-error',
+  Diagnostics = 'app:diagnostics',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -141,6 +145,12 @@ export interface GenfolioApi {
   listSimilarGroups(offset: number, limit: number): Promise<SimilarGroupsPage>
   /** Every member of a look-alike group, the suggested keeper first. */
   listSimilarGroupMembers(groupId: number): Promise<readonly number[]>
+  /** Opens the folder of log files in the file manager; false when it couldn't be opened. */
+  openLogs(): Promise<boolean>
+  /** Records an unexpected renderer error in main's log, by its name only. */
+  reportRendererError(name: string): Promise<void>
+  /** Service restarts and whether the service was given up on. */
+  getDiagnostics(): Promise<AppDiagnostics>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

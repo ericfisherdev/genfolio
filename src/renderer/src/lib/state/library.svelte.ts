@@ -4,7 +4,7 @@ import type { AddRootViaDialogResult, RootSummary } from '@shared/library'
 import { AddRootOutcome } from '@shared/library-kinds'
 import { addRootMessage } from '../format/add-root-message'
 import { userMessage as messageOf } from '../format/user-message'
-import type { NoticeSink } from './notice-sink'
+import type { NoticeAction, NoticeSink } from './notice-sink'
 
 /**
  * Library roots and their folder trees, refreshed from the service on demand. No method
@@ -15,6 +15,8 @@ export class LibraryState implements NoticeSink {
   trees: Readonly<Record<number, DirectoryNode | null>> = $state({})
   /** Last user-facing message from an action, e.g. "already in the library". */
   notice: string | undefined = $state(undefined)
+  /** A button offered with the current notice, if any. */
+  noticeAction: NoticeAction | undefined = $state.raw(undefined)
   /** Why the last refresh failed; cleared by the next successful one. */
   loadError: string | undefined = $state(undefined)
   loaded = $state(false)
@@ -77,12 +79,14 @@ export class LibraryState implements NoticeSink {
   }
 
   /** Shows a message in the notice bar (the NoticeSink the other states report through). */
-  notify(message: string): void {
+  notify(message: string, action?: NoticeAction): void {
     this.notice = message
+    this.noticeAction = action
   }
 
   dismissNotice(): void {
     this.notice = undefined
+    this.noticeAction = undefined
   }
 
   private async act(description: string, action: () => Promise<unknown>): Promise<void> {

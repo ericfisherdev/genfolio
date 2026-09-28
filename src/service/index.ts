@@ -1,6 +1,7 @@
 import { MigrationRunner } from '@infrastructure/db/migration-runner'
 import { migrations } from '@infrastructure/db/migrations'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
+import { RotatingFileLog } from '@infrastructure/logging/rotating-file-log'
 import type { ScanEvent } from '@shared/scan'
 import { isServiceRequest } from '@shared/service-rpc-guards'
 import { createLibraryHandlers } from './library-handlers'
@@ -17,12 +18,13 @@ process.on('unhandledRejection', (reason) => {
 })
 
 const emit = (event: ScanEvent): void => process.parentPort.postMessage({ event })
+const log = new RotatingFileLog(requireEnv('GENFOLIO_LOG_DIR'), 'service')
 
 function startHandlers(): ServiceHandlers {
   try {
     const db = openLibraryDatabase(requireEnv('GENFOLIO_DB_PATH'), DatabaseMode.ReadWrite)
     new MigrationRunner(db, migrations).migrate()
-    return createLibraryHandlers(db, emit)
+    return createLibraryHandlers(db, emit, log)
   } catch (error) {
     const reason = startupFailureReason(error)
     console.error(`[library-service] ${reason}`)

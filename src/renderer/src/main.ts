@@ -11,6 +11,7 @@ import { SlideshowPresetsState } from './lib/slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from './lib/slideshow/slideshow-settings.svelte'
 import { SimilarityState } from './lib/state/similarity.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
+import { ProblemReports } from './lib/state/problem-reports'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from './lib/state/image-marks'
@@ -29,6 +30,9 @@ if (!target) throw new Error('#app mount point missing from index.html')
 
 const api = window.genfolio
 const library = new LibraryState(api)
+const problems = new ProblemReports(api, library)
+window.addEventListener('error', (event) => problems.unexpected(event.error))
+window.addEventListener('unhandledrejection', (event) => problems.unexpected(event.reason))
 const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
 const deletion = new ImageDeletion(api, library, () => void library.refresh())
@@ -38,7 +42,10 @@ const services: AppServices = {
   router,
   library,
   gallery,
-  scans: new ScanProgressState(api, () => void library.refresh()),
+  scans: new ScanProgressState(api, (_rootId, report) => {
+    void library.refresh()
+    problems.scanFinished(report)
+  }),
   sort: new SortPreference(localPreferenceStore(() => window.localStorage)),
   generation: new GenerationDetailsState(api),
   copier: new GenerationCopier(api, library),

@@ -7,6 +7,10 @@
 {#if library.notice}
   <div class="notice" role="status">
     <span>{library.notice}</span>
+    {#if library.noticeAction}
+      {@const action = library.noticeAction}
+      <button type="button" class="action" onclick={() => action.run()}>{action.label}</button>
+    {/if}
     <button type="button" aria-label="Dismiss" onclick={() => library.dismissNotice()}>✕</button>
   </div>
 {/if}
@@ -22,6 +26,11 @@
     background: var(--color-surface-raised);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-2);
+  }
+  .action {
+    margin-left: auto;
+    color: var(--color-accent);
+    font-weight: 600;
   }
   button {
     background: none;
