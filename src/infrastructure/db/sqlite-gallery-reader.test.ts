@@ -79,6 +79,32 @@ describe('SqliteGalleryReader.layout', () => {
     expect(namesFor(all(sort))).toEqual(expected)
   })
 
+  it('sorts file names case-insensitively', () => {
+    add('', 'Apple.png', 1, 1)
+    add('', 'banana.png', 1, 1)
+    const names = namesFor(all(SortOrder.FileName))
+    expect(names.indexOf('Apple.png')).toBeLessThan(names.indexOf('b-first.png'))
+    expect(names.indexOf('b-first.png')).toBeLessThan(names.indexOf('banana.png'))
+  })
+
+  it('uses the case-insensitive index for file name order', () => {
+    const plan = db
+      .prepare(
+        'EXPLAIN QUERY PLAN SELECT id, width, height FROM images ORDER BY file_name COLLATE NOCASE ASC, id ASC'
+      )
+      .all()
+      .map((row) => (row as { detail: string }).detail)
+      .join(' ')
+    expect(plan).toContain('images_file_name_nocase')
+  })
+
+  it('lists folders in natural order', () => {
+    add('10', 'x.png', 1, 1)
+    add('2', 'y.png', 1, 1)
+    const names = reader.directoryTree(root.id)?.children.map((child) => child.name)
+    expect(names).toEqual(['2', '10', 'a', 'c'])
+  })
+
   it('limits a directory scope to that folder, or its whole subtree when recursive', () => {
     const scope = (recursive: boolean): GalleryQuery => ({
       scope: {

@@ -1,18 +1,13 @@
 <script lang="ts">
-  import ServiceStatus from './components/ServiceStatus.svelte'
+  import { onMount } from 'svelte'
+  import { getAppServices } from './lib/app-context'
+  import AppShell from './components/AppShell.svelte'
+
+  const { library } = getAppServices()
+
+  onMount(() => {
+    void library.refresh()
+  })
 </script>
 
-<main>
-  <h1>Genfolio</h1>
-  <ServiceStatus />
-</main>
-
-<style>
-  main {
-    padding: var(--space-4);
-  }
-  h1 {
-    margin: 0 0 var(--space-3);
-    font-size: 1.5rem;
-  }
-</style>
+<AppShell />

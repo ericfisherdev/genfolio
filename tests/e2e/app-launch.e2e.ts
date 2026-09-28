@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
+import { migrations } from '../../src/infrastructure/db/migrations'
 import { launchApp, packagedExecutable, type LaunchedApp } from './support/launch'
 
 let launched: LaunchedApp | undefined
@@ -24,10 +25,11 @@ test.afterEach(async () => {
 test('main window reports a healthy library service', async () => {
   const window = await current().app.firstWindow()
   await expect(window).toHaveTitle('Genfolio')
+  await window.getByText('Library service', { exact: true }).click()
   const status = window.getByRole('region', { name: 'Library service status' })
   await expect(status).toContainText('(FTS5)')
   await expect(status).toContainText('png, jpeg, webp, avif')
-  await expect(status).toContainText('v1')
+  await expect(status).toContainText(`v${migrations.length}`)
   expect(existsSync(join(current().userData, 'genfolio.db'))).toBe(true)
 })
 

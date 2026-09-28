@@ -1,10 +1,7 @@
 import { z } from 'zod'
+import { ScanEventType, ScanPhase } from './scan-kinds'
 
-export enum ScanPhase {
-  Walking = 'walking',
-  Indexing = 'indexing',
-  Pruning = 'pruning'
-}
+export { ScanEventType, ScanPhase } from './scan-kinds'
 
 export const scanReportSchema = z
   .object({
@@ -18,12 +15,6 @@ export const scanReportSchema = z
   .readonly()
 
 export type ScanReport = z.infer<typeof scanReportSchema>
-
-export enum ScanEventType {
-  Progress = 'progress',
-  Finished = 'finished',
-  Failed = 'failed'
-}
 
 const rootId = z.number().int().positive()
 

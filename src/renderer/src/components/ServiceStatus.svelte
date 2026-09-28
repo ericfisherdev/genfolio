@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ServiceHealth } from '@shared/service-health'
-  import { getGenfolioApi } from '../lib/api-context'
+  import { getAppServices } from '../lib/app-context'
 
-  const api = getGenfolioApi()
+  const { api } = getAppServices()
   let health: Promise<ServiceHealth> = $state(api.getServiceHealth())
 
   function retry(): void {

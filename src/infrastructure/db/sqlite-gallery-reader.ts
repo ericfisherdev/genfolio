@@ -16,8 +16,11 @@ const ORDER_BY: Readonly<Record<SortOrder, string>> = {
   [SortOrder.Newest]: 'created_at DESC, id DESC',
   [SortOrder.Oldest]: 'created_at ASC, id ASC',
   [SortOrder.RecentlyAdded]: 'added_at DESC, id DESC',
-  [SortOrder.FileName]: 'file_name ASC, id ASC'
+  [SortOrder.FileName]: 'file_name COLLATE NOCASE ASC, id ASC'
 }
+
+/** Folder names in natural, case-insensitive order: `2` before `10`, `a` next to `B`. */
+const FOLDER_ORDER = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
 const SUBTREE = `
   WITH RECURSIVE subtree(id) AS (
@@ -143,7 +146,7 @@ function buildNode(
   const children = (childrenOf.get(row.id) ?? [])
     .map((child) => buildNode(child, childrenOf))
     .filter((child) => child.totalImageCount > 0)
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .sort((a, b) => FOLDER_ORDER.compare(a.name, b.name))
   return {
     id: row.id,
     name: row.rel_path.slice(row.rel_path.lastIndexOf('/') + 1),

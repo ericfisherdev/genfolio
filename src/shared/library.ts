@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { AddRootOutcome } from './library-kinds'
+
+export { AddRootOutcome } from './library-kinds'
 
 export const rootSummarySchema = z
   .object({
@@ -12,15 +15,6 @@ export const rootSummarySchema = z
   .readonly()
 
 export type RootSummary = z.infer<typeof rootSummarySchema>
-
-export enum AddRootOutcome {
-  Added = 'added',
-  /** The dialog was dismissed; produced by main, never by the service. */
-  Cancelled = 'cancelled',
-  AlreadyAdded = 'already-added',
-  InsideExistingRoot = 'inside-existing-root',
-  NotADirectory = 'not-a-directory'
-}
 
 /** The conflicting folder: the input path, the existing root, or its container. */
 const conflictShape = { path: z.string() }

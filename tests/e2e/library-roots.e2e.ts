@@ -80,6 +80,7 @@ test('a database from a newer app is reported instead of crashing', async () => 
   launched = await launchApp(userData)
 
   const page = await current().app.firstWindow()
+  await page.getByText('Library service', { exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Update Genfolio')
 })
 
