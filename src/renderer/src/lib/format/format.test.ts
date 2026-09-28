@@ -3,6 +3,7 @@ import { AddRootOutcome } from '@shared/library-kinds'
 import { ScanPhase } from '@shared/scan-kinds'
 import { addRootMessage } from './add-root-message'
 import { scanProgressText } from './scan-progress-text'
+import { userMessage } from './user-message'
 
 const root = { id: 1, path: '/lib', addedAt: 0, imageCount: 0, scanning: true }
 
@@ -39,5 +40,21 @@ describe('scanProgressText', () => {
       'Indexing 120 / 4,500'
     )
     expect(scanProgressText({ phase: ScanPhase.Pruning, done: 0, total: null })).toBe('Tidying up…')
+  })
+})
+
+describe('userMessage', () => {
+  it('drops the IPC wrapper and the service method prefix', () => {
+    const error = new Error(
+      "Error invoking remote method 'library:list-roots': Error: Library service failed roots.list: The library database cannot be used. Update Genfolio to open it."
+    )
+    expect(userMessage(error)).toBe(
+      'The library database cannot be used. Update Genfolio to open it.'
+    )
+  })
+
+  it('keeps plain messages and non-errors', () => {
+    expect(userMessage(new Error('timed out'))).toBe('timed out')
+    expect(userMessage('boom')).toBe('boom')
   })
 })

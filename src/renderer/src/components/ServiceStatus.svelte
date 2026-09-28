@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ServiceHealth } from '@shared/service-health'
   import { getAppServices } from '../lib/app-context'
+  import { userMessage } from '../lib/format/user-message'
 
   const { api } = getAppServices()
   let health: Promise<ServiceHealth> = $state(api.getServiceHealth())
@@ -28,7 +29,7 @@
     </dl>
   {:catch error}
     <p role="alert">
-      Library service unavailable: {error instanceof Error ? error.message : error}
+      Library service unavailable: {userMessage(error)}
     </p>
     <button type="button" onclick={retry}>Retry</button>
   {/await}

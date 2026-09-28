@@ -3,9 +3,7 @@ import type { DirectoryNode } from '@shared/gallery'
 import type { AddRootViaDialogResult, RootSummary } from '@shared/library'
 import { AddRootOutcome } from '@shared/library-kinds'
 import { addRootMessage } from '../format/add-root-message'
-
-const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error)
+import { userMessage as messageOf } from '../format/user-message'
 
 /**
  * Library roots and their folder trees, refreshed from the service on demand. No method
