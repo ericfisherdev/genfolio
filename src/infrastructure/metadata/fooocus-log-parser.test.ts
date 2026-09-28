@@ -95,7 +95,7 @@ describe('FooocusLogParser', () => {
   })
 
   it('skips a malformed entry without affecting the others', () => {
-    const broken = `<div id="broken_png" class="image-container"><button onclick="to_clipboard('%E0%A4%A')">`
+    const broken = `<div id="broken_png" class="image-container"><button onclick="to_clipboard('%E0%A4%A')">\n\n`
     const html = log(
       entry('a.png', [], payload({ prompt: 'a' })),
       broken,
@@ -121,6 +121,54 @@ describe('FooocusLogParser', () => {
   it('falls back to the div id for the file name and reads logs without split markers', () => {
     const html = `<div id="my_image_webp" class="image-container">${payload({ seed: '3' })}</div>`
     expect([...parser.parse(html).keys()]).toEqual(['my_image.webp'])
+  })
+
+  it('does not start an entry at an image-container div inside prompt text', () => {
+    const prompt = 'x <div id="victim_png" class="image-container"><a href="victim.png"> y'
+    const html = log(
+      entry('real.png', [['Prompt', prompt]], payload({ prompt, seed: '1' })),
+      entry('victim.png', [], payload({ seed: 'truth' }))
+    )
+    const entries = parser.parse(html)
+    expect(entries.get('real.png')?.fields).toEqual({ prompt, seed: '1' })
+    expect(entries.get('victim.png')?.fields).toEqual({ seed: 'truth' })
+  })
+
+  it('reads a table of unclosed rows in linear time', () => {
+    const body = entry('slow.png', []).replace(
+      "<table class='metadata'>",
+      `<table class='metadata'>${"<tr><td class='label'>".repeat(40_000)}`
+    )
+    const started = performance.now()
+    parser.parse(log(body))
+    expect(performance.now() - started).toBeLessThan(500)
+  })
+
+  it('maps the table labels that are not plain snake case', () => {
+    const upscale = parser.parse(log(entry('up.png', [['Upscale (Fast)', '2x']])))
+    expect(upscale.get('up.png')).toEqual({
+      kind: LogEntryKind.Upscale,
+      fields: { upscale_fast: '2x' }
+    })
+    const cfg = parser.parse(log(entry('c.png', [['CFG Mimicking from TSNR', '7.0']])))
+    expect(cfg.get('c.png')?.fields).toEqual({ adaptive_cfg: '7.0' })
+  })
+
+  it('accepts only bare file names', () => {
+    const html = log(
+      entry('../../secret.png', [], payload({ seed: '1' })),
+      entry('sub/dir.png', [], payload({ seed: '2' })),
+      entry('https://evil.example/x.png', [], payload({ seed: '3' })),
+      entry('ok.png', [], payload({ seed: '4' }))
+    )
+    expect([...parser.parse(html).keys()]).toEqual(['ok.png'])
+  })
+
+  it('drops __proto__ keys from payloads', () => {
+    const tail = `<button onclick="to_clipboard('${pythonQuote('{"__proto__":{"seed":"x"},"prompt":"p"}')}')">`
+    const fields = parser.parse(log(entry('p.png', [], tail))).get('p.png')?.fields ?? {}
+    expect(Object.keys(fields)).toEqual(['prompt'])
+    expect(Object.assign({}, fields)).not.toHaveProperty('seed')
   })
 
   it('never throws on truncated or edited fixture text', () => {

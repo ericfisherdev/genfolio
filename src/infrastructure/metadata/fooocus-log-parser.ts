@@ -8,18 +8,30 @@ export enum LogEntryKind {
 /** One image's entry in a Fooocus-family `log.html`. */
 export interface FooocusLogEntry {
   readonly kind: LogEntryKind
-  /** The snake_case fields Fooocus logged (`prompt`, `base_model`, `lora_combined_1`, …). */
+  /**
+   * The snake_case fields Fooocus logged (`prompt`, `base_model`, `lora_combined_1`, …).
+   * Untrusted text from disk (table values are HTML-unescaped): display it only as text.
+   */
   readonly fields: Readonly<Record<string, unknown>>
 }
 
 const SPLIT_MARKERS = ['<!--fooocus-log-split-->', '<!--unfooocused-log-split-->']
-const ENTRY_START = /<div id="([^"]*)" class="image-container">/g
+/** Entries always start a line; prompt text can't, since Fooocus writes its newlines as ` </br> `. */
+const ENTRY_START = /^<div id="([^"]*)" class="image-container">/gm
 const IMAGE_LINK = /<a href="([^"]+)"/
 const CLIPBOARD_PAYLOAD = /to_clipboard\('([^']*)'\)/g
-const TABLE_ROW = /<tr><td class='label'>(.*?)<\/td><td class='value'>(.*?)<\/td><\/tr>/gs
+const ROW_START = "<tr><td class='label'>"
+/** Anchored per row chunk, so a row without its closing tags costs one pass over its own chunk. */
+const ROW_CELLS = /^([^<]*)<\/td><td class='value'>(.*?)<\/td><\/tr>/s
 const UPSCALE_KEY = 'upscale_fast'
-/** Table labels whose field keys aren't just the label in snake_case. */
-const KEY_BY_LABEL = new Map([['Fooocus V2 Expansion', 'prompt_expansion']])
+/** Table labels (Fooocus `save_and_log`) whose field keys aren't just the label in snake_case. */
+const KEY_BY_LABEL = new Map([
+  ['Fooocus V2 Expansion', 'prompt_expansion'],
+  ['CFG Mimicking from TSNR', 'adaptive_cfg'],
+  ['Upscale (Fast)', UPSCALE_KEY]
+])
+/** Fooocus only ever logs a bare file name; anything path- or URL-like is not one of its entries. */
+const BARE_FILE_NAME = /^(?!\.\.?$)[^/\\:]+$/
 const LORA_LABEL = /^LoRA (\d+)$/
 const HTML_ENTITY = /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
@@ -65,7 +77,7 @@ function* entryBodies(middle: string): Generator<[string, string]> {
     const end = starts[index + 1]?.index ?? middle.length
     const body = middle.slice(start.index, end)
     const fileName = IMAGE_LINK.exec(body)?.[1] ?? fileNameFromDivId(start[1] ?? '')
-    if (fileName) yield [fileName, body]
+    if (fileName && BARE_FILE_NAME.test(fileName)) yield [fileName, body]
   }
 }
 
@@ -76,11 +88,15 @@ function fileNameFromDivId(id: string): string | undefined {
 }
 
 /** The copy button follows the (unescaped) table, so its payload is the last one in the entry. */
+/** Log payloads are untrusted; `__proto__` would re-prototype any object these fields are assigned into. */
+const withoutProtoKeys = (key: string, value: unknown): unknown =>
+  key === '__proto__' ? undefined : value
+
 function payloadFields(body: string): Record<string, unknown> | undefined {
   const payload = [...body.matchAll(CLIPBOARD_PAYLOAD)].at(-1)?.[1]
   if (payload === undefined) return undefined
   try {
-    const parsed: unknown = JSON.parse(decodeURIComponent(payload))
+    const parsed: unknown = JSON.parse(decodeURIComponent(payload), withoutProtoKeys)
     return isPlainObject(parsed) ? parsed : undefined
   } catch {
     return undefined
@@ -89,7 +105,8 @@ function payloadFields(body: string): Record<string, unknown> | undefined {
 
 function tableFields(body: string): Record<string, unknown> | undefined {
   const fields: Record<string, string> = {}
-  for (const [, label, value] of body.matchAll(TABLE_ROW)) {
+  for (const row of body.split(ROW_START).slice(1)) {
+    const [, label, value] = ROW_CELLS.exec(row) ?? []
     const key = keyOfLabel(unescapeHtml(label ?? ''))
     if (key) fields[key] = unescapeHtml((value ?? '').replaceAll(' </br> ', '\n'))
   }
