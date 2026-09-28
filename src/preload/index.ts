@@ -1,8 +1,18 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import { IpcChannel, type GenfolioApi } from '@shared/genfolio-api'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { IpcChannel, IpcEvent, type GenfolioApi } from '@shared/genfolio-api'
+import type { ScanEvent } from '@shared/scan'
 
 const api: GenfolioApi = {
-  getServiceHealth: () => ipcRenderer.invoke(IpcChannel.ServiceHealth)
+  getServiceHealth: () => ipcRenderer.invoke(IpcChannel.ServiceHealth),
+  listRoots: () => ipcRenderer.invoke(IpcChannel.ListRoots),
+  addRootViaDialog: () => ipcRenderer.invoke(IpcChannel.AddRootViaDialog),
+  removeRoot: (rootId) => ipcRenderer.invoke(IpcChannel.RemoveRoot, rootId),
+  rescanRoot: (rootId) => ipcRenderer.invoke(IpcChannel.RescanRoot, rootId),
+  onScanEvent: (listener) => {
+    const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
+    ipcRenderer.on(IpcEvent.Scan, forward)
+    return () => ipcRenderer.removeListener(IpcEvent.Scan, forward)
+  }
 }
 
 contextBridge.exposeInMainWorld('genfolio', api)

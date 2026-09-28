@@ -1,3 +1,4 @@
+import { posix } from 'node:path'
 import type Database from 'better-sqlite3'
 import type { Directory, DirectoryId, RootId } from '@domain/library'
 import type { DirectoryRepository } from '@domain/repositories'
@@ -20,6 +21,8 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
   private readonly selectId: Database.Statement<[number, string], { id: number }>
   private readonly selectByRoot: Database.Statement<[number], DirectoryRow>
   private readonly deleteEmptyLeaves: Database.Statement<[number]>
+  private readonly moveAll: Database.Statement<{ from: number; to: number; prefix: string }>
+  private readonly setParent: Database.Statement<[number, number, string]>
 
   constructor(private readonly db: Database.Database) {
     this.insert = db.prepare(
@@ -28,6 +31,15 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
     this.selectId = db.prepare('SELECT id FROM directories WHERE root_id = ? AND rel_path = ?')
     this.selectByRoot = db.prepare(
       'SELECT id, root_id, parent_id, rel_path FROM directories WHERE root_id = ? ORDER BY rel_path'
+    )
+    this.moveAll = db.prepare(`
+      UPDATE directories
+      SET root_id = @to,
+          rel_path = CASE rel_path WHEN '' THEN @prefix ELSE @prefix || '/' || rel_path END
+      WHERE root_id = @from
+    `)
+    this.setParent = db.prepare(
+      'UPDATE directories SET parent_id = ? WHERE root_id = ? AND rel_path = ?'
     )
     this.deleteEmptyLeaves = db.prepare(`
       DELETE FROM directories
@@ -55,6 +67,15 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
       parentId: row.parent_id as DirectoryId | null,
       relPath: row.rel_path
     }))
+  }
+
+  moveRoot(from: RootId, to: RootId, prefix: string): void {
+    this.db.transaction(() => {
+      const parentPath = posix.dirname(prefix) === '.' ? '' : posix.dirname(prefix)
+      const parentId = this.ensure(to, parentPath)
+      this.moveAll.run({ from, to, prefix })
+      this.setParent.run(parentId, to, prefix)
+    })()
   }
 
   pruneEmpty(rootId: RootId): number {

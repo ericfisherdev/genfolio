@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { ServiceHealth } from '@shared/service-health'
 import { genfolioApiContext } from '../lib/api-context'
+import { fakeGenfolioApi } from '../lib/testing/fake-genfolio-api'
 import ServiceStatus from './ServiceStatus.svelte'
 
 const health: ServiceHealth = {
@@ -14,8 +15,8 @@ const health: ServiceHealth = {
   decodableFormats: ['png', 'webp']
 }
 
-function renderWith(api: GenfolioApi): void {
-  render(ServiceStatus, { context: genfolioApiContext(api) })
+function renderWith(api: Partial<GenfolioApi>): void {
+  render(ServiceStatus, { context: genfolioApiContext(fakeGenfolioApi(api)) })
 }
 
 describe('ServiceStatus', () => {

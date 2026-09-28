@@ -1,4 +1,4 @@
-import type { ServiceMethod, ServiceResults } from '@shared/service-rpc'
+import type { ServiceMethod, ServiceParams, ServiceResults } from '@shared/service-contract'
 import type { ServiceRequester } from './library-service-client'
 
 /** Creates a client for a freshly started service; the client must call `onExit` when it dies. */
@@ -33,8 +33,11 @@ export class LibraryServiceSupervisor implements ServiceRequester {
     this.current = this.start()
   }
 
-  request<M extends ServiceMethod>(method: M): Promise<ServiceResults[M]> {
-    return this.current.request(method)
+  request<M extends ServiceMethod>(
+    method: M,
+    params: ServiceParams[M]
+  ): Promise<ServiceResults[M]> {
+    return this.current.request(method, params)
   }
 
   private start(): ServiceRequester {

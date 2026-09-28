@@ -32,5 +32,20 @@ export default defineConfig(
       'svelte/no-at-html-tags': 'error'
     }
   },
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/main/ipc/**'],
+    rules: {
+      // Every renderer→main channel must go through ValidatingIpcRegistry (sender + schema checks).
+      'no-restricted-properties': [
+        'error',
+        ...['handle', 'handleOnce', 'on', 'once'].map((property) => ({
+          object: 'ipcMain',
+          property,
+          message: 'Register IPC handlers through ValidatingIpcRegistry in src/main/ipc.'
+        }))
+      ]
+    }
+  },
   eslintConfigPrettier
 )

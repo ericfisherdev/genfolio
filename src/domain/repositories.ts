@@ -12,6 +12,7 @@ export interface LibraryRootRepository {
   /** Throws {@link DuplicateRootError} when `path` is already a root. */
   add(path: string, addedAt: number): LibraryRoot
   list(): LibraryRoot[]
+  findById(id: RootId): LibraryRoot | undefined
   /** Removes the root and, by cascade, its directories and images. Returns false when absent. */
   remove(id: RootId): boolean
 }
@@ -20,6 +21,11 @@ export interface DirectoryRepository {
   /** Returns the directory for `relPath`, creating it and any missing ancestors. */
   ensure(rootId: RootId, relPath: string): DirectoryId
   listByRoot(rootId: RootId): Directory[]
+  /**
+   * Moves every directory (and so every image) of root `from` under `prefix` in root `to`,
+   * creating `prefix`'s ancestors in `to`. `to` must have nothing at or below `prefix`.
+   */
+  moveRoot(from: RootId, to: RootId, prefix: string): void
   /** Deletes non-root directories with no images anywhere below them. Returns how many. */
   pruneEmpty(rootId: RootId): number
 }
