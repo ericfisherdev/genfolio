@@ -1,4 +1,13 @@
-import { readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
 import { expect, test, type Page } from '@playwright/test'
@@ -92,10 +101,17 @@ test('serves originals, and a 600 px in-memory copy for large images in grid mod
 })
 
 test('refuses unknown ids, traversal and files swapped for symlinks leaving the root', async () => {
-  const fixture = readdirSync(join(library, '2026-09-27')).find((name) => name.endsWith('.png'))
-  const path = join(library, '2026-09-27', fixture as string)
-  const id = await idOf(fixture as string)
-  expect(readFileSync(path).length).toBeGreaterThan(0)
+  const [shown, swapped] = readdirSync(join(library, '2026-09-27'))
+    .filter((name) => name.endsWith('.png'))
+    .sort() as [string, string]
+  // A different URL proves the protocol serves decodable fixtures; the swapped image's own
+  // URL is never loaded before the swap, so Chromium's image cache cannot answer for it.
+  expect(await loadImage(`genfolio://img/${await idOf(shown)}`)).toEqual({
+    loaded: true,
+    width: 1024
+  })
+  const path = join(library, '2026-09-27', swapped)
+  const id = await idOf(swapped)
 
   for (const url of [
     'genfolio://img/999999',
@@ -105,9 +121,17 @@ test('refuses unknown ids, traversal and files swapped for symlinks leaving the 
     expect(await loadImage(url)).toEqual({ loaded: false, width: 0 })
   }
 
-  unlinkSync(path)
-  symlinkSync('/etc/hostname', path)
-  expect(await loadImage(`genfolio://img/${id}`)).toEqual({ loaded: false, width: 0 })
+  // The target is a real image outside the root: a broken containment check would load it.
+  const outside = mkdtempSync(join(tmpdir(), 'genfolio-outside-'))
+  try {
+    const outsideImage = join(outside, 'outside.png')
+    copyFileSync(path, outsideImage)
+    unlinkSync(path)
+    symlinkSync(outsideImage, path)
+    expect(await loadImage(`genfolio://img/${id}`)).toEqual({ loaded: false, width: 0 })
+  } finally {
+    rmSync(outside, { recursive: true, force: true })
+  }
 })
 
 test('the renderer has a strict CSP and no browser permissions', async () => {

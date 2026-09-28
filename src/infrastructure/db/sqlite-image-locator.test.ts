@@ -1,3 +1,4 @@
+import BetterSqlite from 'better-sqlite3'
 import type Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
 import type { ImageId } from '@domain/library'
@@ -60,5 +61,18 @@ describe('LazyImageLocator', () => {
     expect(locator.locate(id)?.fileName).toBe('a.png')
     locator.locate(id)
     expect(attempts).toBe(2)
+  })
+
+  it('closes a connection whose schema is not ready yet before retrying', () => {
+    const opened: Database.Database[] = []
+    const locator = new LazyImageLocator(() => {
+      const db = new BetterSqlite(':memory:')
+      opened.push(db)
+      return db
+    })
+    expect(locator.locate(1 as ImageId)).toBeUndefined()
+    expect(locator.locate(1 as ImageId)).toBeUndefined()
+    expect(opened).toHaveLength(2)
+    expect(opened.every((db) => !db.open)).toBe(true)
   })
 })

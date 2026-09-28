@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { realpath } from 'node:fs/promises'
+import { open, realpath, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
@@ -36,7 +36,7 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('DisplayCopies under load'
       const budget = 256 * 1024
       const cache = new ByteLruCache<string>(budget)
       const copies = new DisplayCopies(
-        new ImageFileResolver(locator, realpath),
+        new ImageFileResolver(locator, { open: (path) => open(path, 'r'), realpath, stat }),
         new NapiImageResizer(),
         cache,
         new ConcurrencyLimiter(4)

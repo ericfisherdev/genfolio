@@ -1,7 +1,6 @@
 import { join } from 'node:path'
-import { realpath } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
-import { app, BrowserWindow, ipcMain, net, session } from 'electron'
+import { open, realpath, stat } from 'node:fs/promises'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
@@ -15,6 +14,7 @@ import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
 import { createImageRequestHandler } from './protocol/image-request-handler'
+import { streamOpenFile } from './protocol/stream-open-file'
 import {
   handleImageScheme,
   registerImageSchemeAsPrivileged
@@ -79,15 +79,14 @@ function onReady(): void {
   const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
   denyAllPermissions(session.defaultSession)
+  const imageFiles = new ImageFileResolver(
+    new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
+    { open: (path) => open(path, 'r'), realpath, stat }
+  )
   handleImageScheme(
     createImageRequestHandler({
-      files: new ImageFileResolver(
-        new LazyImageLocator(() =>
-          openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)
-        ),
-        realpath
-      ),
-      fetchFile: (path) => net.fetch(pathToFileURL(path).href),
+      openImage: (id) => imageFiles.open(id),
+      streamFile: streamOpenFile,
       renderDisplayCopy: (imageId, maxWidth) =>
         libraryService.request(ServiceMethod.RenderDisplayCopy, { imageId, maxWidth })
     })

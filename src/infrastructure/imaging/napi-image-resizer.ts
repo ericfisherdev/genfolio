@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import { Transformer } from '@napi-rs/image'
 import type { ImageResizer } from '@domain/image-resizer'
 
@@ -6,8 +5,7 @@ import type { ImageResizer } from '@domain/image-resizer'
 export class NapiImageResizer implements ImageResizer {
   constructor(private readonly quality = 80) {}
 
-  async resizeToWebp(path: string, maxWidth: number): Promise<Uint8Array<ArrayBuffer>> {
-    const source = await readFile(path)
+  async resizeToWebp(source: Uint8Array, maxWidth: number): Promise<Uint8Array<ArrayBuffer>> {
     const oriented = new Transformer(source).rotate()
     const { width } = await oriented.metadata()
     const resized = width > maxWidth ? oriented.resize({ width: maxWidth }) : oriented

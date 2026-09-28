@@ -1,6 +1,6 @@
 import { Transformer } from '@napi-rs/image'
 import type Database from 'better-sqlite3'
-import { realpath } from 'node:fs/promises'
+import { open, realpath, stat } from 'node:fs/promises'
 import { ByteLruCache } from '@application/byte-lru-cache'
 import { ConcurrencyLimiter } from '@application/concurrency-limiter'
 import { DisplayCopies } from '@application/display-copies'
@@ -65,7 +65,11 @@ export function createLibraryHandlers(
   })
   const gallery = new SqliteGalleryReader(db)
   const displayCopies = new DisplayCopies(
-    new ImageFileResolver(new SqliteImageLocator(db), realpath),
+    new ImageFileResolver(new SqliteImageLocator(db), {
+      open: (path) => open(path, 'r'),
+      realpath,
+      stat
+    }),
     new NapiImageResizer(),
     new ByteLruCache<string>(DISPLAY_COPY_CACHE_BYTES),
     new ConcurrencyLimiter(DISPLAY_COPY_CONCURRENCY)

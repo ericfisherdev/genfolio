@@ -19,9 +19,12 @@ export class LazyImageLocator implements ImageLocator {
 
   private connected(): SqliteImageLocator | undefined {
     if (!this.locator) {
+      let db: Database.Database | undefined
       try {
-        this.locator = new SqliteImageLocator(this.open())
+        db = this.open()
+        this.locator = new SqliteImageLocator(db)
       } catch {
+        db?.close()
         return undefined
       }
     }

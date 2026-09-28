@@ -1,38 +1,58 @@
+import type { FileHandle } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
-import type { ResolvedImageFile } from '@application/image-file-resolver'
+import type { OpenImageFile } from '@application/image-file-resolver'
 import { createImageRequestHandler } from './image-request-handler'
-
-const small: ResolvedImageFile = { path: '/lib/small.png', width: 1024, height: 1024, mtimeMs: 1 }
-const large: ResolvedImageFile = { path: '/lib/large.png', width: 4096, height: 4096, mtimeMs: 1 }
 
 interface Harness {
   get(url: string): Promise<Response>
-  readonly fetchFile: ReturnType<typeof vi.fn>
+  readonly streamFile: ReturnType<typeof vi.fn>
   readonly renderDisplayCopy: ReturnType<typeof vi.fn>
+  readonly closed: () => boolean
 }
 
-function setup(file: ResolvedImageFile | undefined): Harness {
-  const fetchFile = vi.fn(
-    async () => new Response(new Uint8Array([9, 9]), { headers: { 'content-type': 'image/png' } })
+function setup(size: { width: number; height: number } | undefined, fileName = 'a.png'): Harness {
+  let closed = false
+  const handle = {
+    close: async () => {
+      closed = true
+    }
+  } as unknown as FileHandle
+  const file: OpenImageFile | undefined = size && { handle, fileName, mtimeMs: 1, ...size }
+  const streamFile = vi.fn(
+    () =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([9, 9]))
+          controller.close()
+        }
+      })
   )
   const renderDisplayCopy = vi.fn(async () => new Uint8Array([1, 2, 3]))
-  const handle = createImageRequestHandler({
-    files: { resolve: async () => file },
-    fetchFile,
+  const handle$ = createImageRequestHandler({
+    openImage: async () => file,
+    streamFile,
     renderDisplayCopy
   })
-  const get = (url: string): Promise<Response> => handle(new Request(url))
-  return { get, fetchFile, renderDisplayCopy }
+  return {
+    get: (url) => handle$(new Request(url)),
+    streamFile,
+    renderDisplayCopy,
+    closed: () => closed
+  }
 }
 
+const small = { width: 1024, height: 1024 }
+const large = { width: 4096, height: 4096 }
+
 describe('image request handler', () => {
-  it('serves the original bytes with no-store caching', async () => {
-    const { get, fetchFile } = setup(small)
+  it('streams the original from the verified handle with its content type and no-store', async () => {
+    const { get, streamFile } = setup(small, 'b.webp')
     const response = await get('genfolio://img/7')
     expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('image/webp')
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([9, 9]))
-    expect(fetchFile).toHaveBeenCalledWith('/lib/small.png')
+    expect(streamFile).toHaveBeenCalledOnce()
   })
 
   it('serves the original for a small image even in grid mode', async () => {
@@ -41,12 +61,13 @@ describe('image request handler', () => {
     expect(renderDisplayCopy).not.toHaveBeenCalled()
   })
 
-  it('serves an in-memory WebP copy for a large image in grid mode', async () => {
-    const { get, fetchFile, renderDisplayCopy } = setup(large)
+  it('closes the handle and serves an in-memory WebP copy for a large image in grid mode', async () => {
+    const { get, streamFile, renderDisplayCopy, closed } = setup(large)
     const response = await get('genfolio://img/7?display=grid')
     expect(response.headers.get('content-type')).toBe('image/webp')
     expect(renderDisplayCopy).toHaveBeenCalledWith(7, 600)
-    expect(fetchFile).not.toHaveBeenCalled()
+    expect(streamFile).not.toHaveBeenCalled()
+    expect(closed()).toBe(true)
   })
 
   it('always serves the original when the grid is not asked for', async () => {
@@ -62,7 +83,7 @@ describe('image request handler', () => {
     }
   )
 
-  it('returns 404 when the image cannot be resolved', async () => {
+  it('returns 404 when the image cannot be opened', async () => {
     expect((await setup(undefined).get('genfolio://img/7')).status).toBe(404)
   })
 })
