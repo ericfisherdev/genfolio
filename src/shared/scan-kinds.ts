@@ -11,5 +11,7 @@ export enum ScanEventType {
   Finished = 'finished',
   Failed = 'failed',
   /** Library-wide background hashing for look-alikes, after scans. */
-  Hashing = 'hashing'
+  Hashing = 'hashing',
+  /** A root can't be watched for changes; it is rescanned periodically instead. */
+  WatchUnavailable = 'watch-unavailable'
 }

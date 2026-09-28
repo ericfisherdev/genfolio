@@ -53,7 +53,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-const scan = (): ReturnType<ReturnType<typeof createScanRoot>['run']> =>
+const scan = (scope?: readonly string[]): ReturnType<ReturnType<typeof createScanRoot>['run']> =>
   createScanRoot(
     db,
     {
@@ -64,7 +64,7 @@ const scan = (): ReturnType<ReturnType<typeof createScanRoot>['run']> =>
       now: () => Date.now()
     },
     { batchSize: 500, headerConcurrency: 4, progressIntervalMs: 0 }
-  ).run(root, new AbortController().signal)
+  ).run(root, new AbortController().signal, undefined, scope)
 
 function imageId(relDir: string, fileName: string): ImageId {
   const stat = images
@@ -132,6 +132,20 @@ describe('ScanRoot metadata indexing', () => {
     expect(await scan()).toMatchObject({ unchanged: 6 })
     expect(parse).toHaveBeenCalledTimes(1)
     expect(generationOf(NO_METADATA_PNG)?.loras?.[0]?.weight).toBe(0.9)
+  })
+
+  it('re-reads a rewritten log in a scan scoped to its folder (live changes)', async () => {
+    await scan()
+    const logPath = join(dir, 'day', 'log.html')
+    writeFileSync(
+      logPath,
+      readFileSync(logPath, 'utf8').replace(
+        encodeURIComponent('sd_xl_dpo_lora_v1-128dim.safetensors : 0.5'),
+        encodeURIComponent('sd_xl_dpo_lora_v1-128dim.safetensors : 0.7')
+      )
+    )
+    await scan(['day'])
+    expect(generationOf(NO_METADATA_PNG)?.loras?.[0]?.weight).toBe(0.7)
   })
 
   it('re-applies the log after a scan that stopped between indexing and the log pass', async () => {
