@@ -193,6 +193,16 @@ describe('readExifText', () => {
     expect(readExifText(block).map((r) => r.value)).toEqual(['once'])
   })
 
+  it('trims trailing NULs and keeps interior ones, in linear time', () => {
+    const block = tiff([
+      { tag: 0x010e, type: 2, data: Buffer.from(`${'\0'.repeat(200_000)}x\0\0`, 'latin1') }
+    ])
+    const started = performance.now()
+    const value = readExifText(block)[0]?.value
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(value).toBe(`${'\0'.repeat(200_000)}x`)
+  })
+
   it('reads ImageDescription (UnFooocused)', () => {
     const block = tiff([{ tag: 0x010e, type: 2, data: Buffer.from('a prompt\nSteps: 30\0') }])
     expect(readExifText(block)).toEqual([

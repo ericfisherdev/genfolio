@@ -21,7 +21,15 @@ interface Tiff {
   readonly littleEndian: boolean
 }
 
-const trimNuls = (text: string): string => text.replace(/\0+$/, '')
+/**
+ * Drops trailing NULs by scanning from the end. `/\0+$/` retries from every NUL in a run that
+ * isn't at the end, which is quadratic on a crafted block.
+ */
+function trimNuls(text: string): string {
+  let end = text.length
+  while (end > 0 && text.charCodeAt(end - 1) === 0) end--
+  return end === text.length ? text : text.slice(0, end)
+}
 
 /**
  * Text tags from a TIFF/EXIF block (starting at its `II`/`MM` header), from IFD0 and the Exif
