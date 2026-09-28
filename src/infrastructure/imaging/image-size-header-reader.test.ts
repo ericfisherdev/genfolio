@@ -1,7 +1,7 @@
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ImageReadError, UnsupportedImageError } from '@domain/image-header'
 import { ImageFormat } from '@shared/image-format'
 import { HEADER_READ_BYTES, ImageSizeHeaderReader } from './image-size-header-reader'
@@ -66,6 +66,13 @@ describe('ImageSizeHeaderReader', () => {
   it('rejects a text file with an image extension', async () => {
     const path = write('notes.png', Buffer.from('just some text'))
     await expect(reader.read(path)).rejects.toBeInstanceOf(UnsupportedImageError)
+  })
+
+  it('rejects a large non-JPEG it cannot parse without reading the whole file', async () => {
+    const path = write('large-garbage.png', Buffer.alloc(HEADER_READ_BYTES * 3, 0x41))
+    const readAll = vi.spyOn(ImageSizeHeaderReader.prototype as never, 'readAll')
+    await expect(reader.read(path)).rejects.toBeInstanceOf(UnsupportedImageError)
+    expect(readAll).not.toHaveBeenCalled()
   })
 
   it('rejects a missing file with ImageReadError', async () => {

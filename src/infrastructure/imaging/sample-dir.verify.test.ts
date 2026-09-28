@@ -22,7 +22,8 @@ describe.skipIf(!sampleDir)('ImageSizeHeaderReader against GENFOLIO_SAMPLE_DIR',
     const images = imagesUnder(sampleDir as string)
     for (const path of images) {
       const header = await reader.read(path)
-      const decoded = await new Transformer(await readFile(path)).metadata()
+      // rotate() without an argument applies EXIF orientation, giving display dimensions like ImageHeader
+      const decoded = await new Transformer(await readFile(path)).rotate().metadata()
       if (header.width !== decoded.width || header.height !== decoded.height) mismatches.push(path)
     }
     expect(images.length).toBeGreaterThan(0)

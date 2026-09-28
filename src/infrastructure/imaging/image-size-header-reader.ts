@@ -23,6 +23,9 @@ const FORMAT_BY_TYPE: Readonly<Record<string, ImageFormat>> = {
 const isQuarterTurn = (orientation: number | undefined): boolean =>
   orientation !== undefined && orientation >= 5 && orientation <= 8
 
+/** Only JPEG can place its frame header (SOF) arbitrarily far in, after APPn segments. */
+const startsLikeJpeg = (bytes: Uint8Array): boolean => bytes[0] === 0xff && bytes[1] === 0xd8
+
 interface HeadRead {
   readonly bytes: Uint8Array
   readonly isWholeFile: boolean
@@ -30,14 +33,15 @@ interface HeadRead {
 
 /**
  * Reads the first {@link HEADER_READ_BYTES} bytes and parses them with `image-size`,
- * falling back to the whole file when the header does not fit (e.g. JPEG SOF after large EXIF).
+ * falling back to the whole file only for a JPEG whose frame header lies past the head
+ * (SOF after large EXIF). Any other unparseable file is unsupported without a full read.
  */
 export class ImageSizeHeaderReader implements ImageHeaderReader {
   async read(path: string): Promise<ImageHeader> {
     const head = await this.readHead(path)
+    const canFallBack = !head.isWholeFile && startsLikeJpeg(head.bytes)
     const parsed =
-      this.parse(head.bytes) ??
-      (head.isWholeFile ? undefined : this.parse(await this.readAll(path)))
+      this.parse(head.bytes) ?? (canFallBack ? this.parse(await this.readAll(path)) : undefined)
     if (!parsed) throw new UnsupportedImageError(path)
     return parsed
   }
