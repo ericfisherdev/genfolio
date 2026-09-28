@@ -6,12 +6,14 @@ import { LoraCollector } from './lora-collector'
 import { definedFields, parseDecimal, parseInteger, presentText } from './values'
 
 // Ported from A1111 modules/infotext_utils.py (re_param, re_imagesize, parse_generation_parameters).
-// Python's \w is Unicode-aware, hence the \p classes.
-const PARAM = /\s*([\p{L}\p{N}_][\p{L}\p{N}_ \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)/gu
+// Python's \w is Unicode-aware, hence the \p classes. The key is capped at 128 characters
+// (A1111's is unbounded): unbounded, a long line with no colon backtracks quadratically.
+const PARAM = /\s*([\p{L}\p{N}_][\p{L}\p{N}_ \-/]{1,127}):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)/gu
 const IMAGE_SIZE = /^(\d+)x(\d+)$/
 const NEGATIVE_PREFIX = 'Negative prompt:'
 const MIN_PARAMS_ON_LAST_LINE = 3
-const LORA_TAG = /<lora:([^:>]+)(?::([^:>]*))?(?::[^>]*)?>/g
+/** Bounded parts, so many unclosed `<lora:` prefixes can't make matching quadratic. */
+const LORA_TAG = /<lora:([^:>]{1,256})(?::([^:>]{0,32}))?(?::[^:>]{0,32})?>/g
 const NAME_WITH_HASH = /^(.*?)\s*\[([0-9a-fA-F]+)\]$/
 
 /**
@@ -35,7 +37,7 @@ export class A1111InfotextParser implements GenerationParser {
 function paramsOf(line: string): Record<string, string> {
   const params: Record<string, string> = {}
   for (const [, key, value] of line.matchAll(PARAM)) {
-    if (key === undefined || !value) continue
+    if (key === undefined || !value || key === '__proto__') continue
     params[key] = unquote(value)
   }
   return params

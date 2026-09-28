@@ -118,6 +118,12 @@ describe('A1111InfotextParser', () => {
 })
 
 describe('FooocusJsonParser', () => {
+  it('drops __proto__ keys from untrusted JSON', () => {
+    const generation = fooocusJson.parse('{"__proto__": {"seed": "x"}, "base_model": "m"}')
+    expect(Object.keys(generation?.params ?? {})).toEqual(['base_model'])
+    expect(Object.assign({}, generation?.params)).not.toHaveProperty('seed')
+  })
+
   it('reads lora_combined_N when there is no loras list, in index order', () => {
     const generation = fooocusJson.parse(
       JSON.stringify({
@@ -200,6 +206,14 @@ describe('GenerationRecordParser', () => {
 })
 
 describe('robustness', () => {
+  it('parses hostile long lines in linear time', () => {
+    const long = 'a'.repeat(200_000)
+    const started = performance.now()
+    a1111.parse(`p\n${long}`)
+    a1111.parse(`${'<lora:a'.repeat(30_000)}\nSteps: 1, Seed: 2, CFG scale: 3`)
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+
   it('never throws on random edits of fixture text', async () => {
     let seed = 11
     const random = (): number => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31

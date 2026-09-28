@@ -17,10 +17,14 @@ export class FooocusJsonParser implements GenerationParser {
   }
 }
 
+/** Embedded JSON is untrusted; `__proto__` would re-prototype any object its fields are assigned into. */
+const withoutProtoKeys = (key: string, value: unknown): unknown =>
+  key === '__proto__' ? undefined : value
+
 function jsonObject(text: string): Record<string, unknown> | undefined {
   if (!text.trimStart().startsWith('{')) return undefined
   try {
-    const parsed: unknown = JSON.parse(text)
+    const parsed: unknown = JSON.parse(text, withoutProtoKeys)
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : undefined
