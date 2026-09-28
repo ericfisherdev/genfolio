@@ -9,3 +9,4 @@ playwright-report
 .eslintcache
 *.log*
 *.tsbuildinfo
+resources/THIRD_PARTY_LICENSES.txt
