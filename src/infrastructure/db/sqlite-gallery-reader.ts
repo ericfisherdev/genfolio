@@ -2,7 +2,6 @@ import type Database from 'better-sqlite3'
 import type { GalleryReader } from '@domain/gallery-reader'
 import type { RootId } from '@domain/library'
 import {
-  GalleryScopeKind,
   LAYOUT_STRIDE,
   SortOrder,
   type DirectoryNode,
@@ -10,6 +9,8 @@ import {
   type ImageCard
 } from '@shared/gallery'
 import type { ImageFormat } from '@shared/image-format'
+import type { CriteriaFilter } from './search/criteria-filter'
+import { selectImages } from './search/image-selection'
 
 /** Fixed ORDER BY clauses (never built from input); `id` breaks ties so order is stable. */
 const ORDER_BY: Readonly<Record<SortOrder, string>> = {
@@ -21,13 +22,6 @@ const ORDER_BY: Readonly<Record<SortOrder, string>> = {
 
 /** Folder names in natural, case-insensitive order: `2` before `10`, `a` next to `B`. */
 const FOLDER_ORDER = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
-
-const SUBTREE = `
-  WITH RECURSIVE subtree(id) AS (
-    SELECT ?
-    UNION ALL
-    SELECT directories.id FROM directories JOIN subtree ON directories.parent_id = subtree.id
-  )`
 
 interface CardRow {
   id: number
@@ -57,7 +51,11 @@ export class SqliteGalleryReader implements GalleryReader {
   private readonly cardsByIds: Database.Statement<[string], CardRow>
   private readonly directoriesOfRoot: Database.Statement<[number], DirectoryRow>
 
-  constructor(private readonly db: Database.Database) {
+  /** `filters` narrow the layout; each adds a condition when the query's filters use it. */
+  constructor(
+    private readonly db: Database.Database,
+    private readonly filters: readonly CriteriaFilter[]
+  ) {
     this.cardsByIds = db.prepare(`
       SELECT images.id, directories.root_id, images.directory_id, images.file_name,
              directories.rel_path, images.format, images.width, images.height,
@@ -75,11 +73,10 @@ export class SqliteGalleryReader implements GalleryReader {
   }
 
   layout(query: GalleryQuery): Int32Array<ArrayBuffer> {
-    const { scope } = query
-    const rows =
-      scope.kind === GalleryScopeKind.All
-        ? this.layoutStatement(query).all()
-        : this.layoutStatement(query).all(scope.directoryId)
+    const selection = selectImages(query, this.filters)
+    const sql = `${selection.prefix} SELECT id, width, height FROM images ${selection.where}
+      ORDER BY ${ORDER_BY[query.sort]}`
+    const rows = this.layoutStatement(sql).all(...selection.params)
     const layout = new Int32Array(rows.length * LAYOUT_STRIDE)
     rows.forEach(([id, width, height], index) => {
       layout.set([id, width, height], index * LAYOUT_STRIDE)
@@ -115,27 +112,21 @@ export class SqliteGalleryReader implements GalleryReader {
     return root ? buildNode(root, childrenOf) : undefined
   }
 
-  private layoutStatement(query: GalleryQuery): Database.Statement<unknown[], LayoutRow> {
-    const { scope, sort } = query
-    const key =
-      scope.kind === GalleryScopeKind.All ? `all:${sort}` : `dir:${scope.recursive}:${sort}`
-    let statement = this.layoutStatements.get(key)
+  /**
+   * Statements are cached by their text. Filters write fixed text (lists bind as one JSON
+   * parameter), so the number of shapes is bounded by the combinations of filters in use.
+   */
+  private layoutStatement(sql: string): Database.Statement<unknown[], LayoutRow> {
+    let statement = this.layoutStatements.get(sql)
     if (!statement) {
-      statement = this.db
-        .prepare<unknown[], LayoutRow>(layoutSql(query))
-        .raw(true) as Database.Statement<unknown[], LayoutRow>
-      this.layoutStatements.set(key, statement)
+      statement = this.db.prepare<unknown[], LayoutRow>(sql).raw(true) as Database.Statement<
+        unknown[],
+        LayoutRow
+      >
+      this.layoutStatements.set(sql, statement)
     }
     return statement
   }
-}
-
-function layoutSql({ scope, sort }: GalleryQuery): string {
-  const select = 'SELECT id, width, height FROM images'
-  const orderBy = `ORDER BY ${ORDER_BY[sort]}`
-  if (scope.kind === GalleryScopeKind.All) return `${select} ${orderBy}`
-  if (!scope.recursive) return `${select} WHERE directory_id = ? ${orderBy}`
-  return `${SUBTREE} ${select} WHERE directory_id IN (SELECT id FROM subtree) ${orderBy}`
 }
 
 /** Builds a node with total counts, dropping child folders with no images below them. */

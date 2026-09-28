@@ -19,6 +19,7 @@ import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
+import { createSearchFilters } from '@infrastructure/db/search/filters'
 import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
@@ -59,7 +60,7 @@ export function createLibraryHandlers(
     transact: (work) => db.transaction(work)(),
     now
   })
-  const gallery = new SqliteGalleryReader(db)
+  const gallery = new SqliteGalleryReader(db, createSearchFilters())
   const versions = new SqliteImageVersionCheck(db)
   const generationDetails = new GenerationDetailsReader(
     new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions),
