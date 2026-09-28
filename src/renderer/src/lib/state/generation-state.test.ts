@@ -42,6 +42,7 @@ describe('GenerationDetailsState', () => {
     resolveFirst({ prompt: 'stale' } as GenerationDetails)
     await first
     expect(state.details).toBeNull()
+    expect(state.loadedImageId).toBe(2)
   })
 
   it('keeps the error and retries the same image', async () => {

@@ -9,11 +9,13 @@
     /** undefined while loading, null when the image carries no generation data. */
     details: GenerationDetails | null | undefined
     loadError: string | undefined
+    /** True while the shown data belongs to the previous image and the next is loading. */
+    busy: boolean
     oncopy: (variant: CopyVariant) => void
     onretry: () => void
   }
 
-  let { details, loadError, oncopy, onretry }: Props = $props()
+  let { details, loadError, busy, oncopy, onretry }: Props = $props()
   let collapsed = $state(false)
 
   /** The chips under "Other metadata": only values the source recorded. */
@@ -40,7 +42,7 @@
   })
 </script>
 
-<section class="generation" aria-labelledby="generation-heading">
+<section class="generation" aria-labelledby="generation-heading" aria-busy={busy}>
   <header>
     <h2 id="generation-heading">Generation data</h2>
     {#if details}

@@ -65,7 +65,7 @@ function renderPanel(
 ): { oncopy: ReturnType<typeof vi.fn>; onretry: ReturnType<typeof vi.fn> } {
   const oncopy = vi.fn()
   const onretry = vi.fn()
-  render(GenerationPanel, { props: { details, loadError, oncopy, onretry } })
+  render(GenerationPanel, { props: { details, loadError, busy: false, oncopy, onretry } })
   return { oncopy, onretry }
 }
 
