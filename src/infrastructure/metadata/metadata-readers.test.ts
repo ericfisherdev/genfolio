@@ -1,0 +1,240 @@
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { MAX_RECORD_BYTES } from '@domain/metadata-record'
+import { ImageFormat } from '@shared/image-format'
+import { MetadataOrigin } from '@shared/metadata-kinds'
+import { memorySource } from './byte-source'
+import { readExifText } from './exif-reader'
+import { MetadataRecordReader, recordsFromSource } from './metadata-record-reader'
+import { readPngText } from './png-text-reader'
+import {
+  iTXt,
+  jpegWithExif,
+  png,
+  tEXt,
+  tiff,
+  unicodeComment,
+  webpWithExif,
+  withBadCrc,
+  zTXt
+} from './testing/metadata-builders'
+
+const FIXTURES = resolve(__dirname, '../../../tests/fixtures/fooocus')
+const formatOf = (name: string): ImageFormat =>
+  name.endsWith('.png')
+    ? ImageFormat.Png
+    : name.endsWith('.webp')
+      ? ImageFormat.Webp
+      : ImageFormat.Jpeg
+
+async function fixtureRecords(name: string): Promise<[string, string, number][]> {
+  const records = await new MetadataRecordReader().read(join(FIXTURES, name), formatOf(name))
+  return records.map((record) => [record.origin, record.key, record.value.length])
+}
+
+describe('committed Fooocus fixtures', () => {
+  it.each([
+    [
+      '2026-09-27_20-36-27_8675.png',
+      [
+        [MetadataOrigin.PngText, 'parameters', 2147],
+        [MetadataOrigin.PngText, 'fooocus_scheme', 7]
+      ]
+    ],
+    [
+      '2026-09-27_20-38-19_1754.png',
+      [
+        [MetadataOrigin.PngText, 'parameters', 2049],
+        [MetadataOrigin.PngText, 'fooocus_scheme', 5]
+      ]
+    ],
+    [
+      '2026-09-27_20-43-28_2563.webp',
+      [
+        [MetadataOrigin.ExifSoftware, 'Software', 21],
+        [MetadataOrigin.ExifMakerNote, 'MakerNote', 5],
+        [MetadataOrigin.ExifUserComment, 'UserComment', 1455]
+      ]
+    ],
+    [
+      '2026-09-27_20-45-48_2563.webp',
+      [
+        [MetadataOrigin.ExifSoftware, 'Software', 21],
+        [MetadataOrigin.ExifMakerNote, 'MakerNote', 7],
+        [MetadataOrigin.ExifUserComment, 'UserComment', 2690]
+      ]
+    ],
+    ['2026-09-27_20-47-27_2563.png', []],
+    [
+      '2026-09-27_20-48-56_2563.jpeg',
+      [
+        [MetadataOrigin.ExifSoftware, 'Software', 21],
+        [MetadataOrigin.ExifMakerNote, 'MakerNote', 5],
+        [MetadataOrigin.ExifUserComment, 'UserComment', 1862]
+      ]
+    ]
+  ])('%s', async (name, expected) => {
+    expect(await fixtureRecords(name)).toEqual(expected)
+  })
+
+  it('keeps the non-ASCII prompt intact in PNG text and shows Fooocus EXIF mangling as-is', async () => {
+    const reader = new MetadataRecordReader()
+    const pngRecords = await reader.read(
+      join(FIXTURES, '2026-09-27_20-38-19_1754.png'),
+      ImageFormat.Png
+    )
+    expect(pngRecords[0]?.value).toContain('café')
+    const webp = await reader.read(
+      join(FIXTURES, '2026-09-27_20-43-28_2563.webp'),
+      ImageFormat.Webp
+    )
+    expect(webp.find((r) => r.key === 'UserComment')?.value).toContain('caf? table')
+  })
+})
+
+describe('readPngText', () => {
+  it('reads tEXt, zTXt and iTXt, including text written after IDAT', async () => {
+    const bytes = png(
+      [tEXt('parameters', 'latin prompt'), zTXt('zipped', 'compressed latin')],
+      [iTXt('late', '桜 petals'), iTXt('late-zipped', 'café 桜', true)]
+    )
+    const records = await readPngText(memorySource(bytes))
+    expect(records.map((r) => [r.key, r.value])).toEqual([
+      ['parameters', 'latin prompt'],
+      ['zipped', 'compressed latin'],
+      ['late', '桜 petals'],
+      ['late-zipped', 'café 桜']
+    ])
+  })
+
+  it('skips a text chunk whose CRC does not match and keeps reading', async () => {
+    const bytes = png([withBadCrc(tEXt('corrupt', 'x')), tEXt('parameters', 'kept')])
+    const records = await readPngText(memorySource(bytes))
+    expect(records.map((r) => r.key)).toEqual(['parameters'])
+  })
+
+  it('skips compressed text that would inflate past the record limit', async () => {
+    const bomb = 'a'.repeat(MAX_RECORD_BYTES + 1)
+    const bytes = png([
+      zTXt('bomb', bomb),
+      iTXt('bomb-itxt', bomb, true),
+      tEXt('parameters', 'kept')
+    ])
+    const records = await readPngText(memorySource(bytes))
+    expect(records.map((r) => r.key)).toEqual(['parameters'])
+  })
+
+  it('ignores non-PNG input', async () => {
+    expect(await readPngText(memorySource(Buffer.from('not a png')))).toEqual([])
+  })
+})
+
+describe('readExifText', () => {
+  const comment = (tiffBlock: Buffer): string | undefined =>
+    readExifText(tiffBlock).find((r) => r.origin === MetadataOrigin.ExifUserComment)?.value
+
+  it('decodes an A1111 UNICODE UserComment from the Exif sub-IFD (big-endian)', () => {
+    const block = tiff([], [{ tag: 0x9286, type: 7, data: unicodeComment('桜, café\nSteps: 20') }])
+    expect(comment(block)).toBe('桜, café\nSteps: 20')
+  })
+
+  it('follows a little-endian TIFF for UNICODE', () => {
+    const block = tiff([], [{ tag: 0x9286, type: 7, data: unicodeComment('little', true) }], true)
+    expect(comment(block)).toBe('little')
+  })
+
+  it('decodes ASCII-prefixed and prefix-less (Fooocus IFD0) comments', () => {
+    const ascii = tiff([
+      { tag: 0x9286, type: 7, data: Buffer.from('ASCII\0\0\0plain text', 'latin1') }
+    ])
+    expect(comment(ascii)).toBe('plain text')
+    const fooocus = tiff([
+      { tag: 0x9286, type: 7, data: Buffer.from('{"prompt": "x"}', 'utf8') },
+      { tag: 0x927c, type: 7, data: Buffer.from('fooocus') },
+      { tag: 0x0131, type: 2, data: Buffer.from('Fooocus v2.5.5\0') }
+    ])
+    expect(readExifText(fooocus).map((r) => [r.key, r.value])).toEqual([
+      ['UserComment', '{"prompt": "x"}'],
+      ['MakerNote', 'fooocus'],
+      ['Software', 'Fooocus v2.5.5']
+    ])
+  })
+
+  it('reads ImageDescription (UnFooocused)', () => {
+    const block = tiff([{ tag: 0x010e, type: 2, data: Buffer.from('a prompt\nSteps: 30\0') }])
+    expect(readExifText(block)).toEqual([
+      {
+        origin: MetadataOrigin.ExifImageDescription,
+        key: 'ImageDescription',
+        value: 'a prompt\nSteps: 30'
+      }
+    ])
+  })
+})
+
+describe('container locators', () => {
+  const block = tiff([{ tag: 0x9286, type: 7, data: Buffer.from('in the container') }])
+
+  it.each([
+    ['JPEG APP1', jpegWithExif(block), ImageFormat.Jpeg],
+    ['WebP EXIF', webpWithExif(block), ImageFormat.Webp],
+    ['WebP EXIF with an Exif header', webpWithExif(block, true), ImageFormat.Webp]
+  ])('finds the EXIF block in %s', async (_, bytes, format) => {
+    const records = await recordsFromSource(memorySource(bytes), format)
+    expect(records.map((r) => r.value)).toEqual(['in the container'])
+  })
+})
+
+describe('sidecar text', () => {
+  let dir: string
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'genfolio-sidecar-'))
+  })
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('adds an A1111 <image>.txt next to the image', async () => {
+    writeFileSync(join(dir, 'a.png'), png([]))
+    writeFileSync(join(dir, 'a.txt'), 'sidecar prompt\nSteps: 20')
+    const records = await new MetadataRecordReader().read(join(dir, 'a.png'), ImageFormat.Png)
+    expect(records).toEqual([
+      { origin: MetadataOrigin.SidecarTxt, key: 'parameters', value: 'sidecar prompt\nSteps: 20' }
+    ])
+  })
+
+  it('skips a sidecar over 1 MB', async () => {
+    writeFileSync(join(dir, 'b.png'), png([]))
+    writeFileSync(join(dir, 'b.txt'), 'x'.repeat(1024 * 1024 + 1))
+    expect(await new MetadataRecordReader().read(join(dir, 'b.png'), ImageFormat.Png)).toEqual([])
+  })
+})
+
+describe('robustness', () => {
+  it('never throws on truncated fixtures', async () => {
+    for (const name of readdirSync(FIXTURES).filter((n) => /\.(png|webp|jpeg)$/.test(n))) {
+      const bytes = readFileSync(join(FIXTURES, name))
+      for (let cut = 0; cut < bytes.length; cut += Math.max(1, Math.floor(bytes.length / 97))) {
+        await expect(
+          recordsFromSource(memorySource(bytes.subarray(0, cut)), formatOf(name))
+        ).resolves.toBeInstanceOf(Array)
+      }
+    }
+  })
+
+  it('survives random byte corruption of every fixture', async () => {
+    let seed = 7
+    const random = (): number => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+    for (const name of readdirSync(FIXTURES).filter((n) => /\.(png|webp|jpeg)$/.test(n))) {
+      const original = readFileSync(join(FIXTURES, name))
+      for (let round = 0; round < 20; round++) {
+        const bytes = Buffer.from(original.subarray(0, 8192))
+        for (let flips = 0; flips < 16; flips++)
+          bytes[Math.floor(random() * bytes.length)] = Math.floor(random() * 256)
+        await expect(
+          recordsFromSource(memorySource(bytes), formatOf(name))
+        ).resolves.toBeInstanceOf(Array)
+      }
+    }
+  })
+})
