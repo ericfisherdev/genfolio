@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createVirtualizer } from '@tanstack/svelte-virtual'
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
@@ -32,7 +32,7 @@
     )
     if (!query || queryKey(query) === untrack(() => gallery.key)) return
     untrack(() => {
-      gallery.rememberScroll(scroller?.scrollTop ?? 0)
+      onscroll()
       void gallery.load(query)
       loadedOnMount = true
     })
@@ -69,14 +69,24 @@
     })
   })
 
-  // Return to where the user was in this view.
+  // Return to where the user was in this view once the grid is laid out. Until then, scroll
+  // events (the virtualizer's own mount scroll, or clamping while the grid is still empty)
+  // must not overwrite the remembered position.
+  let restoredLayout: Int32Array | undefined
   $effect(() => {
-    void gallery.layout
-    untrack(() => {
-      const saved = gallery.savedScroll()
-      if (scroller) scroller.scrollTop = saved
+    const layout = gallery.layout
+    if (width === 0 || restoredLayout === layout) return
+    const saved = untrack(() => gallery.savedScroll())
+    void tick().then(() => {
+      if (!scroller) return
+      scroller.scrollTop = saved
+      restoredLayout = layout
     })
   })
+
+  function onscroll(): void {
+    if (scroller && restoredLayout === gallery.layout) gallery.rememberScroll(scroller.scrollTop)
+  }
 
   const items = $derived($virtualizer.getVirtualItems())
 
@@ -89,11 +99,7 @@
   const open = (imageId: number): void => router.navigate({ kind: RouteKind.Image, imageId })
 </script>
 
-<div
-  class="scroller"
-  bind:this={scroller}
-  onscroll={() => gallery.rememberScroll(scroller?.scrollTop ?? 0)}
->
+<div class="scroller" bind:this={scroller} {onscroll}>
   <!-- Measured inside the padding, so columns fill the content box exactly. -->
   <div class="content" bind:clientWidth={width}>
     {#if gallery.loadError}

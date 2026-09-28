@@ -1,12 +1,14 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { getAppServices } from '../lib/app-context'
+  import { RouteKind } from '../lib/routing/route'
+  import DetailView from './DetailView.svelte'
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans } = getAppServices()
+  const { library, scans, router } = getAppServices()
 
   // Cancelled scans send no end event; forget progress for roots that are gone.
   $effect(() => {
@@ -18,9 +20,13 @@
 <div class="shell">
   <Sidebar />
   <main>
-    <TopBar />
-    <NoticeBar />
-    <LibraryView />
+    {#if router.route.kind === RouteKind.Image}
+      <DetailView />
+    {:else}
+      <TopBar />
+      <NoticeBar />
+      <LibraryView />
+    {/if}
   </main>
 </div>
 
