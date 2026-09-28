@@ -148,3 +148,26 @@ test('the detail page shows the generation panel and copies from it', async () =
     'Copied the negative prompt.'
   )
 })
+
+test('every fixture shows its checkpoint and an intact UTF-8 prompt on its detail page', async () => {
+  const page = await openLibrary()
+  await page.setViewportSize({ width: 1400, height: 900 })
+  const checkpoints: Record<string, string> = {
+    '2026-09-27_20-36-27_8675.png': 'ultraRealisticByStable_v25',
+    '2026-09-27_20-38-19_1754.png': 'ultraRealisticByStable_v25',
+    '2026-09-27_20-43-28_2563.webp': 'intorealism_sdxlV4',
+    '2026-09-27_20-45-48_2563.webp': 'intorealism_sdxlV4',
+    '2026-09-27_20-47-27_2563.png': 'intorealism_sdxlV4',
+    '2026-09-27_20-48-56_2563.jpeg': 'intorealism_sdxlV4'
+  }
+  for (const [fileName, checkpoint] of Object.entries(checkpoints)) {
+    const id = await imageIdOf(page, fileName)
+    await page.evaluate((imageId) => (location.hash = `#/image/${imageId}`), id)
+    const panel = page.getByRole('region', { name: 'Generation data' })
+    await expect(panel.getByRole('listitem').first()).toContainText(checkpoint)
+    // Every fixture has a log entry, so even the EXIF images whose text Fooocus mangled to
+    // `caf?` show the log's UTF-8 prompt.
+    await expect(panel).toContainText('café table')
+    await expect(panel).toContainText('桜 petals')
+  }
+})
