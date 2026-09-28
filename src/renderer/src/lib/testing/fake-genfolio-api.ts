@@ -12,6 +12,9 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     addRootViaDialog: unexpected('addRootViaDialog'),
     removeRoot: unexpected('removeRoot'),
     rescanRoot: unexpected('rescanRoot'),
+    getImageLayout: unexpected('getImageLayout'),
+    getImages: unexpected('getImages'),
+    getDirectoryTree: unexpected('getDirectoryTree'),
     onScanEvent: () => () => undefined,
     ...overrides
   }

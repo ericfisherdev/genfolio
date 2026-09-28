@@ -1,3 +1,4 @@
+import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
 import type { ServiceHealth } from './service-health'
@@ -8,7 +9,10 @@ export enum IpcChannel {
   ListRoots = 'library:list-roots',
   AddRootViaDialog = 'library:add-root-via-dialog',
   RemoveRoot = 'library:remove-root',
-  RescanRoot = 'library:rescan-root'
+  RescanRoot = 'library:rescan-root',
+  GalleryLayout = 'gallery:layout',
+  GalleryImages = 'gallery:images',
+  DirectoryTree = 'gallery:directory-tree'
 }
 
 /** Main → renderer push channels. */
@@ -30,6 +34,12 @@ export interface GenfolioApi {
   removeRoot(rootId: number): Promise<boolean>
   /** Resolves false when a scan of that root is already running. */
   rescanRoot(rootId: number): Promise<boolean>
+  /** `[id, width, height]*` for every image in scope, in display order. */
+  getImageLayout(query: GalleryQuery): Promise<Int32Array>
+  /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
+  getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
+  /** The root's folder tree with counts, or null when the root is unknown or empty. */
+  getDirectoryTree(rootId: number): Promise<DirectoryNode | null>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
 }

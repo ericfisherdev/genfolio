@@ -123,3 +123,36 @@ test('a database from a newer app is reported instead of crashing', async () => 
   const page = await current().app.firstWindow()
   await expect(page.getByRole('alert')).toContainText('Update Genfolio')
 })
+
+test('the gallery layout, cards and folder tree reach the renderer', async () => {
+  const page = await current().app.firstWindow()
+  await stubFolderPicker(current().app, library)
+  await addAndAwaitScan(page)
+
+  const gallery = await page.evaluate(async () => {
+    const [root] = await window.genfolio.listRoots()
+    const layout = await window.genfolio.getImageLayout({
+      scope: { kind: 'all' },
+      sort: 'file-name'
+    } as Parameters<typeof window.genfolio.getImageLayout>[0])
+    const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
+    const cards = await window.genfolio.getImages(ids)
+    const tree = await window.genfolio.getDirectoryTree(root?.id ?? 0)
+    return {
+      isInt32Array: layout instanceof Int32Array,
+      length: layout.length,
+      widths: Array.from(layout.filter((_, index) => index % 3 === 1)),
+      cardNames: cards.map((card) => card.fileName).sort(),
+      tree: tree && {
+        total: tree.totalImageCount,
+        children: tree.children.map((child) => [child.name, child.imageCount])
+      }
+    }
+  })
+
+  expect(gallery.isInt32Array).toBe(true)
+  expect(gallery.length).toBe(6 * 3)
+  expect(gallery.widths).toEqual([1024, 1024, 1024, 1024, 1024, 1024])
+  expect(gallery.cardNames).toEqual(readdirSync(join(library, '2026-09-27')).sort())
+  expect(gallery.tree).toEqual({ total: 6, children: [['2026-09-27', 6]] })
+})

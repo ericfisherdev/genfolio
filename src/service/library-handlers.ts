@@ -9,6 +9,7 @@ import type { ScanLogger } from '@domain/scan'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
+import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
 import { NodeFileWalker } from '@infrastructure/fs/node-file-walker'
 import { ImageSizeHeaderReader } from '@infrastructure/imaging/image-size-header-reader'
@@ -50,6 +51,7 @@ export function createLibraryHandlers(
     transact: (work) => db.transaction(work)(),
     now
   })
+  const gallery = new SqliteGalleryReader(db)
   const health = new HealthReporter([
     new RuntimeProbe(process.versions),
     new SqliteProbe(db),
@@ -63,6 +65,10 @@ export function createLibraryHandlers(
     [ServiceMethod.RemoveRoot]: async ({ rootId }) => ({
       removed: await roots.remove(rootId as RootId)
     }),
+    [ServiceMethod.GalleryLayout]: async ({ query }) => gallery.layout(query),
+    [ServiceMethod.GalleryImages]: async ({ ids }) => gallery.images(ids),
+    [ServiceMethod.DirectoryTree]: async ({ rootId }) =>
+      gallery.directoryTree(rootId as RootId) ?? null,
     [ServiceMethod.RescanRoot]: async ({ rootId }) => ({
       started: await roots.rescan(rootId as RootId)
     })
