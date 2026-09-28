@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ImageFormat } from './image-format'
+import { searchFiltersSchema } from './search'
 import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder } from './gallery-kinds'
 
 export { GalleryScopeKind, LAYOUT_STRIDE, MAX_IMAGES_PER_REQUEST, SortOrder } from './gallery-kinds'
@@ -19,7 +20,8 @@ export const galleryQuerySchema = z
         })
         .strict()
     ]),
-    sort: z.enum(SortOrder)
+    sort: z.enum(SortOrder),
+    filters: searchFiltersSchema.optional()
   })
   .strict()
 
