@@ -4,6 +4,7 @@ import { generationsMigration } from './003-generations'
 import { metadataVersionMigration } from './004-metadata-version'
 import { promptSearchMigration } from './005-prompt-search'
 import { userDataMigration } from './006-user-data'
+import { similarityMigration } from './007-similarity'
 import type { Migration } from './migration'
 
 /** Every schema migration, oldest first. Append new ones; never edit shipped ones. */
@@ -13,5 +14,6 @@ export const migrations: readonly Migration[] = [
   generationsMigration,
   metadataVersionMigration,
   promptSearchMigration,
-  userDataMigration
+  userDataMigration,
+  similarityMigration
 ]

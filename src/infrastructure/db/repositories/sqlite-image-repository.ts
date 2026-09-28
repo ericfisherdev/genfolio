@@ -26,6 +26,9 @@ const versionOf = (row: VersionRow): ImageVersion => ({
   mtimeMs: row.mtime_ms
 })
 
+/** The upserted file has the stored size and mtime, so what was derived from it still holds. */
+const SAME_FILE = 'images.size_bytes = excluded.size_bytes AND images.mtime_ms = excluded.mtime_ms'
+
 export class SqliteImageRepository implements ImageRepository {
   private readonly upsert: Database.Statement<UpsertParams, VersionRow>
   private readonly countInRoot: Database.Statement<[number], { count: number }>
@@ -42,6 +45,12 @@ export class SqliteImageRepository implements ImageRepository {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (directory_id, file_name) DO UPDATE SET
+        -- A changed file is hashed again (every right-hand side sees the old row).
+        content_sha256 = CASE WHEN ${SAME_FILE} THEN images.content_sha256 END,
+        dhash = CASE WHEN ${SAME_FILE} THEN images.dhash END,
+        phash = CASE WHEN ${SAME_FILE} THEN images.phash END,
+        hash_version = CASE WHEN ${SAME_FILE} THEN images.hash_version ELSE 0 END,
+        similar_group_id = CASE WHEN ${SAME_FILE} THEN images.similar_group_id END,
         format = excluded.format,
         size_bytes = excluded.size_bytes,
         mtime_ms = excluded.mtime_ms,
