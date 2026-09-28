@@ -1,6 +1,7 @@
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { SearchFacets } from './search'
+import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
 import type { ScanEvent } from './scan'
@@ -18,6 +19,14 @@ export enum IpcChannel {
   SearchFacets = 'search:facets',
   SetFavorite = 'image:set-favorite',
   SetRating = 'image:set-rating',
+  ListTags = 'tags:list',
+  ImageTags = 'tags:of-image',
+  CreateTag = 'tags:create',
+  RenameTag = 'tags:rename',
+  MergeTags = 'tags:merge',
+  DeleteTag = 'tags:delete',
+  ApplyTags = 'tags:apply',
+  RemoveTags = 'tags:remove',
   DirectoryTree = 'gallery:directory-tree',
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
@@ -52,6 +61,21 @@ export interface GenfolioApi {
   setFavorite(ids: readonly number[], favorite: boolean): Promise<number>
   /** Rates up to 10,000 images 0 (unrated) to 5; resolves how many exist and were set. */
   setRating(ids: readonly number[], rating: number): Promise<number>
+  /** Every tag with its image count, by name. */
+  listTags(): Promise<readonly Tag[]>
+  /** The image's tags, by name. */
+  getImageTags(imageId: number): Promise<readonly Tag[]>
+  /** Names are trimmed; a name folding to an existing tag's is a Duplicate outcome. */
+  createTag(name: string): Promise<TagChange>
+  renameTag(tagId: number, name: string): Promise<TagChange>
+  /** Moves every image of `fromId` onto `intoId` and deletes `fromId`. */
+  mergeTags(fromId: number, intoId: number): Promise<TagChange>
+  /** Resolves false when the tag was already gone. */
+  deleteTag(tagId: number): Promise<boolean>
+  /** Tags up to 10,000 images; resolves how many links were added. */
+  applyTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
+  /** Resolves how many links were removed. */
+  removeTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
   /** Cards for up to 500 ids (MAX_IMAGES_PER_REQUEST); unknown ids are left out. */
   getImages(ids: readonly number[]): Promise<readonly ImageCard[]>
   /** The root's folder tree with counts, or null when the root is unknown or empty. */

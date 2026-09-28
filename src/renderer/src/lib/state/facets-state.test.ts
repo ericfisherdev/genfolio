@@ -7,6 +7,7 @@ const query = { scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest } 
 const facets = (withoutMetadata: number): SearchFacets => ({
   checkpoints: [],
   loras: [],
+  tags: [],
   generators: [],
   withoutMetadata
 })

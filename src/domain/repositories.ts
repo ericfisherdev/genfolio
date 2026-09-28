@@ -120,3 +120,52 @@ export interface ImageMarkRepository {
   /** `rating` is 0 (unrated) to 5. Returns how many of the images exist. */
   setRating(ids: readonly ImageId[], rating: number): number
 }
+
+/** A user tag with how many images carry it. */
+export interface TagRecord {
+  readonly id: number
+  readonly name: string
+  readonly imageCount: number
+}
+
+/**
+ * User-owned tags, never written by indexing. Names are unique on nameKey() (case- and
+ * accent-folded); `name` must already be trimmed and valid.
+ */
+export interface TagRepository {
+  /** Every tag with its image count, by name. */
+  list(): TagRecord[]
+  /** The image's tags, by name. */
+  tagsOf(imageId: ImageId): TagRecord[]
+  /** The tag whose key equals `name`'s, if any. */
+  findByName(name: string): TagRecord | undefined
+  /** Throws DuplicateTagError when a tag with the same key exists. */
+  create(name: string, createdAt: number): TagRecord
+  /**
+   * Throws UnknownTagError when the tag is gone, DuplicateTagError when another tag has the
+   * new name's key (renaming to a different case or spelling of the same key is allowed).
+   */
+  rename(id: number, name: string): TagRecord
+  /** Moves every link of `from` onto `into` and deletes `from`; throws UnknownTagError. */
+  merge(from: number, into: number): TagRecord
+  /** Returns false when the tag was already gone; links cascade. */
+  delete(id: number): boolean
+  /** Links each tag to each image; returns how many links were added. */
+  apply(tagIds: readonly number[], imageIds: readonly ImageId[]): number
+  /** Returns how many links were removed. */
+  remove(tagIds: readonly number[], imageIds: readonly ImageId[]): number
+}
+
+export class DuplicateTagError extends Error {
+  constructor(readonly existing: TagRecord) {
+    super(`A tag named "${existing.name}" already exists`)
+    this.name = 'DuplicateTagError'
+  }
+}
+
+export class UnknownTagError extends Error {
+  constructor(readonly tagId: number) {
+    super(`Tag ${tagId} does not exist`)
+    this.name = 'UnknownTagError'
+  }
+}

@@ -133,3 +133,52 @@ async function storedMarks(
     { name: fileName, stride: LAYOUT_STRIDE }
   )
 }
+
+async function tagOnDetail(page: Page, fileName: string, tagName: string): Promise<void> {
+  await page.evaluate(() => (location.hash = '#/'))
+  await card(page, fileName)
+    .getByRole('button', { name: /^Open / })
+    .click()
+  const input = page.getByRole('combobox', { name: 'Add a tag' })
+  await input.fill(tagName)
+  await input.press('Enter')
+  // A name typed in another case picks the existing tag, so compare case-insensitively.
+  await expect(page.getByRole('list', { name: 'Tags of this image' })).toContainText(
+    new RegExp(tagName, 'i')
+  )
+}
+
+test('tags are created, applied, filtered, renamed, merged and deleted', async () => {
+  const page = await openGallery()
+  await tagOnDetail(page, '2026-09-27_20-36-27_8675.png', 'keeper')
+  await tagOnDetail(page, '2026-09-27_20-38-19_1754.png', 'Keeper')
+  await tagOnDetail(page, '2026-09-27_20-38-19_1754.png', 'draft')
+  await page.evaluate(() => (location.hash = '#/'))
+
+  const sidebarTags = page.getByRole('list', { name: 'Tags' })
+  await expect(sidebarTags.getByRole('button', { name: /^keeper/ })).toContainText('2')
+  await sidebarTags.getByRole('button', { name: /^keeper/ }).click()
+  await expect(cards(page)).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'Actions for tag draft' }).click()
+  await page.getByRole('menuitem', { name: 'Rename…' }).click()
+  const rename = page.getByRole('dialog', { name: 'Rename tag' })
+  await rename.getByRole('textbox').fill('wip')
+  await rename.getByRole('button', { name: 'Rename' }).click()
+  await expect(sidebarTags).toContainText('wip')
+
+  await page.getByRole('button', { name: 'Actions for tag wip' }).click()
+  await page.getByRole('menuitem', { name: 'Merge into…' }).click()
+  const merge = page.getByRole('dialog', { name: /^Merge “wip”/ })
+  await merge.getByRole('combobox').selectOption({ label: 'keeper' })
+  await merge.getByRole('button', { name: 'Merge' }).click()
+  await expect(sidebarTags.getByRole('listitem')).toHaveCount(1)
+
+  await page.getByRole('button', { name: 'Actions for tag keeper' }).click()
+  await page.getByRole('menuitem', { name: 'Delete…' }).click()
+  await page
+    .getByRole('dialog', { name: /^Delete the tag/ })
+    .getByRole('button', { name: 'Delete' })
+    .click()
+  await expect(page.getByRole('list', { name: 'Tags' })).toHaveCount(0)
+})

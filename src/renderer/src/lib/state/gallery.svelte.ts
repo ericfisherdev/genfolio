@@ -126,7 +126,7 @@ export class GalleryState {
     }
   }
 
-  /** Loads the current query's layout again, keeping cached cards (after marks changed). */
+  /** Loads the current query's layout again, keeping cached cards (after marks or tags changed). */
   async refreshLayout(): Promise<void> {
     if (this.query) await this.load(this.query)
   }

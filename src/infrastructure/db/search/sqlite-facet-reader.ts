@@ -6,6 +6,20 @@ import type { FacetValue, SearchFacets, SearchFilters } from '@shared/search'
 import type { CriteriaFilter } from './criteria-filter'
 import { selectImages, type ImageSelection } from './image-selection'
 
+/**
+ * For the tags facet: Any is a union, so its included tags are dropped and every tag shows
+ * what it would add; All narrows and is kept. Excluded tags always apply.
+ */
+function withoutTagIncludes(query: GalleryQuery): GalleryQuery {
+  const tags = query.filters?.tags
+  if (!tags || tags.mode === SetMatchMode.All) return query
+  if (!tags.excludeIds) return without(query, 'tags')
+  return {
+    ...query,
+    filters: { ...query.filters, tags: { mode: tags.mode, excludeIds: tags.excludeIds } }
+  }
+}
+
 const hasFilters = (query: GalleryQuery): boolean =>
   query.filters !== undefined && Object.keys(query.filters).length > 0
 
@@ -66,6 +80,7 @@ export class SqliteFacetReader {
           loras?.minWeight ?? null,
           loras?.maxWeight ?? null
         ),
+        tags: this.tags(count(withoutTagIncludes(query))),
         generators: this.generators(count(without(query, 'generators'))),
         withoutMetadata: this.withoutMetadata(count(without(query, 'hasMetadata')))
       }
@@ -132,6 +147,20 @@ export class SqliteFacetReader {
        ) used JOIN models ON models.id = used.model_id
        ORDER BY used.count DESC, name COLLATE NOCASE, models.id`,
       [min, min, max, max]
+    )
+  }
+
+  /** A tag link is unique per (image, tag), so counting links counts images. */
+  private tags(counted: Counted): FacetValue[] {
+    return this.all<FacetValue>(
+      `SELECT tags.id, tags.name, used.count
+       FROM (
+         SELECT links.tag_id, COUNT(*) AS count
+         FROM image_tags links ${restrict(counted, 'links', 'image_id')}
+         GROUP BY links.tag_id
+       ) used JOIN tags ON tags.id = used.tag_id
+       ORDER BY used.count DESC, tags.name_key, tags.id`,
+      []
     )
   }
 

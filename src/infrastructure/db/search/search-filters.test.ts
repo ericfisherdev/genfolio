@@ -5,6 +5,7 @@ import { galleryQuerySchema, GalleryScopeKind, SortOrder, type GalleryQuery } fr
 import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteImageMarkRepository } from '../repositories/sqlite-image-mark-repository'
+import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
 import { createSearchFilters } from './filters'
@@ -169,6 +170,34 @@ describe('favourites and ratings', () => {
   })
 })
 
+describe('tags', () => {
+  function tagged(): { red: number; blue: number } {
+    const repository = new SqliteTagRepository(db)
+    const red = repository.create('red', 1).id
+    const blue = repository.create('blue', 1).id
+    const image = (n: number): ImageId => ids.get(n) ?? (0 as ImageId)
+    repository.apply([red], [image(1), image(2), image(3)])
+    repository.apply([blue], [image(2), image(4)])
+    return { red, blue }
+  }
+
+  it('matches any or all included tags and leaves out excluded ones', () => {
+    const { red, blue } = tagged()
+    expect(search({ tags: { ids: [red, blue], mode: SetMatchMode.Any } })).toEqual([1, 2, 3, 4])
+    expect(search({ tags: { ids: [red, blue], mode: SetMatchMode.All } })).toEqual([2])
+    expect(search({ tags: { mode: SetMatchMode.Any, excludeIds: [red] } })).toEqual([4, 5, 6])
+    expect(search({ tags: { ids: [red], mode: SetMatchMode.Any, excludeIds: [blue] } })).toEqual([
+      1, 3
+    ])
+    expect(
+      search({
+        tags: { ids: [red], mode: SetMatchMode.Any },
+        keywords: { query: 'red', scope: KeywordScope.Positive }
+      })
+    ).toEqual([1, 2])
+  })
+})
+
 describe('searchFiltersSchema', () => {
   const query = (filters: unknown): boolean =>
     galleryQuerySchema.safeParse({ scope: { kind: 'all' }, sort: 'newest', filters }).success
@@ -183,6 +212,9 @@ describe('searchFiltersSchema', () => {
     expect(query({ keywords: { query: 'x'.repeat(1001), scope: 'both' } })).toBe(false)
     expect(query({ generators: ['comfy'] })).toBe(false)
     expect(query({ favoritesOnly: false })).toBe(false)
+    expect(query({ tags: { mode: 'any' } })).toBe(false)
+    expect(query({ tags: { ids: [], mode: 'any' } })).toBe(false)
+    expect(query({ tags: { mode: 'all', excludeIds: [3] } })).toBe(true)
     expect(query({ minRating: 6 })).toBe(false)
     expect(query({ minRating: 0 })).toBe(false)
     expect(query({ favoritesOnly: true, minRating: 5 })).toBe(true)

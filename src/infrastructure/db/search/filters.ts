@@ -102,6 +102,36 @@ export class HasMetadataFilter implements CriteriaFilter {
   }
 }
 
+/** Any: at least one of the tags; All: every one; excluded tags must all be absent. */
+export class TagFilter implements CriteriaFilter {
+  condition({ tags }: SearchFilters): SqlCondition | undefined {
+    if (!tags) return undefined
+    const parts: SqlCondition[] = []
+    if (tags.ids) {
+      const distinct = [...new Set(tags.ids)]
+      const links = `SELECT image_id FROM image_tags WHERE tag_id ${IN_LIST}`
+      parts.push(
+        tags.mode === SetMatchMode.Any
+          ? { sql: `id IN (${links})`, params: [list(distinct)] }
+          : {
+              sql: `id IN (${links} GROUP BY image_id HAVING COUNT(*) = ?)`,
+              params: [list(distinct), distinct.length]
+            }
+      )
+    }
+    if (tags.excludeIds) {
+      parts.push({
+        sql: `id NOT IN (SELECT image_id FROM image_tags WHERE tag_id ${IN_LIST})`,
+        params: [list(tags.excludeIds)]
+      })
+    }
+    return {
+      sql: parts.map((part) => part.sql).join(' AND '),
+      params: parts.flatMap((part) => part.params)
+    }
+  }
+}
+
 export class FavoriteFilter implements CriteriaFilter {
   condition({ favoritesOnly }: SearchFilters): SqlCondition | undefined {
     return favoritesOnly ? { sql: 'is_favorite = 1', params: [] } : undefined
@@ -124,6 +154,7 @@ export function createSearchFilters(): CriteriaFilter[] {
     new SeedFilter(),
     new SamePromptFilter(),
     new HasMetadataFilter(),
+    new TagFilter(),
     new FavoriteFilter(),
     new MinRatingFilter()
   ]

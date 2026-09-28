@@ -6,8 +6,10 @@ import { GalleryState } from './lib/state/gallery.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
-import { ImageMarks } from './lib/state/image-marks'
+import { ImageMarks, layoutUpdateFor } from './lib/state/image-marks'
 import { LibraryState } from './lib/state/library.svelte'
+import { refreshAfterTagChange } from './lib/state/refresh-after-tag-change'
+import { TagsState } from './lib/state/tags.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
 import './styles/tokens.css'
@@ -21,9 +23,10 @@ const api = window.genfolio
 const library = new LibraryState(api)
 const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
+const router = new RouterState(windowHashLocation(window))
 const services: AppServices = {
   api,
-  router: new RouterState(windowHashLocation(window)),
+  router,
   library,
   gallery,
   scans: new ScanProgressState(api, () => void library.refresh()),
@@ -31,7 +34,10 @@ const services: AppServices = {
   generation: new GenerationDetailsState(api),
   copier: new GenerationCopier(api, library),
   facets,
-  marks: new ImageMarks(api, gallery, facets, library)
+  marks: new ImageMarks(api, gallery, facets, library),
+  tags: new TagsState(api, library, () =>
+    refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
+  )
 }
 
 export default mount(App, {

@@ -41,6 +41,14 @@ export const searchFiltersSchema = z
     /** Images whose prompt equals this image's prompt. */
     samePromptAs: id.optional(),
     hasMetadata: z.boolean().optional(),
+    /** Tags an image must carry (all or any of `ids`), and tags it must not carry. */
+    tags: z
+      .object({ ids: ids.optional(), mode: z.enum(SetMatchMode), excludeIds: ids.optional() })
+      .strict()
+      .refine(({ ids, excludeIds }) => ids !== undefined || excludeIds !== undefined, {
+        message: 'a tag filter needs tags to include or exclude'
+      })
+      .optional(),
     /** Only images marked as favourites (false isn't a filter). */
     favoritesOnly: z.literal(true).optional(),
     /** At least this many stars. */
@@ -63,6 +71,7 @@ export const searchFacetsSchema = z
     /** Checkpoints, counted as model or refiner. */
     checkpoints: z.array(facetValue).readonly(),
     loras: z.array(facetValue).readonly(),
+    tags: z.array(facetValue).readonly(),
     generators: z
       .array(
         z.object({ kind: z.enum(GeneratorKind), count: z.number().int().nonnegative() }).strict()
