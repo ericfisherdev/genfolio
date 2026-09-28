@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { open, realpath, rm, stat } from 'node:fs/promises'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
 import { ImageDeleter } from '@application/image-deleter'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
@@ -18,6 +18,7 @@ import { registerDeletionChannels } from './ipc/deletion-channels'
 import { registerSimilarityChannels } from './ipc/similarity-channels'
 import { registerSlideshowChannels } from './ipc/slideshow-channels'
 import { registerAppChannels } from './ipc/app-channels'
+import { appMenuTemplate, versionRequested } from './app-menu'
 import { LogLevel, RotatingFileLog } from '@infrastructure/logging/rotating-file-log'
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
@@ -51,6 +52,8 @@ const rendererEntry: RendererEntry =
     ? { kind: 'dev-server', url: devServerUrl }
     : { kind: 'file', path: join(__dirname, '../renderer/index.html') }
 
+const PROJECT_URL = 'https://github.com/ericfisherdev/genfolio'
+
 function libraryDatabasePath(): string {
   return join(app.getPath('userData'), 'genfolio.db')
 }
@@ -77,6 +80,32 @@ function onReady(): void {
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
   const logsDir = join(app.getPath('userData'), 'logs')
+  const openLogs = async (): Promise<boolean> => {
+    mkdirSync(logsDir, { recursive: true })
+    // shell.openPath resolves an error message, or '' when the folder opened.
+    return (await shell.openPath(logsDir)) === ''
+  }
+  app.setAboutPanelOptions({
+    applicationName: 'Genfolio',
+    applicationVersion: app.getVersion(),
+    version: `Electron ${process.versions.electron} · Node ${process.versions.node}`,
+    copyright: 'Copyright © 2026 Eric Fisher · MIT licence',
+    website: PROJECT_URL,
+    iconPath: icon,
+    credits: 'Third-party licences: THIRD_PARTY_LICENSES.txt in the application resources'
+  })
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(
+      appMenuTemplate(
+        {
+          showAbout: () => app.showAboutPanel(),
+          openLogs: () => void openLogs(),
+          openWebsite: () => void shell.openExternal(PROJECT_URL)
+        },
+        is.dev
+      )
+    )
+  )
   const mainLog = new RotatingFileLog(logsDir, 'main')
   const libraryService = new LibraryServiceSupervisor(
     (onExit) =>
@@ -105,11 +134,7 @@ function onReady(): void {
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
   registerAppChannels(ipc, {
-    openLogs: async () => {
-      mkdirSync(logsDir, { recursive: true })
-      // shell.openPath resolves an error message, or '' when the folder opened.
-      return (await shell.openPath(logsDir)) === ''
-    },
+    openLogs,
     logRendererError: (name) => mainLog.write(LogLevel.Error, `renderer: ${name}`),
     diagnostics: () => ({
       serviceRestarts: libraryService.restarts,
@@ -162,4 +187,9 @@ function onReady(): void {
 }
 
 // The lock lives in userData, so it is claimed after any e2e userData override.
-if (claimSingleInstance(app, () => focusWindow(BrowserWindow.getAllWindows()[0]))) startApp()
+if (versionRequested(process.argv)) {
+  console.log(`Genfolio ${app.getVersion()}`)
+  app.exit(0)
+} else if (claimSingleInstance(app, () => focusWindow(BrowserWindow.getAllWindows()[0]))) {
+  startApp()
+}

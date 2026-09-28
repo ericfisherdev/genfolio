@@ -25,9 +25,13 @@ linux:
     - pacman
     - deb
   executableName: genfolio
+  icon: build/icons/
+  category: Graphics;Viewer
   syncDesktopName: true
+  desktop:
+    entry:
+      Keywords: gallery;images;stable diffusion;fooocus;a1111;
   maintainer: Eric Fisher <eric@ericfisher.dev>
-  category: Graphics
   synopsis: Gallery for AI-generated images
 appImage:
   artifactName: ${name}-${version}-${arch}.${ext}
