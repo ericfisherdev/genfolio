@@ -2,6 +2,7 @@ import { readdirSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
+import { copiedText, recordClipboard } from './support/clipboard'
 import { launchApp, type LaunchedApp } from './support/launch'
 
 let launched: LaunchedApp | undefined
@@ -29,6 +30,7 @@ test.afterEach(async () => {
 async function openLibrary(): Promise<Page> {
   const page = await current().app.firstWindow()
   await stubFolderPicker(current().app, library)
+  await recordClipboard(current().app)
   await addAndAwaitScan(page)
   return page
 }
@@ -47,8 +49,7 @@ function imageIdOf(page: Page, fileName: string): Promise<number> {
   }, fileName)
 }
 
-const readClipboard = (): Promise<string> =>
-  current().app.evaluate(({ clipboard }) => clipboard.readText())
+const readClipboard = (): Promise<string> => copiedText(current().app)
 
 test('serves generation details, filling an image without metadata from log.html', async () => {
   const page = await openLibrary()
