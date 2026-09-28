@@ -7,6 +7,8 @@ export const serviceHealthSchema = z
     node: z.string(),
     sqlite: z.string(),
     fts5: z.boolean(),
+    /** `PRAGMA user_version` of the library database after migrations. */
+    schemaVersion: z.number().int().nonnegative(),
     /** Formats the image codec decoded successfully in this process. */
     decodableFormats: z.array(z.string()).readonly()
   })

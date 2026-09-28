@@ -21,6 +21,8 @@
       <dd>{report.node}</dd>
       <dt>SQLite</dt>
       <dd>{report.sqlite}{report.fts5 ? ' (FTS5)' : ' (no FTS5)'}</dd>
+      <dt>Library schema</dt>
+      <dd>v{report.schemaVersion}</dd>
       <dt>Image formats</dt>
       <dd>{report.decodableFormats.join(', ')}</dd>
     </dl>

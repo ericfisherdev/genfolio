@@ -3,7 +3,11 @@ import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { svelteTesting } from '@testing-library/svelte/vite'
 
-const alias = { '@shared': resolve(__dirname, 'src/shared') }
+const alias = {
+  '@shared': resolve(__dirname, 'src/shared'),
+  '@domain': resolve(__dirname, 'src/domain'),
+  '@infrastructure': resolve(__dirname, 'src/infrastructure')
+}
 
 export default defineConfig({
   test: {
