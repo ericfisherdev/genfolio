@@ -153,6 +153,9 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    /* A scrollbar that comes and goes would change the width, re-lay out the columns and
+       change the height again: near the fold that loops and the cards never settle. */
+    scrollbar-gutter: stable;
     padding: var(--space-4) var(--space-5);
     box-sizing: border-box;
   }
