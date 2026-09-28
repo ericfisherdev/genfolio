@@ -10,9 +10,11 @@ interface StampRow {
 export class SqliteFooocusLogRepository implements FooocusLogRepository {
   private readonly select: Database.Statement<[number], StampRow>
   private readonly upsert: Database.Statement<[number, number, number]>
+  private readonly delete: Database.Statement<[number]>
 
   constructor(db: Database.Database) {
     this.select = db.prepare('SELECT size_bytes, mtime_ms FROM fooocus_logs WHERE directory_id = ?')
+    this.delete = db.prepare('DELETE FROM fooocus_logs WHERE directory_id = ?')
     this.upsert = db.prepare(`
       INSERT INTO fooocus_logs (directory_id, size_bytes, mtime_ms) VALUES (?, ?, ?)
       ON CONFLICT (directory_id) DO UPDATE SET
@@ -29,5 +31,9 @@ export class SqliteFooocusLogRepository implements FooocusLogRepository {
   save(directoryId: DirectoryId, stamp: FileStamp): void {
     // Node's mtimeMs is fractional; the STRICT INTEGER column refuses a lossy REAL.
     this.upsert.run(directoryId, stamp.sizeBytes, Math.trunc(stamp.mtimeMs))
+  }
+
+  remove(directoryId: DirectoryId): void {
+    this.delete.run(directoryId)
   }
 }

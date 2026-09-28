@@ -18,6 +18,8 @@ export interface FoundFile {
   readonly fileName: string
   readonly sizeBytes: number
   readonly mtimeMs: number
+  /** An A1111 `<stem>.txt` sits beside the image, so readers needn't probe for one. */
+  readonly hasTextSidecar: boolean
 }
 
 export interface FileWalker {

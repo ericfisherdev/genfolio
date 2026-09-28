@@ -43,11 +43,19 @@ export interface ImageVersion {
 export interface StoredFileStat extends ImageVersion {
   readonly relDir: string
   readonly fileName: string
+  /** The METADATA_INDEX_VERSION the row's metadata was indexed at (0 before Phase 2). */
+  readonly metadataVersion: number
 }
 
 export interface ImageRepository {
-  /** Inserts or updates by (directory, file name) in one transaction; `addedAt` is kept on update. */
-  upsertMany(images: readonly ImageFile[], addedAt: number): void
+  /**
+   * Inserts or updates by (directory, file name) in one transaction; `addedAt` is kept on
+   * update. Marks each row as indexed at METADATA_INDEX_VERSION, so callers index its
+   * metadata in the same transaction. Returns each row's version, in input order.
+   */
+  upsertMany(images: readonly ImageFile[], addedAt: number): ImageVersion[]
+  /** Every image in the directory by file name. */
+  versionsInDirectory(directoryId: DirectoryId): Map<string, ImageVersion>
   countByRoot(rootId: RootId): number
   fileStatsByRoot(rootId: RootId): StoredFileStat[]
   /**
@@ -91,4 +99,5 @@ export interface FileStamp {
 export interface FooocusLogRepository {
   find(directoryId: DirectoryId): FileStamp | undefined
   save(directoryId: DirectoryId, stamp: FileStamp): void
+  remove(directoryId: DirectoryId): void
 }

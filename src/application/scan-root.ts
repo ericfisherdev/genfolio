@@ -2,6 +2,11 @@ import { join } from 'node:path'
 import { parseFooocusTimestamp } from '@domain/fooocus-filename'
 import type { ImageHeader, ImageHeaderReader } from '@domain/image-header'
 import type { DirectoryId, ImageFile, LibraryRoot, RootId } from '@domain/library'
+import {
+  METADATA_INDEX_VERSION,
+  type MetadataReader,
+  type MetadataRecord
+} from '@domain/metadata-record'
 import type { DirectoryRepository, ImageRepository, StoredFileStat } from '@domain/repositories'
 import {
   ScanPhase,
@@ -11,7 +16,10 @@ import {
   type ScanProgress,
   type ScanReport
 } from '@domain/scan'
+import type { TransactionRunner } from '@domain/transactions'
 import { forEachConcurrent } from './for-each-concurrent'
+import type { FooocusLogIndexer } from './fooocus-log-indexer'
+import type { ImageMetadataIndex } from './image-metadata-index'
 import { ProgressThrottle } from './progress-throttle'
 
 export interface ScanRootDependencies {
@@ -19,6 +27,10 @@ export interface ScanRootDependencies {
   readonly headerReader: ImageHeaderReader
   readonly directories: DirectoryRepository
   readonly images: ImageRepository
+  readonly metadataReader: MetadataReader
+  readonly metadata: ImageMetadataIndex
+  readonly logs: FooocusLogIndexer
+  readonly transactions: TransactionRunner
   readonly logger: ScanLogger
   readonly fileRef: (path: string) => string
   readonly now: () => number
@@ -46,6 +58,8 @@ type ReportProgress = (
 interface Classified {
   readonly toIndex: FoundFile[]
   readonly seen: Set<string>
+  /** Every directory holding at least one image. */
+  readonly dirs: Set<string>
   readonly unchanged: number
   /** Unreadable subdirectories: their stored rows are kept, not treated as deleted. */
   readonly skippedDirs: string[]
@@ -65,20 +79,30 @@ interface IndexCounts {
   failed: number
 }
 
+/** A file's row plus the raw metadata records read from it. */
+interface DescribedImage {
+  readonly image: ImageFile
+  readonly records: MetadataRecord[]
+}
+
 const fileKey = (relDir: string, fileName: string): string => `${relDir}\0${fileName}`
 
 const isWithin = (relDir: string, dirs: readonly string[]): boolean =>
   dirs.some((dir) => relDir === dir || relDir.startsWith(`${dir}/`))
 
+/** Unchanged on disk and indexed with the current metadata extraction. */
 const isUnchanged = (previous: StoredFileStat | undefined, file: FoundFile): boolean =>
   previous !== undefined &&
   previous.sizeBytes === file.sizeBytes &&
-  previous.mtimeMs === file.mtimeMs
+  previous.mtimeMs === file.mtimeMs &&
+  previous.metadataVersion === METADATA_INDEX_VERSION
 
 /**
- * Brings one root's rows in line with the disk: indexes new and changed files, deletes rows
- * for files that are gone, and prunes emptied directories. Each batch is its own transaction
- * and deletions happen only after a complete walk, so an abort leaves a consistent database.
+ * Brings one root's rows in line with the disk: indexes new and changed files with their
+ * metadata, applies changed Fooocus logs, deletes rows for files that are gone, and prunes
+ * emptied directories and unused models. Each batch (images and their metadata) is its own
+ * transaction and deletions happen only after a complete walk, so an abort leaves a
+ * consistent database.
  * Rows under unreadable subdirectories are kept. Rejects with the signal's reason when
  * aborted, with the walker's error when the root itself is unreadable, with any database
  * error, and with {@link ScanAlreadyRunningError} when this root is already being scanned.
@@ -125,10 +149,12 @@ export class ScanRoot {
     )
     const classified = await this.classify(root, stored, signal, report)
     const counts = await this.index(root, classified.toIndex, stored, signal, report)
+    await this.deps.logs.refresh(root, classified.dirs, signal)
 
     report(ScanPhase.Pruning, 0, undefined, true)
     const removed = this.removeMissing(stored, classified)
     this.deps.directories.pruneEmpty(root.id)
+    this.deps.metadata.pruneUnusedModels()
     return { ...counts, unchanged: classified.unchanged, removed }
   }
 
@@ -140,18 +166,20 @@ export class ScanRoot {
   ): Promise<Classified> {
     const toIndex: FoundFile[] = []
     const seen = new Set<string>()
+    const dirs = new Set<string>()
     const skippedDirs: string[] = []
     let unchanged = 0
     const walk = this.deps.walker.walk(root.path, signal, (relDir) => skippedDirs.push(relDir))
     for await (const file of walk) {
       const key = fileKey(file.relDir, file.fileName)
       seen.add(key)
+      dirs.add(file.relDir)
       if (isUnchanged(stored.get(key), file)) unchanged++
       else toIndex.push(file)
       report(ScanPhase.Walking, seen.size, undefined)
     }
     report(ScanPhase.Walking, seen.size, seen.size, true)
-    return { toIndex, seen, unchanged, skippedDirs }
+    return { toIndex, seen, dirs, unchanged, skippedDirs }
   }
 
   private async index(
@@ -163,18 +191,18 @@ export class ScanRoot {
   ): Promise<IndexCounts> {
     const directoryOf = this.directoryResolver(root)
     const counts: IndexCounts = { added: 0, updated: 0, failed: 0 }
-    let batch: ImageFile[] = []
+    let batch: DescribedImage[] = []
     const flush = (): void => {
       signal.throwIfAborted()
-      if (batch.length > 0) this.deps.images.upsertMany(batch, this.deps.now())
+      if (batch.length > 0) this.store(batch)
       batch = []
     }
     let done = 0
 
     await forEachConcurrent(files, this.options.headerConcurrency, signal, async (file) => {
-      const image = await this.describe(root, file, directoryOf)
-      if (image) {
-        batch.push(image)
+      const described = await this.describe(root, file, directoryOf)
+      if (described) {
+        batch.push(described)
         if (stored.has(fileKey(file.relDir, file.fileName))) counts.updated++
         else counts.added++
       } else {
@@ -188,15 +216,34 @@ export class ScanRoot {
     return counts
   }
 
+  /** Upserts the batch's rows and indexes their metadata in one transaction. */
+  private store(batch: readonly DescribedImage[]): void {
+    this.deps.transactions.run(() => {
+      const versions = this.deps.images.upsertMany(
+        batch.map((described) => described.image),
+        this.deps.now()
+      )
+      versions.forEach((version, index) =>
+        this.deps.metadata.index(version, batch[index]?.records ?? [])
+      )
+      // Re-indexing dropped these images' log records; forget the log stamps in the same
+      // transaction so the log is re-applied even if the scan stops before refreshing.
+      for (const directoryId of new Set(batch.map((described) => described.image.directoryId))) {
+        this.deps.logs.forget(directoryId)
+      }
+    })
+  }
+
   /**
-   * Reads the header; logs and returns `undefined` when the file cannot be read or parsed.
-   * Database errors (from resolving the directory) propagate and fail the scan.
+   * Reads the header and metadata records; logs and returns `undefined` when the header
+   * cannot be read or parsed (metadata reading never fails). Database errors (from
+   * resolving the directory) propagate and fail the scan.
    */
   private async describe(
     root: LibraryRoot,
     file: FoundFile,
     directoryOf: (relDir: string) => DirectoryId
-  ): Promise<ImageFile | undefined> {
+  ): Promise<DescribedImage | undefined> {
     const path = join(root.path, file.relDir, file.fileName)
     let header: ImageHeader
     try {
@@ -206,7 +253,10 @@ export class ScanRoot {
       this.deps.logger.warn(`Skipping image (${reason})`, this.deps.fileRef(path))
       return undefined
     }
-    return {
+    const records = await this.deps.metadataReader.read(path, header.format, {
+      sidecar: file.hasTextSidecar
+    })
+    const image: ImageFile = {
       directoryId: directoryOf(file.relDir),
       fileName: file.fileName,
       format: header.format,
@@ -216,6 +266,7 @@ export class ScanRoot {
       height: header.height,
       createdAt: parseFooocusTimestamp(file.fileName) ?? file.mtimeMs
     }
+    return { image, records }
   }
 
   private directoryResolver(root: LibraryRoot): (relDir: string) => DirectoryId {

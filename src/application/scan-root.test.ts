@@ -20,10 +20,9 @@ import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlit
 import { SqliteImageRepository } from '@infrastructure/db/repositories/sqlite-image-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
-import { NodeFileWalker } from '@infrastructure/fs/node-file-walker'
-import { ImageSizeHeaderReader } from '@infrastructure/imaging/image-size-header-reader'
 import { encodeSolid, gifHeader } from '@infrastructure/imaging/testing/synthetic-images'
-import { ScanAlreadyRunningError, ScanRoot, type ScanRootOptions } from './scan-root'
+import { createScanRoot } from '../service/scan-root-factory'
+import { ScanAlreadyRunningError, type ScanRoot, type ScanRootOptions } from './scan-root'
 
 let dir: string
 let db: Database.Database
@@ -49,14 +48,12 @@ function write(relPath: string, bytes: Uint8Array): string {
 }
 
 function scanner(options?: Partial<ScanRootOptions>): ScanRoot {
-  const logger = { warn: vi.fn() }
-  return new ScanRoot(
+  return createScanRoot(
+    db,
     {
-      walker: new NodeFileWalker(logger, (path) => path),
-      headerReader: new ImageSizeHeaderReader(),
       directories: new SqliteDirectoryRepository(db),
       images,
-      logger,
+      logger: { warn: vi.fn() },
       fileRef: (path) => path,
       now: () => Date.now()
     },
@@ -165,8 +162,9 @@ describe('ScanRoot', () => {
     const controller = new AbortController()
     const upsert = vi.spyOn(images, 'upsertMany')
     upsert.mockImplementation((batch, addedAt) => {
-      SqliteImageRepository.prototype.upsertMany.call(images, batch, addedAt)
+      const versions = SqliteImageRepository.prototype.upsertMany.call(images, batch, addedAt)
       controller.abort()
+      return versions
     })
 
     await expect(

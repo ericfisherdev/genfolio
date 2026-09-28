@@ -8,7 +8,6 @@ import { fileRef } from '@application/file-ref'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LibraryRoots } from '@application/library-roots'
 import { ScanCoordinator } from '@application/scan-coordinator'
-import { ScanRoot } from '@application/scan-root'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
@@ -18,8 +17,6 @@ import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
-import { NodeFileWalker } from '@infrastructure/fs/node-file-walker'
-import { ImageSizeHeaderReader } from '@infrastructure/imaging/image-size-header-reader'
 import type { ScanEvent } from '@shared/scan'
 import { ServiceMethod } from '@shared/service-contract'
 import { HealthReporter } from './health/health-reporter'
@@ -27,6 +24,7 @@ import { ImageCodecProbe } from './health/image-codec-probe'
 import { RuntimeProbe } from './health/runtime-probe'
 import { SqliteProbe } from './health/sqlite-probe'
 import type { ServiceHandlers } from './rpc-dispatcher'
+import { createScanRoot } from './scan-root-factory'
 
 /** In-memory budget for grid copies of large images (never written to disk). */
 const DISPLAY_COPY_CACHE_BYTES = 200 * 1024 * 1024
@@ -45,15 +43,7 @@ export function createLibraryHandlers(
   const now = (): number => Date.now()
   const directories = new SqliteDirectoryRepository(db)
   const images = new SqliteImageRepository(db)
-  const scanner = new ScanRoot({
-    walker: new NodeFileWalker(scanLogger, fileRef),
-    headerReader: new ImageSizeHeaderReader(),
-    directories,
-    images,
-    logger: scanLogger,
-    fileRef,
-    now
-  })
+  const scanner = createScanRoot(db, { directories, images, logger: scanLogger, fileRef, now })
   const roots = new LibraryRoots({
     roots: new SqliteLibraryRootRepository(db),
     directories,

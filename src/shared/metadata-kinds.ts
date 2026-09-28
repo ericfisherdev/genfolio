@@ -7,5 +7,7 @@ export enum MetadataOrigin {
   ExifImageDescription = 'exif-image-description',
   ExifSoftware = 'exif-software',
   ExifMakerNote = 'exif-maker-note',
-  SidecarTxt = 'sidecar-txt'
+  SidecarTxt = 'sidecar-txt',
+  /** An entry of the image's Fooocus `log.html`, stored as its fields' JSON. */
+  FooocusLog = 'fooocus-log'
 }

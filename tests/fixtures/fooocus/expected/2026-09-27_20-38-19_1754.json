@@ -1,6 +1,7 @@
 [
   {
     "origin": "png-text",
+    "format": "a1111-infotext",
     "generation": {
       "generator": "fwd-fooocus",
       "prompt": "a ceramic teapot shaped like a snail on a wooden café table, (studio lighting:1.2), soft morning light, 桜 petals, \"still life\", 50mm: shallow depth of field",

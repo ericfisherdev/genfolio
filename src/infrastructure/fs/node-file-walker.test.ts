@@ -59,6 +59,20 @@ describe('NodeFileWalker', () => {
     expect((await collect(walker())).map((f) => f.fileName)).toEqual(['keep.png'])
   })
 
+  it('flags images with a <stem>.txt sidecar beside them', async () => {
+    touch('a.png')
+    touch('a.txt')
+    touch('b.png')
+    touch('sub/b.txt')
+    const found = await collect(walker())
+    expect(found.map((f) => [f.fileName, f.hasTextSidecar])).toEqual(
+      expect.arrayContaining([
+        ['a.png', true],
+        ['b.png', false]
+      ])
+    )
+  })
+
   it('rejects when the root itself cannot be read', async () => {
     const walker = new NodeFileWalker({ warn: vi.fn() }, (path) => path)
     const missing = join(root, 'unmounted')

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { MetadataRecordReader } from '../metadata-record-reader'
@@ -214,6 +214,7 @@ describe('GenerationRecordParser', () => {
     expect(generations).toEqual([
       {
         origin: MetadataOrigin.ExifImageDescription,
+        format: GenerationFormat.UnFooocusedText,
         generation: {
           generator: GeneratorKind.UnFooocused,
           prompt: 'a cat',

@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { FooocusLogParser, LogEntryKind } from './fooocus-log-parser'
+import { LogEntryKind } from '@domain/fooocus-log'
+import { FooocusLogParser } from './fooocus-log-parser'
 
 const FIXTURES = resolve(__dirname, '../../../tests/fixtures/fooocus')
 const parser = new FooocusLogParser()

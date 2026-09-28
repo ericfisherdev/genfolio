@@ -20,6 +20,13 @@ export enum HashKind {
   Unknown = 'unknown'
 }
 
+/** The text format a generation was parsed from; with its origin, it sets the source's precedence. */
+export enum GenerationFormat {
+  FooocusJson = 'fooocus-json',
+  A1111Infotext = 'a1111-infotext',
+  UnFooocusedText = 'unfooocused-text'
+}
+
 /** What a stored model is used as. */
 export enum ModelKind {
   Checkpoint = 'checkpoint',

@@ -1,6 +1,7 @@
 [
   {
     "origin": "exif-user-comment",
+    "format": "a1111-infotext",
     "generation": {
       "generator": "fwd-fooocus",
       "prompt": "a ceramic teapot shaped like a snail on a wooden caf? table, (studio lighting:1.2), soft morning light, ? petals, \"still life\", 50mm: shallow depth of field",

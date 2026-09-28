@@ -82,14 +82,14 @@ const FULL: StoredGeneration = {
 const count = (table: string): number =>
   (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n
 
-describe('migration 003', () => {
-  it('upgrades a version 2 library and keeps its rows', () => {
+describe('migrations from version 2', () => {
+  it('upgrades a version 2 library to the latest version and keeps its rows', () => {
     const old = new Database(':memory:')
     old.pragma('foreign_keys = ON')
     new MigrationRunner(old, migrations.slice(0, 2)).migrate()
     old.exec("INSERT INTO library_roots (path, added_at) VALUES ('/lib', 1)")
-    expect(new MigrationRunner(old, migrations).migrate()).toBe(3)
-    expect(old.pragma('user_version', { simple: true })).toBe(3)
+    expect(new MigrationRunner(old, migrations).migrate()).toBe(migrations.length)
+    expect(old.pragma('user_version', { simple: true })).toBe(migrations.length)
     expect(old.prepare('SELECT path FROM library_roots').pluck().all()).toEqual(['/lib'])
   })
 })
