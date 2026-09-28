@@ -19,6 +19,7 @@ const version = (db: Database.Database): unknown => db.pragma('user_version', { 
 const LATEST_TABLES = [
   'album_images',
   'albums',
+  'app_settings',
   'directories',
   'fooocus_logs',
   'generation_loras',
@@ -34,6 +35,7 @@ const LATEST_TABLES = [
   'prompt_fts_data',
   'prompt_fts_docsize',
   'prompt_fts_idx',
+  'similar_pairs',
   'slideshow_presets',
   'tags'
 ]
