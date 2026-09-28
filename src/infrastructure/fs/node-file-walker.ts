@@ -1,7 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { opendir, stat } from 'node:fs/promises'
 import { extname, join, parse } from 'node:path'
-import type { FileWalker, FoundFile, ScanLogger } from '@domain/scan'
+import type { FileWalker, FoundFile, ScanLogger, ScanScope } from '@domain/scan'
 
 export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
   '.png',
@@ -11,6 +11,11 @@ export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
   '.avif',
   '.gif'
 ])
+
+const isMissing = (error: unknown): boolean => {
+  const code = (error as NodeJS.ErrnoException).code
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
 
 /** Stems of the `.txt` files in a listing (A1111 writes `<image stem>.txt`). */
 function textFileStems(entries: readonly Dirent[]): Set<string> {
@@ -35,9 +40,10 @@ export class NodeFileWalker implements FileWalker {
   async *walk(
     rootPath: string,
     signal: AbortSignal,
-    onSkippedDir: (relDir: string) => void = () => undefined
+    onSkippedDir: (relDir: string) => void = () => undefined,
+    scope?: ScanScope
   ): AsyncIterable<FoundFile> {
-    const pending = ['']
+    const pending = scope ? [...scope] : ['']
     while (pending.length > 0) {
       signal.throwIfAborted()
       const relDir = pending.pop() as string
@@ -47,7 +53,7 @@ export class NodeFileWalker implements FileWalker {
         if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue
         const relPath = relDir === '' ? entry.name : `${relDir}/${entry.name}`
         if (entry.isDirectory()) {
-          pending.push(relPath)
+          if (!scope) pending.push(relPath)
         } else if (entry.isFile() && IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
           const hasTextSidecar = textStems.has(parse(entry.name).name)
           const found = await this.describe(rootPath, relDir, entry.name, hasTextSidecar)
@@ -68,6 +74,8 @@ export class NodeFileWalker implements FileWalker {
       for await (const entry of await opendir(path)) entries.push(entry)
     } catch (error) {
       if (relDir === '') throw error
+      // A folder deleted since it was listed (or named in a scope) holds nothing now.
+      if (isMissing(error)) return []
       this.logger.warn('Skipping unreadable directory', this.fileRef(path))
       onSkippedDir(relDir)
     }

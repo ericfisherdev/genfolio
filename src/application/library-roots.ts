@@ -104,6 +104,19 @@ export class LibraryRoots {
     })
   }
 
+  /** Brings every root up to date with the disk (at startup: changes made while closed). */
+  reconcileAll(): Promise<void> {
+    return this.exclusive(async () => {
+      for (const root of this.deps.roots.list()) this.deps.scans.start(root)
+    })
+  }
+
+  /** Scans these folders of a root after live changes; a root that is gone is ignored. */
+  refresh(rootId: RootId, dirs: Iterable<string>): void {
+    const root = this.deps.roots.findById(rootId)
+    if (root) this.deps.scans.refresh(root, dirs)
+  }
+
   /** Runs `work` after every earlier mutation settles; a failed one does not block the queue. */
   private exclusive<T>(work: () => Promise<T>): Promise<T> {
     const run = this.tail.then(work, work)

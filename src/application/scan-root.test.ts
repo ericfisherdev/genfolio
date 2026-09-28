@@ -131,6 +131,38 @@ describe('ScanRoot', () => {
     expect(dirs).not.toContain('2026/09/27')
   })
 
+  it('limits a scoped scan to the files directly in its folders', async () => {
+    await buildTree()
+    await scan()
+    write('2026/09/new.png', await encodeSolid('png', 6, 4))
+    write('2026/09/27/deeper.png', await encodeSolid('png', 6, 4))
+    unlinkSync(join(dir, '2026/09/a.jpg'))
+    unlinkSync(join(dir, 'top.png'))
+
+    const report = await scanner().run(root, new AbortController().signal, undefined, ['2026/09'])
+
+    expect(report).toMatchObject({ added: 1, removed: 1 })
+    expect(indexed()).toEqual([
+      '2026/09/27/b.webp',
+      '2026/09/27/c.avif',
+      '2026/09/new.png',
+      '2026/d.gif',
+      // Outside the scope, so kept although the file is gone.
+      'top.png'
+    ])
+  })
+
+  it('removes the images of a scoped folder that was deleted', async () => {
+    await buildTree()
+    await scan()
+    rmSync(join(dir, '2026/09/27'), { recursive: true })
+    const report = await scanner().run(root, new AbortController().signal, undefined, [
+      '2026/09/27'
+    ])
+    expect(report).toMatchObject({ removed: 2 })
+    expect(indexed()).not.toContain('2026/09/27/b.webp')
+  })
+
   it('uses the Fooocus file name as the creation time, otherwise the mtime', async () => {
     const plain = write('plain.png', await encodeSolid('png', 6, 4))
     utimesSync(plain, new Date(2020, 0, 2), new Date(2020, 0, 2))

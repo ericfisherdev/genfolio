@@ -14,7 +14,8 @@ import {
   type FoundFile,
   type ScanLogger,
   type ScanProgress,
-  type ScanReport
+  type ScanReport,
+  type ScanScope
 } from '@domain/scan'
 import type { TransactionRunner } from '@domain/transactions'
 import { forEachConcurrent } from './for-each-concurrent'
@@ -115,15 +116,20 @@ export class ScanRoot {
     private readonly options: ScanRootOptions = DEFAULT_SCAN_OPTIONS
   ) {}
 
+  /**
+   * With `scope`, only the files directly in those folders are indexed and only their rows
+   * can be removed; rows elsewhere in the root are left alone.
+   */
   async run(
     root: LibraryRoot,
     signal: AbortSignal,
-    onProgress: (progress: ScanProgress) => void = () => undefined
+    onProgress: (progress: ScanProgress) => void = () => undefined,
+    scope?: ScanScope
   ): Promise<ScanReport> {
     if (this.inFlight.has(root.id)) throw new ScanAlreadyRunningError(root.id)
     this.inFlight.add(root.id)
     try {
-      return await this.scan(root, signal, onProgress)
+      return await this.scan(root, signal, onProgress, scope)
     } finally {
       this.inFlight.delete(root.id)
     }
@@ -132,7 +138,8 @@ export class ScanRoot {
   private async scan(
     root: LibraryRoot,
     signal: AbortSignal,
-    onProgress: (progress: ScanProgress) => void
+    onProgress: (progress: ScanProgress) => void,
+    scope: ScanScope | undefined
   ): Promise<ScanReport> {
     const throttle = new ProgressThrottle(
       onProgress,
@@ -142,12 +149,14 @@ export class ScanRoot {
     const report: ReportProgress = (phase, done, total, final = false) =>
       throttle.report({ rootId: root.id, phase, done, total }, final)
 
+    const inScope = scope ? new Set(scope) : undefined
     const stored = new Map(
       this.deps.images
         .fileStatsByRoot(root.id)
+        .filter((stat) => !inScope || inScope.has(stat.relDir))
         .map((stat) => [fileKey(stat.relDir, stat.fileName), stat] as const)
     )
-    const classified = await this.classify(root, stored, signal, report)
+    const classified = await this.classify(root, stored, signal, report, scope)
     const counts = await this.index(root, classified.toIndex, stored, signal, report)
     await this.deps.logs.refresh(root, classified.dirs, signal)
 
@@ -162,14 +171,20 @@ export class ScanRoot {
     root: LibraryRoot,
     stored: ReadonlyMap<string, StoredFileStat>,
     signal: AbortSignal,
-    report: ReportProgress
+    report: ReportProgress,
+    scope: ScanScope | undefined
   ): Promise<Classified> {
     const toIndex: FoundFile[] = []
     const seen = new Set<string>()
     const dirs = new Set<string>()
     const skippedDirs: string[] = []
     let unchanged = 0
-    const walk = this.deps.walker.walk(root.path, signal, (relDir) => skippedDirs.push(relDir))
+    const walk = this.deps.walker.walk(
+      root.path,
+      signal,
+      (relDir) => skippedDirs.push(relDir),
+      scope
+    )
     for await (const file of walk) {
       const key = fileKey(file.relDir, file.fileName)
       seen.add(key)

@@ -105,6 +105,22 @@ describe('NodeFileWalker', () => {
     }
   )
 
+  it('walks only the scoped folders, without their subfolders, and nothing for a gone one', async () => {
+    touch('a/one.png')
+    touch('a/deeper/two.png')
+    touch('b/three.png')
+    const skipped = vi.fn()
+    const found: string[] = []
+    for await (const file of walker().walk(root, new AbortController().signal, skipped, [
+      'a',
+      'gone'
+    ])) {
+      found.push(`${file.relDir}/${file.fileName}`)
+    }
+    expect(found).toEqual(['a/one.png'])
+    expect(skipped).not.toHaveBeenCalled()
+  })
+
   it('stops when aborted', async () => {
     touch('a/1.png')
     touch('b/2.png')

@@ -22,17 +22,25 @@ export interface FoundFile {
   readonly hasTextSidecar: boolean
 }
 
+/**
+ * Folders of a root (POSIX paths relative to it, `''` for the root itself) that a scan is
+ * limited to, each without its subfolders.
+ */
+export type ScanScope = readonly string[]
+
 export interface FileWalker {
   /**
    * Yields image-extension files below `rootPath`; stops early when `signal` aborts.
    * Rejects when `rootPath` itself cannot be read (e.g. an unmounted drive). Unreadable
    * subdirectories are skipped and reported through `onSkippedDir` so callers do not treat
-   * their contents as deleted.
+   * their contents as deleted; a folder that no longer exists simply yields nothing.
+   * With `scope`, only the files directly in those folders are yielded.
    */
   walk(
     rootPath: string,
     signal: AbortSignal,
-    onSkippedDir?: (relDir: string) => void
+    onSkippedDir?: (relDir: string) => void,
+    scope?: ScanScope
   ): AsyncIterable<FoundFile>
 }
 
