@@ -48,10 +48,17 @@ export class MigrationRunner {
     return this.db.pragma('user_version', { simple: true }) as number
   }
 
+  /**
+   * BEGIN IMMEDIATE takes the write lock before the version is re-read, so a second
+   * writer that raced past `migrate()`'s first read skips a migration another applied.
+   */
   private apply(migration: Migration): void {
-    this.db.transaction(() => {
-      this.db.exec(migration.sql)
-      this.db.pragma(`user_version = ${migration.version}`)
-    })()
+    this.db
+      .transaction(() => {
+        if (this.currentVersion() >= migration.version) return
+        this.db.exec(migration.sql)
+        this.db.pragma(`user_version = ${migration.version}`)
+      })
+      .immediate()
   }
 }

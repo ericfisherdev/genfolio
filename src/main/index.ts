@@ -11,6 +11,7 @@ import { guardNavigation } from './navigation-guard'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
 import { LibraryServiceSupervisor } from './service/library-service-supervisor'
+import { claimSingleInstance, focusWindow } from './single-instance'
 import { e2eUserDataOverride } from './user-data-override'
 import { createMainWindow } from './window'
 
@@ -37,9 +38,15 @@ function openMainWindow(): void {
   })
 }
 
-app.on('web-contents-created', (_, contents) => guardNavigation(contents, rendererEntry))
+function startApp(): void {
+  app.on('web-contents-created', (_, contents) => guardNavigation(contents, rendererEntry))
+  app.whenReady().then(onReady)
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}
 
-app.whenReady().then(() => {
+function onReady(): void {
   electronApp.setAppUserModelId('dev.ericfisher.genfolio')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
@@ -64,8 +71,7 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) openMainWindow()
   })
-})
+}
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+// The lock lives in userData, so it is claimed after any e2e userData override.
+if (claimSingleInstance(app, () => focusWindow(BrowserWindow.getAllWindows()[0]))) startApp()

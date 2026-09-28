@@ -1,5 +1,8 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import Database from 'better-sqlite3'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MigrationError, MigrationRunner } from './migration-runner'
 import { migrations } from './migrations'
 import type { Migration } from './migrations/migration'
@@ -38,6 +41,29 @@ describe('MigrationRunner', () => {
     expect(() => new MigrationRunner(new Database(':memory:'), gapped).migrate()).toThrow(
       /expected 1/
     )
+  })
+
+  it('skips a migration another connection applied after the version was first read', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'genfolio-migrate-'))
+    try {
+      const path = join(dir, 'genfolio.db')
+      const first = new Database(path)
+      new MigrationRunner(first, migrations).migrate()
+
+      const second = new Database(path)
+      const realPragma = second.pragma.bind(second)
+      vi.spyOn(second, 'pragma')
+        .mockImplementationOnce(() => 0)
+        .mockImplementation((source, options) => realPragma(source, options))
+
+      expect(() => new MigrationRunner(second, migrations).migrate()).not.toThrow()
+      expect(version(second)).toBe(migrations.length)
+      expect(tableNames(second)).toEqual(['directories', 'images', 'library_roots'])
+      first.close()
+      second.close()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('rolls back a failing migration completely', () => {
