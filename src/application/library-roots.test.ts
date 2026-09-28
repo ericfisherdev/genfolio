@@ -11,7 +11,8 @@ import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
 import { ImageFormat } from '@shared/image-format'
 import { AddRootOutcome } from '@shared/library'
-import { LibraryRoots, UnknownRootError, isInside, type DirectoryResolver } from './library-roots'
+import { LibraryRoots, UnknownRootError, type DirectoryResolver } from './library-roots'
+import { isInside } from './path-containment'
 import { ScanCoordinator, type RootScanner } from './scan-coordinator'
 
 let dir: string

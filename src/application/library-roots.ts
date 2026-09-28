@@ -1,4 +1,4 @@
-import { isAbsolute, relative, sep } from 'node:path'
+import { relative, sep } from 'node:path'
 import type { LibraryRoot, RootId } from '@domain/library'
 import type {
   DirectoryRepository,
@@ -6,6 +6,7 @@ import type {
   LibraryRootRepository
 } from '@domain/repositories'
 import { AddRootOutcome, type AddRootResult, type RootSummary } from '@shared/library'
+import { isInside } from './path-containment'
 import type { ScanCoordinator } from './scan-coordinator'
 
 /** Resolves a path to its real (symlink-free) location when it is a directory. */
@@ -32,12 +33,6 @@ export class UnknownRootError extends Error {
     super(`Unknown library root ${rootId}`)
     this.name = 'UnknownRootError'
   }
-}
-
-/** True when `child` lies strictly inside `parent` (both absolute, resolved). */
-export function isInside(child: string, parent: string): boolean {
-  const rel = relative(parent, child)
-  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)
 }
 
 const toPosix = (path: string): string => path.split(sep).join('/')

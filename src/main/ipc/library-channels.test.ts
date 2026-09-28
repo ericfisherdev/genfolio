@@ -89,4 +89,17 @@ describe('registerLibraryChannels', () => {
       invoke(IpcChannel.GalleryLayout, { scope: { kind: 'all' }, sort: 'random' })
     ).toThrow()
   })
+
+  it('forwards image and folder-tree requests with their params', async () => {
+    const cards = [{ id: 1 }]
+    const tree = { id: 5, name: '', children: [] }
+    const { request, invoke } = setup(async () => undefined, {
+      [ServiceMethod.GalleryImages]: cards,
+      [ServiceMethod.DirectoryTree]: tree
+    })
+    await expect(invoke(IpcChannel.GalleryImages, [3, 4])).resolves.toBe(cards)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.GalleryImages, { ids: [3, 4] })
+    await expect(invoke(IpcChannel.DirectoryTree, 5)).resolves.toBe(tree)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.DirectoryTree, { rootId: 5 })
+  })
 })

@@ -18,7 +18,8 @@ export enum ServiceMethod {
   RescanRoot = 'roots.rescan',
   GalleryLayout = 'gallery.layout',
   GalleryImages = 'gallery.images',
-  DirectoryTree = 'gallery.directory-tree'
+  DirectoryTree = 'gallery.directory-tree',
+  RenderDisplayCopy = 'images.render-display-copy'
 }
 
 const noParams = z.object({}).strict()
@@ -47,7 +48,17 @@ export const serviceContract = {
       .strict(),
     result: z.array(imageCardSchema).readonly()
   },
-  [ServiceMethod.DirectoryTree]: { params: rootIdParams, result: directoryNodeSchema.nullable() }
+  [ServiceMethod.DirectoryTree]: { params: rootIdParams, result: directoryNodeSchema.nullable() },
+  [ServiceMethod.RenderDisplayCopy]: {
+    params: z
+      .object({
+        imageId: z.number().int().positive(),
+        maxWidth: z.number().int().min(64).max(4096)
+      })
+      .strict(),
+    /** WebP bytes, or null when the image is unknown or its file is missing. */
+    result: z.instanceof(Uint8Array).nullable()
+  }
 } as const satisfies { [M in ServiceMethod]: { params: z.ZodType; result: z.ZodType } }
 
 export type ServiceParams = { [M in ServiceMethod]: z.infer<(typeof serviceContract)[M]['params']> }
