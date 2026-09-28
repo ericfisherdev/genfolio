@@ -35,7 +35,8 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@napi-rs/image": "^1.15.0",
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.1",

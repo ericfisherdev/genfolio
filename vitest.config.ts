@@ -12,6 +12,7 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: 'node',
+          restoreMocks: true,
           environment: 'node',
           include: ['src/**/*.test.ts'],
           exclude: ['src/renderer/**']
@@ -22,6 +23,7 @@ export default defineConfig({
         plugins: [svelte(), svelteTesting()],
         test: {
           name: 'renderer',
+          restoreMocks: true,
           environment: 'jsdom',
           include: ['src/renderer/**/*.test.ts']
         }
