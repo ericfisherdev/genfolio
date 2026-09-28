@@ -6,11 +6,17 @@ import { ALL_PHOTOS, RouteKind, type Route } from '../routing/route'
 export function routeForQuery(query: GalleryQuery | undefined): Route {
   if (!query) return ALL_PHOTOS
   const filters = query.filters ? { filters: query.filters } : {}
-  if (query.scope.kind === GalleryScopeKind.All) return { kind: RouteKind.All, ...filters }
-  return {
-    kind: RouteKind.Directory,
-    directoryId: query.scope.directoryId,
-    recursive: query.scope.recursive,
-    ...filters
+  switch (query.scope.kind) {
+    case GalleryScopeKind.All:
+      return { kind: RouteKind.All, ...filters }
+    case GalleryScopeKind.Directory:
+      return {
+        kind: RouteKind.Directory,
+        directoryId: query.scope.directoryId,
+        recursive: query.scope.recursive,
+        ...filters
+      }
+    case GalleryScopeKind.Album:
+      return { kind: RouteKind.Album, albumId: query.scope.albumId, ...filters }
   }
 }

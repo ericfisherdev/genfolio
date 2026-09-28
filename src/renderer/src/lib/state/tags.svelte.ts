@@ -1,6 +1,6 @@
 import { MAX_IDS_PER_MARK } from '@shared/gallery-kinds'
 import type { GenfolioApi } from '@shared/genfolio-api'
-import { TagOutcome } from '@shared/tag-kinds'
+import { ChangeOutcome } from '@shared/change-outcome'
 import type { Tag, TagChange } from '@shared/tags'
 import { userMessage } from '../format/user-message'
 import type { NoticeSink } from './notice-sink'
@@ -36,8 +36,8 @@ export class TagsState {
   async ensure(name: string): Promise<Tag | undefined> {
     const change = await this.attempt('create the tag', () => this.api.createTag(name))
     if (!change) return undefined
-    if (change.outcome === TagOutcome.Done) return change.tag
-    if (change.outcome === TagOutcome.Duplicate) return change.existing
+    if (change.outcome === ChangeOutcome.Done) return change.tag
+    if (change.outcome === ChangeOutcome.Duplicate) return change.existing
     return undefined
   }
 
@@ -93,7 +93,7 @@ export class TagsState {
   }
 
   private report(change: TagChange | undefined, duplicate: string): void {
-    if (change?.outcome === TagOutcome.Duplicate && duplicate) this.notices.notify(duplicate)
-    if (change?.outcome === TagOutcome.Missing) this.notices.notify('That tag no longer exists.')
+    if (change?.outcome === ChangeOutcome.Duplicate && duplicate) this.notices.notify(duplicate)
+    if (change?.outcome === ChangeOutcome.Missing) this.notices.notify('That tag no longer exists.')
   }
 }

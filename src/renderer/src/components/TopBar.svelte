@@ -5,7 +5,7 @@
   import ScanIndicator from './ScanIndicator.svelte'
   import SortMenu from './SortMenu.svelte'
 
-  const { router, library } = getAppServices()
+  const { router, library, albums } = getAppServices()
 
   const directory = $derived(
     router.route.kind === RouteKind.Directory
@@ -15,6 +15,11 @@
   const title = $derived.by(() => {
     if (directory) return directoryTitle(directory)
     if (router.route.kind === RouteKind.Directory && library.loaded) return 'Folder not found'
+    if (router.route.kind === RouteKind.Album) {
+      const album = albums.find(router.route.albumId)
+      if (album) return album.name
+      return albums.loaded ? 'Album not found' : ''
+    }
     return 'All Photos'
   })
 

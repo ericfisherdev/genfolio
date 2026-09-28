@@ -1,14 +1,17 @@
 <script lang="ts">
   import { createVirtualizer } from '@tanstack/svelte-virtual'
   import { tick, untrack } from 'svelte'
+  import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
   import { samePromptRoute } from '../lib/gallery/find-similar'
   import { queryForRoute, queryKey } from '../lib/gallery/gallery-query'
   import { routeFilters, RouteKind, withFilters } from '../lib/routing/route'
+  import { AlbumArranger } from '../lib/gallery/album-arranger.svelte'
+  import AddToAlbumDialog from './AddToAlbumDialog.svelte'
   import GalleryCard from './GalleryCard.svelte'
 
-  const { gallery, router, sort, library, scans, api, copier, facets, marks, selection } =
+  const { gallery, router, sort, library, scans, api, copier, facets, marks, selection, albums } =
     getAppServices()
 
   let scroller: HTMLDivElement | undefined = $state()
@@ -28,7 +31,7 @@
   $effect(() => {
     const query = queryForRoute(
       router.route,
-      sort.current,
+      sort,
       untrack(() => gallery.query)
     )
     if (!query) return
@@ -105,6 +108,15 @@
     else return
     event.preventDefault()
   }
+  let adding: readonly number[] | undefined = $state()
+  const arranger = new AlbumArranger(albums, gallery, selection, (ids) => (adding = ids))
+
+  /** Whether a drag is over the far half of the slot, which drops after its image. */
+  const overFarHalf = (event: DragEvent): boolean => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    return event.clientX - rect.left > rect.width / 2
+  }
+
   const filtered = $derived(routeFilters(router.route) !== undefined)
   function clearFilters(): void {
     if (router.route.kind !== RouteKind.Image) router.navigate(withFilters(router.route, undefined))
@@ -128,9 +140,13 @@
       </div>
     {:else if gallery.count === 0 && !gallery.loading}
       <p class="empty">
-        {scans.isScanning
-          ? 'Scanning… images appear here when the scan finishes.'
-          : 'No images here yet.'}
+        {#if gallery.query?.scope.kind === GalleryScopeKind.Album}
+          This album is empty. Add images to it with “Add to album…” on a card or a selection.
+        {:else if scans.isScanning}
+          Scanning… images appear here when the scan finishes.
+        {:else}
+          No images here yet.
+        {/if}
       </p>
     {:else}
       <div
@@ -144,6 +160,13 @@
           <div
             class="slot"
             role="listitem"
+            draggable={arranger.arrangeable !== undefined}
+            class:drop-before={arranger.dropAt?.imageId === imageId && !arranger.dropAt.after}
+            class:drop-after={arranger.dropAt?.imageId === imageId && arranger.dropAt.after}
+            ondragstart={(event) => arranger.dragStart(event, imageId)}
+            ondragover={(event) => arranger.dragOver(event, imageId, overFarHalf(event))}
+            ondrop={(event) => arranger.drop(event)}
+            ondragend={() => arranger.dragEnd()}
             style:width={`${geometry.columnWidth}px`}
             style:height={`${item.size}px`}
             style:transform={`translate(${item.lane * (geometry.columnWidth + GRID_GAP)}px, ${item.start}px)`}
@@ -163,6 +186,7 @@
               selecting={selection.count > 0}
               onselect={(range) =>
                 range ? selection.extendTo(imageId) : selection.toggle(imageId)}
+              moreActions={arranger.cardActions(imageId)}
             />
           </div>
         {/each}
@@ -171,7 +195,15 @@
   </div>
 </div>
 
+<AddToAlbumDialog imageIds={adding} onclose={() => (adding = undefined)} />
+
 <style>
+  .drop-before {
+    box-shadow: -4px 0 0 var(--color-accent);
+  }
+  .drop-after {
+    box-shadow: 4px 0 0 var(--color-accent);
+  }
   .scroller {
     flex: 1;
     min-height: 0;

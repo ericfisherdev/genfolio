@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { describe, expect, it, vi } from 'vitest'
 import { MAX_IDS_PER_MARK } from '@shared/gallery-kinds'
 import { SetMatchMode } from '@shared/search-kinds'
-import { TagOutcome } from '@shared/tag-kinds'
+import { ChangeOutcome } from '@shared/change-outcome'
+import { MAX_TAG_NAME } from '@shared/tag-kinds'
 import type { Tag } from '@shared/tags'
 import { RouteKind } from '../lib/routing/route'
 import { TagsState } from '../lib/state/tags.svelte'
 import { sampleLibrary, testServices } from '../lib/testing/app-services'
 import SidebarTags from './SidebarTags.svelte'
-import TagCombobox from './TagCombobox.svelte'
+import NameCombobox from './NameCombobox.svelte'
 import TagEditor from './TagEditor.svelte'
 
 const RED: Tag = { id: 1, name: 'red', imageCount: 3 }
@@ -20,8 +21,8 @@ describe('TagsState', () => {
     const notices = { notify: vi.fn<(message: string) => void>() }
     const api = {
       listTags: vi.fn(async () => [RED]),
-      createTag: vi.fn(async () => ({ outcome: TagOutcome.Duplicate, existing: RED }) as const),
-      renameTag: vi.fn(async () => ({ outcome: TagOutcome.Duplicate, existing: BLUE }) as const),
+      createTag: vi.fn(async () => ({ outcome: ChangeOutcome.Duplicate, existing: RED }) as const),
+      renameTag: vi.fn(async () => ({ outcome: ChangeOutcome.Duplicate, existing: BLUE }) as const),
       mergeTags: vi.fn(),
       deleteTag: vi.fn(),
       applyTags: vi.fn(async () => 1),
@@ -81,10 +82,19 @@ describe('TagsState.apply', () => {
   })
 })
 
-describe('TagCombobox', () => {
+describe('NameCombobox', () => {
   function renderBox(applied: number[] = []): ReturnType<typeof vi.fn> {
     const onpick = vi.fn()
-    render(TagCombobox, { props: { tags: [RED, BLUE], applied, onpick } })
+    render(NameCombobox<Tag>, {
+      props: {
+        items: [RED, BLUE],
+        excluded: applied,
+        onpick,
+        maxName: MAX_TAG_NAME,
+        label: 'Add a tag',
+        listLabel: 'Tags'
+      }
+    })
     return onpick
   }
 
@@ -135,7 +145,7 @@ describe('TagEditor', () => {
       createTag: vi.fn(
         async (name: string) =>
           ({
-            outcome: TagOutcome.Done,
+            outcome: ChangeOutcome.Done,
             tag: { id: 3, name, imageCount: 0 }
           }) as const
       ),
@@ -170,8 +180,8 @@ describe('SidebarTags', () => {
   it('opens a tag’s images and renames, merges and deletes through dialogs', async () => {
     const harness = testServices(sampleLibrary(), {
       listTags: async () => [RED, BLUE],
-      renameTag: vi.fn(async () => ({ outcome: TagOutcome.Done, tag: RED }) as const),
-      mergeTags: vi.fn(async () => ({ outcome: TagOutcome.Done, tag: BLUE }) as const),
+      renameTag: vi.fn(async () => ({ outcome: ChangeOutcome.Done, tag: RED }) as const),
+      mergeTags: vi.fn(async () => ({ outcome: ChangeOutcome.Done, tag: BLUE }) as const),
       deleteTag: vi.fn(async () => true)
     })
     await harness.services.tags.load()

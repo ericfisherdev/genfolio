@@ -6,12 +6,15 @@ export enum SortOrder {
   RecentlyAdded = 'recently-added',
   FileName = 'file-name',
   /** Highest rated first, then newest. */
-  Rating = 'rating'
+  Rating = 'rating',
+  /** A manual album's own order; newest first anywhere else. */
+  AlbumOrder = 'album-order'
 }
 
 export enum GalleryScopeKind {
   All = 'all',
-  Directory = 'directory'
+  Directory = 'directory',
+  Album = 'album'
 }
 
 /** Values per image in a layout array: `[id, width, height]`. */

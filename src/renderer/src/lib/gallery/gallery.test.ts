@@ -19,16 +19,32 @@ describe('gridGeometry', () => {
 })
 
 describe('queryForRoute', () => {
+  const sorts = { current: SortOrder.Oldest, album: SortOrder.AlbumOrder }
+
   it('maps routes to queries and keeps the previous one for image routes', () => {
-    const all = queryForRoute({ kind: RouteKind.All }, SortOrder.Newest, undefined)
-    expect(all).toEqual({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest })
+    const all = queryForRoute({ kind: RouteKind.All }, sorts, undefined)
+    expect(all).toEqual({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Oldest })
     const dir = queryForRoute(
       { kind: RouteKind.Directory, directoryId: 5, recursive: false },
-      SortOrder.Oldest,
+      sorts,
       all
     )
     expect(dir && queryKey(dir)).toBe('dir:5:0|oldest')
-    expect(queryForRoute({ kind: RouteKind.Image, imageId: 1 }, SortOrder.Newest, dir)).toBe(dir)
+    expect(queryForRoute({ kind: RouteKind.Image, imageId: 1 }, sorts, dir)).toBe(dir)
+  })
+
+  it('sorts an album by the album preference', () => {
+    const album = queryForRoute(
+      { kind: RouteKind.Album, albumId: 3, filters: { favoritesOnly: true } },
+      sorts,
+      undefined
+    )
+    expect(album).toEqual({
+      scope: { kind: GalleryScopeKind.Album, albumId: 3 },
+      sort: SortOrder.AlbumOrder,
+      filters: { favoritesOnly: true }
+    })
+    expect(album && queryKey(album)).toMatch(/^album:3\|album-order\|/)
   })
 })
 

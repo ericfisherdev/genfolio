@@ -1,39 +1,43 @@
-<script lang="ts">
+<script lang="ts" generics="T extends NamedItem">
   import { nameKey } from '@shared/name-key'
-  import { MAX_TAG_NAME } from '@shared/tag-kinds'
-  import type { Tag } from '@shared/tags'
+  import type { NamedItem } from './named-item'
 
   interface Props {
-    /** Every tag in the library. */
-    tags: readonly Tag[]
-    /** Tags already applied, left out of the suggestions. */
-    applied: readonly number[]
-    /** A chosen tag, or the typed name when it names no tag yet. */
-    onpick: (choice: Tag | string) => void
-    label?: string
+    /** Every item that can be picked, such as the library's tags or albums. */
+    items: readonly T[]
+    /** Ids already chosen, left out of the suggestions. */
+    excluded: readonly number[]
+    /** A chosen item, or the typed name when it names no item yet. */
+    onpick: (choice: T | string) => void
+    /** Longest name that can be created. */
+    maxName: number
+    label: string
+    /** The accessible name of the suggestion list. */
+    listLabel: string
   }
 
-  let { tags, applied, onpick, label = 'Add a tag' }: Props = $props()
+  let { items, excluded, onpick, maxName, label, listLabel }: Props = $props()
   const MAX_SUGGESTIONS = 8
-  const listId = `tag-options-${Math.random().toString(36).slice(2)}`
+  const uid = $props.id()
+  const listId = `${uid}-options`
 
   let text = $state('')
   let open = $state(false)
   let active = $state(-1)
 
   const typed = $derived(text.trim())
-  const exact = $derived(tags.find((tag) => nameKey(tag.name) === nameKey(typed)))
-  const options = $derived.by((): (Tag | string)[] => {
+  const exact = $derived(items.find((item) => nameKey(item.name) === nameKey(typed)))
+  const options = $derived.by((): (T | string)[] => {
     const key = nameKey(typed)
-    const matches = tags
-      .filter((tag) => !applied.includes(tag.id) && nameKey(tag.name).includes(key))
+    const matches = items
+      .filter((item) => !excluded.includes(item.id) && nameKey(item.name).includes(key))
       .slice(0, MAX_SUGGESTIONS)
-    const canCreate = typed.length > 0 && typed.length <= MAX_TAG_NAME && exact === undefined
+    const canCreate = typed.length > 0 && typed.length <= maxName && exact === undefined
     return canCreate ? [...matches, typed] : matches
   })
   const expanded = $derived(open && options.length > 0)
 
-  function pick(choice: Tag | string): void {
+  function pick(choice: T | string): void {
     onpick(choice)
     text = ''
     active = -1
@@ -49,7 +53,7 @@
     } else if (event.key === 'Enter') {
       const choice = options[active] ?? exact ?? (typed ? typed : undefined)
       if (choice === undefined) return
-      if (typeof choice !== 'string' && applied.includes(choice.id)) return
+      if (typeof choice !== 'string' && excluded.includes(choice.id)) return
       pick(choice)
     } else if (event.key === 'Escape') {
       if (!expanded && !text) return
@@ -59,7 +63,7 @@
       return
     }
     event.preventDefault()
-    // Keys handled here belong to the combobox, not the detail view's shortcuts.
+    // Keys handled here belong to the combobox, not the page's shortcuts.
     event.stopPropagation()
   }
 </script>
@@ -74,7 +78,7 @@
     aria-controls={listId}
     aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
     placeholder={`${label}…`}
-    maxlength={MAX_TAG_NAME}
+    maxlength={maxName}
     bind:value={text}
     oninput={() => {
       open = true
@@ -85,7 +89,7 @@
     {onkeydown}
   />
   {#if expanded}
-    <ul id={listId} role="listbox" aria-label="Tags">
+    <ul id={listId} role="listbox" aria-label={listLabel}>
       {#each options as option, index (typeof option === 'string' ? `new:${option}` : option.id)}
         <li
           id={`${listId}-${index}`}

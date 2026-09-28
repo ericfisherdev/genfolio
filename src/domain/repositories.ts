@@ -1,4 +1,5 @@
 import type { ModelKind } from '@shared/generation-kinds'
+import type { AlbumKind } from '@shared/album-kinds'
 import type { StoredGeneration } from './generation'
 import type { Directory, DirectoryId, ImageFile, ImageId, LibraryRoot, RootId } from './library'
 import type { MetadataRecord } from './metadata-record'
@@ -167,5 +168,58 @@ export class UnknownTagError extends Error {
   constructor(readonly tagId: number) {
     super(`Tag ${tagId} does not exist`)
     this.name = 'UnknownTagError'
+  }
+}
+
+/** An album with its size and cover. */
+export interface AlbumRecord {
+  readonly id: number
+  readonly name: string
+  readonly kind: AlbumKind
+  readonly imageCount: number
+  /** The chosen cover, else the first image in album order; null when empty. */
+  readonly coverImageId: ImageId | null
+}
+
+/**
+ * User-owned albums, never written by indexing. Names are unique on nameKey(), as for tags.
+ * Manual albums keep their images in a fractional `position` order; commands that change
+ * membership or order apply only to manual albums and do nothing to smart ones.
+ */
+export interface AlbumRepository {
+  /** Every album, by name. */
+  list(): AlbumRecord[]
+  /** Throws UnknownAlbumError. */
+  find(id: number): AlbumRecord
+  /** Creates an empty manual album; throws DuplicateAlbumError. */
+  create(name: string, createdAt: number): AlbumRecord
+  /** Throws UnknownAlbumError, DuplicateAlbumError (another album has the new name's key). */
+  rename(id: number, name: string): AlbumRecord
+  /** Returns false when the album was already gone; its entries cascade. */
+  delete(id: number): boolean
+  /** Appends the images not already in the album, in the given order; returns how many. */
+  add(albumId: number, imageIds: readonly ImageId[]): number
+  /** Returns how many entries were removed. */
+  remove(albumId: number, imageIds: readonly ImageId[]): number
+  /**
+   * Moves the album's images among `imageIds` (in their current album order) to just before
+   * `beforeId`, or to the end when it is null or not in the album. Returns how many moved.
+   */
+  move(albumId: number, imageIds: readonly ImageId[], beforeId: ImageId | null): number
+  /** `null` goes back to the first image. Throws UnknownAlbumError. */
+  setCover(albumId: number, imageId: ImageId | null): AlbumRecord
+}
+
+export class DuplicateAlbumError extends Error {
+  constructor(readonly existing: AlbumRecord) {
+    super(`An album named "${existing.name}" already exists`)
+    this.name = 'DuplicateAlbumError'
+  }
+}
+
+export class UnknownAlbumError extends Error {
+  constructor(readonly albumId: number) {
+    super(`Album ${albumId} does not exist`)
+    this.name = 'UnknownAlbumError'
   }
 }

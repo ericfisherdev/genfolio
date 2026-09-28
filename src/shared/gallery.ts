@@ -25,7 +25,8 @@ export const galleryQuerySchema = z
           /** Include images in every folder below this one. */
           recursive: z.boolean()
         })
-        .strict()
+        .strict(),
+      z.object({ kind: z.literal(GalleryScopeKind.Album), albumId: id }).strict()
     ]),
     sort: z.enum(SortOrder),
     filters: searchFiltersSchema.optional()

@@ -5,7 +5,7 @@ import {
   type TagRepository,
   UnknownTagError
 } from '@domain/repositories'
-import { type TagChange, TagOutcome } from '@shared/tags'
+import { type TagChange, ChangeOutcome } from '@shared/tags'
 
 /**
  * Tag commands for the UI: domain errors become outcomes (a duplicate name, a tag that is
@@ -52,12 +52,12 @@ export class TagService {
 
   private outcome(change: () => TagRecord): TagChange {
     try {
-      return { outcome: TagOutcome.Done, tag: change() }
+      return { outcome: ChangeOutcome.Done, tag: change() }
     } catch (error) {
       if (error instanceof DuplicateTagError) {
-        return { outcome: TagOutcome.Duplicate, existing: error.existing }
+        return { outcome: ChangeOutcome.Duplicate, existing: error.existing }
       }
-      if (error instanceof UnknownTagError) return { outcome: TagOutcome.Missing }
+      if (error instanceof UnknownTagError) return { outcome: ChangeOutcome.Missing }
       throw error
     }
   }

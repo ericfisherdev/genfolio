@@ -9,6 +9,9 @@
   }
 
   let { open, title, message, confirmLabel, onconfirm, oncancel }: Props = $props()
+  // Unique per instance: several dialogs of one kind can be on the page at once.
+  const uid = $props.id()
+  const titleId = `${uid}-title`
   let dialog: HTMLDialogElement | undefined = $state()
 
   $effect(() => {
@@ -18,8 +21,8 @@
   })
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="confirm-title" {oncancel}>
-  <h2 id="confirm-title">{title}</h2>
+<dialog bind:this={dialog} aria-labelledby={titleId} {oncancel}>
+  <h2 id={titleId}>{title}</h2>
   <p>{message}</p>
   <div class="actions">
     <button type="button" onclick={oncancel}>Cancel</button>

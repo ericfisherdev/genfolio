@@ -6,6 +6,7 @@
   import DirectoryTree from './DirectoryTree.svelte'
   import RootMenu from './RootMenu.svelte'
   import ServiceStatus from './ServiceStatus.svelte'
+  import SidebarAlbums from './SidebarAlbums.svelte'
   import SidebarTags from './SidebarTags.svelte'
 
   const { library, router } = getAppServices()
@@ -75,6 +76,7 @@
 
   <button type="button" class="add" onclick={() => library.addFolder()}>+ Add folder</button>
 
+  <SidebarAlbums />
   <SidebarTags />
 
   <details class="diagnostics">

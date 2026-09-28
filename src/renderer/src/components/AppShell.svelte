@@ -10,7 +10,7 @@
   import Sidebar from './Sidebar.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans, router, gallery, facets, tags, selection } = getAppServices()
+  const { library, scans, router, gallery, facets, tags, selection, albums } = getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
   // changed, whether the gallery or the detail view is on screen. The shell stays mounted in
@@ -28,10 +28,13 @@
     })
   })
 
-  // Tag counts change when scans add or remove images.
+  // Tag and album counts change when scans add or remove images.
   $effect(() => {
     void library.roots
-    untrack(() => void tags.load())
+    untrack(() => {
+      void tags.load()
+      void albums.load()
+    })
   })
 
   // Cancelled scans send no end event; forget progress for roots that are gone.

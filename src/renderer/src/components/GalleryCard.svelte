@@ -2,7 +2,7 @@
   import type { ImageCard } from '@shared/gallery'
   import { ImageDisplay, imageUrl } from '@shared/display-rendition'
   import { CopyVariant } from '@shared/generation-kinds'
-  import ActionMenu from './ActionMenu.svelte'
+  import ActionMenu, { type MenuAction } from './ActionMenu.svelte'
   import RatingStars from './RatingStars.svelte'
 
   interface Props {
@@ -22,6 +22,8 @@
     selecting: boolean
     /** `range`: from the last selected image to this one (Shift); otherwise toggle. */
     onselect: (range: boolean) => void
+    /** Menu items that depend on the view, such as arranging an album. */
+    moreActions?: readonly MenuAction[]
   }
 
   let {
@@ -36,7 +38,8 @@
     onrate,
     selected,
     selecting,
-    onselect
+    onselect,
+    moreActions = []
   }: Props = $props()
 
   function onclick(event: MouseEvent): void {
@@ -69,7 +72,8 @@
         { label: 'Open', onselect: onopen },
         { label: 'Show in folder', onselect: onreveal },
         { label: 'Copy path', onselect: oncopypath },
-        { label: 'Same prompt', onselect: onsameprompt }
+        { label: 'Same prompt', onselect: onsameprompt },
+        ...moreActions
       ]}
     />
     <button

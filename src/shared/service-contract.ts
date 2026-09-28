@@ -10,6 +10,7 @@ import {
 } from './gallery'
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { addRootResultSchema, rootSummarySchema } from './library'
+import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema } from './search'
 import { tagChangeSchema, tagNameSchema, tagSchema } from './tags'
 import { serviceHealthSchema } from './service-health'
@@ -37,7 +38,15 @@ export enum ServiceMethod {
   TagsMerge = 'tags.merge',
   TagsDelete = 'tags.delete',
   TagsApply = 'tags.apply',
-  TagsRemove = 'tags.remove'
+  TagsRemove = 'tags.remove',
+  AlbumsList = 'albums.list',
+  AlbumsCreate = 'albums.create',
+  AlbumsRename = 'albums.rename',
+  AlbumsDelete = 'albums.delete',
+  AlbumsSetCover = 'albums.set-cover',
+  AlbumsAdd = 'albums.add',
+  AlbumsRemove = 'albums.remove',
+  AlbumsMove = 'albums.move'
 }
 
 const noParams = z.object({}).strict()
@@ -46,6 +55,8 @@ const imageIdParams = z.object({ imageId: z.number().int().positive() }).strict(
 const markIds = z.array(z.number().int().positive()).min(1).max(MAX_IDS_PER_MARK)
 const tagId = z.number().int().positive()
 const tagIds = z.array(tagId).min(1).max(200)
+const albumId = z.number().int().positive()
+const changed = z.object({ changed: z.number().int().nonnegative() })
 
 /**
  * Parameter and result schemas per method: the service validates params, main validates
@@ -102,6 +113,39 @@ export const serviceContract = {
   [ServiceMethod.TagsRemove]: {
     params: z.object({ tagIds, imageIds: markIds }).strict(),
     result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.AlbumsList]: { params: noParams, result: z.array(albumSchema).readonly() },
+  [ServiceMethod.AlbumsCreate]: {
+    params: z.object({ name: albumNameSchema }).strict(),
+    result: albumChangeSchema
+  },
+  [ServiceMethod.AlbumsRename]: {
+    params: z.object({ id: albumId, name: albumNameSchema }).strict(),
+    result: albumChangeSchema
+  },
+  [ServiceMethod.AlbumsDelete]: {
+    params: z.object({ id: albumId }).strict(),
+    result: z.object({ deleted: z.boolean() })
+  },
+  [ServiceMethod.AlbumsSetCover]: {
+    /** null goes back to the album's first image. */
+    params: z.object({ id: albumId, imageId: z.number().int().positive().nullable() }).strict(),
+    result: albumChangeSchema
+  },
+  [ServiceMethod.AlbumsAdd]: {
+    params: z.object({ albumId, imageIds: markIds }).strict(),
+    result: changed
+  },
+  [ServiceMethod.AlbumsRemove]: {
+    params: z.object({ albumId, imageIds: markIds }).strict(),
+    result: changed
+  },
+  [ServiceMethod.AlbumsMove]: {
+    /** `beforeId` null (or not in the album) moves the images to the end. */
+    params: z
+      .object({ albumId, imageIds: markIds, beforeId: z.number().int().positive().nullable() })
+      .strict(),
+    result: changed
   },
   [ServiceMethod.GalleryImages]: {
     params: z

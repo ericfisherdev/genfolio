@@ -9,6 +9,8 @@ describe('routes', () => {
     ALL_PHOTOS,
     { kind: RouteKind.Directory, directoryId: 7, recursive: true },
     { kind: RouteKind.Directory, directoryId: 7, recursive: false },
+    { kind: RouteKind.Album, albumId: 3 },
+    { kind: RouteKind.Album, albumId: 3, filters: { favoritesOnly: true } },
     { kind: RouteKind.Image, imageId: 42 }
   ])('round-trips %j', (route) => {
     expect(parseRoute(formatRoute(route))).toEqual(route)
@@ -22,12 +24,25 @@ describe('routes', () => {
     })
   })
 
-  it.each(['', '#', '#/dir/0', '#/dir/abc', '#/image/-1', '#/dir/3?recursive=2', '#/nowhere'])(
-    'falls back to All Photos for %s',
-    (hash) => {
-      expect(parseRoute(hash)).toEqual(ALL_PHOTOS)
-    }
-  )
+  it('keeps an album when its filters are cleared', () => {
+    expect(
+      withFilters({ kind: RouteKind.Album, albumId: 3, filters: { minRating: 2 } }, {})
+    ).toEqual({ kind: RouteKind.Album, albumId: 3 })
+  })
+
+  it.each([
+    '',
+    '#',
+    '#/dir/0',
+    '#/album/0',
+    '#/album/x',
+    '#/dir/abc',
+    '#/image/-1',
+    '#/dir/3?recursive=2',
+    '#/nowhere'
+  ])('falls back to All Photos for %s', (hash) => {
+    expect(parseRoute(hash)).toEqual(ALL_PHOTOS)
+  })
 })
 
 describe('routes with filters', () => {

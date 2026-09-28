@@ -3,12 +3,13 @@ import App from './App.svelte'
 import { appServicesContext, type AppServices } from './lib/app-context'
 import { RouterState, windowHashLocation } from './lib/routing/router.svelte'
 import { GalleryState } from './lib/state/gallery.svelte'
+import { AlbumsState } from './lib/state/albums.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from './lib/state/image-marks'
 import { LibraryState } from './lib/state/library.svelte'
-import { refreshAfterTagChange } from './lib/state/refresh-after-tag-change'
+import { refreshAfterAlbumChange, refreshAfterTagChange } from './lib/state/refresh-results'
 import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
@@ -39,7 +40,10 @@ const services: AppServices = {
   tags: new TagsState(api, library, () =>
     refreshAfterTagChange(gallery, facets, layoutUpdateFor(router.route))
   ),
-  selection: new SelectionState(gallery)
+  selection: new SelectionState(gallery),
+  albums: new AlbumsState(api, library, () =>
+    refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
+  )
 }
 
 export default mount(App, {

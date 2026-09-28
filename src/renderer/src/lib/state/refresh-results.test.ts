@@ -3,7 +3,7 @@ import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import type { GalleryQuery } from '@shared/gallery'
 import { SetMatchMode } from '@shared/search-kinds'
 import { LayoutUpdate } from './image-marks'
-import { refreshAfterTagChange } from './refresh-after-tag-change'
+import { refreshAfterAlbumChange, refreshAfterTagChange } from './refresh-results'
 
 const PLAIN: GalleryQuery = { scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest }
 const BY_TAG: GalleryQuery = {
@@ -44,5 +44,26 @@ describe('refreshAfterTagChange', () => {
     refreshAfterTagChange(gallery, facets, LayoutUpdate.Deferred)
     expect(gallery.refreshLayout).not.toHaveBeenCalled()
     expect(gallery.markLayoutStale).toHaveBeenCalled()
+  })
+})
+
+describe('refreshAfterAlbumChange', () => {
+  const ALBUM: GalleryQuery = { ...PLAIN, scope: { kind: GalleryScopeKind.Album, albumId: 2 } }
+
+  it('leaves views other than an album alone', () => {
+    const { gallery, facets } = fakes(PLAIN)
+    refreshAfterAlbumChange(gallery, facets, LayoutUpdate.Now)
+    expect(facets.load).not.toHaveBeenCalled()
+    expect(gallery.refreshLayout).not.toHaveBeenCalled()
+  })
+
+  it('reloads an album view and its facets, or flags it stale while an image is open', () => {
+    const now = fakes(ALBUM)
+    refreshAfterAlbumChange(now.gallery, now.facets, LayoutUpdate.Now)
+    expect(now.gallery.refreshLayout).toHaveBeenCalled()
+    expect(now.facets.load).toHaveBeenCalledWith(ALBUM)
+    const deferred = fakes(ALBUM)
+    refreshAfterAlbumChange(deferred.gallery, deferred.facets, LayoutUpdate.Deferred)
+    expect(deferred.gallery.markLayoutStale).toHaveBeenCalled()
   })
 })

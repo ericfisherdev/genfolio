@@ -13,6 +13,7 @@ import { pickFolderWithDialog } from './folder-picker'
 import { ImageFileActions } from './image-file-actions'
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
+import { registerAlbumChannels } from './ipc/album-channels'
 import { registerTagChannels } from './ipc/tag-channels'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
@@ -84,6 +85,7 @@ function onReady(): void {
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
   registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
   registerTagChannels(ipc, libraryService)
+  registerAlbumChannels(ipc, libraryService)
   denyAllPermissions(session.defaultSession)
   const imageFiles = new ImageFileResolver(
     new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),

@@ -4,7 +4,7 @@ import type { GenfolioApi } from '@shared/genfolio-api'
 import type { ImageCard } from '@shared/gallery'
 import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import { ImageFormat } from '@shared/image-format'
-import { TagOutcome } from '@shared/tag-kinds'
+import { ChangeOutcome } from '@shared/change-outcome'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
@@ -152,7 +152,7 @@ describe('BulkBar', () => {
 
   it('creates a typed tag and applies it to the selection', async () => {
     const created = { id: 4, name: 'keeper', imageCount: 0 }
-    const createTag = vi.fn(async () => ({ outcome: TagOutcome.Done, tag: created }) as const)
+    const createTag = vi.fn(async () => ({ outcome: ChangeOutcome.Done, tag: created }) as const)
     const applyTags = vi.fn(async () => 2)
     const { services } = await renderBar({ createTag, applyTags })
     const input = screen.getByRole('combobox', { name: 'Tag them' })

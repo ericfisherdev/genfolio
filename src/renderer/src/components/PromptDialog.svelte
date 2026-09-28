@@ -12,6 +12,9 @@
 
   let { open, title, label, initial, confirmLabel, maxlength, onconfirm, oncancel }: Props =
     $props()
+  // Unique per instance: several dialogs of one kind can be on the page at once.
+  const uid = $props.id()
+  const titleId = `${uid}-title`
   let dialog: HTMLDialogElement | undefined = $state()
   let value = $state('')
 
@@ -30,9 +33,9 @@
   }
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="prompt-title" {oncancel}>
+<dialog bind:this={dialog} aria-labelledby={titleId} {oncancel}>
   <form onsubmit={submit}>
-    <h2 id="prompt-title">{title}</h2>
+    <h2 id={titleId}>{title}</h2>
     <label>
       {label}
       <!-- svelte-ignore a11y_autofocus -->
