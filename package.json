@@ -29,7 +29,7 @@
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "package:linux": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --linux --publish never",
-    "package:dir": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --dir",
+    "package:dir": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --dir --publish never",
     "icons": "node scripts/render-icons.mjs",
     "postinstall": "electron-builder install-app-deps",
     "verify:samples": "test -d \"$GENFOLIO_SAMPLE_DIR\" || { echo 'GENFOLIO_SAMPLE_DIR is not a directory' >&2; exit 1; } && vitest run --project node sample-dir",
