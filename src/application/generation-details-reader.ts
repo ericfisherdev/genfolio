@@ -3,6 +3,7 @@ import type {
   SourcedGeneration,
   StoredGeneration
 } from '@domain/generation'
+import { fooocusParamsOf } from '@domain/fooocus-parameters'
 import { byPrecedence } from '@domain/generation-merger'
 import type { ImageId } from '@domain/library'
 import type { MetadataRecord } from '@domain/metadata-record'
@@ -50,6 +51,7 @@ export class GenerationDetailsReader {
       // The merger stores the best-ranked source's params.
       paramsFormat: ranked[0]?.format ?? GenerationFormat.A1111Infotext,
       params: { ...generation.params },
+      fooocusParams: fooocusParamsOf(ranked) ?? null,
       sources: groupByOrigin(records)
     }
   }

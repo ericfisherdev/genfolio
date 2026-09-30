@@ -30,6 +30,7 @@ const FIND_DETAILS = {
   performance: null,
   resources: [],
   paramsFormat: GenerationFormat.A1111Infotext,
+  fooocusParams: null,
   params: {},
   sources: []
 } satisfies GenerationDetails

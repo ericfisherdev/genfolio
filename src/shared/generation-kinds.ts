@@ -47,5 +47,7 @@ export enum CopyVariant {
   PromptWithLoras = 'prompt-with-loras',
   Negative = 'negative',
   /** Everything, as A1111 infotext. */
-  All = 'all'
+  All = 'all',
+  /** Everything, as the JSON Fooocus's prompt box loads with "Load Parameters". */
+  Fooocus = 'fooocus'
 }

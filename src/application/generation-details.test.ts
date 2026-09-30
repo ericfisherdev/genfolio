@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import type Database from 'better-sqlite3'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ImageId } from '@domain/library'
+import { formatFooocusParameters } from '@domain/fooocus-parameters'
 import { formatInfotext, generationText } from '@domain/generation-text'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
 import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqlite-generation-repository'
@@ -14,6 +15,7 @@ import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { A1111InfotextParser } from '@infrastructure/metadata/parsers/a1111-infotext-parser'
+import { FooocusJsonParser } from '@infrastructure/metadata/parsers/fooocus-json-parser'
 import type { GenerationDetails } from '@shared/generation'
 import { CopyVariant, GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
@@ -167,6 +169,88 @@ describe('A1111 params in the infotext', () => {
     const details = detailsOf('2026-09-27_20-36-27_8675.png')
     expect(details.paramsFormat).toBe(GenerationFormat.FooocusJson)
     expect(formatInfotext(details)).not.toContain('base_model')
+  })
+})
+
+describe('Fooocus parameters', () => {
+  const fooocus = new FooocusJsonParser()
+  /** Model hashes aren't part of what the copy carries, so they're compared without. */
+  const withoutHashes = (fields: Record<string, unknown>): Record<string, unknown> => {
+    const strip = (model: unknown): unknown =>
+      model && typeof model === 'object' ? { ...model, hash: null } : model
+    const stripped: Record<string, unknown> = { ...fields, checkpoint: strip(fields['checkpoint']) }
+    if ('refiner' in fields) stripped['refiner'] = strip(fields['refiner'])
+    if (Array.isArray(fields['loras'])) stripped['loras'] = fields['loras'].map(strip)
+    return stripped
+  }
+  /** The merged fields Fooocus's JSON carries, in the shape the Fooocus parser reports them. */
+  const fooocusFields = (details: GenerationDetails): Record<string, unknown> => {
+    const fields = infotextFields(details)
+    // An unknown LoRA weight is written as 1, A1111's reading of a bare tag.
+    if (Array.isArray(fields['loras'])) {
+      fields['loras'] = fields['loras'].map((lora: { weight: number | null }) => ({
+        ...lora,
+        weight: lora.weight ?? 1
+      }))
+    }
+    if (details.styles) fields['styles'] = details.styles
+    return withoutHashes(fields)
+  }
+
+  it.each(readdirSync(FIXTURES).filter((name) => /\.(png|webp|jpeg)$/.test(name)))(
+    '%s formats to a JSON object the Fooocus parser reads back to the same fields',
+    (name) => {
+      const details = detailsOf(name)
+      const text = formatFooocusParameters(details)
+      expect(text.startsWith('{')).toBe(true)
+      const reparsed = fooocus.parse(text)
+      expect(reparsed).toBeDefined()
+      const fields: Record<string, unknown> = { ...reparsed }
+      delete fields['generator']
+      delete fields['params']
+      expect(withoutHashes(fields)).toEqual(fooocusFields(details))
+    }
+  )
+
+  it('passes Fooocus-only fields through, with model file names taken from the log', () => {
+    // Embedded Fooocus JSON names models by stem; the log entry for the same image has the files.
+    const details = detailsOf('2026-09-27_20-36-27_8675.png')
+    expect(details.paramsFormat).toBe(GenerationFormat.FooocusJson)
+    expect(details.params['base_model']).not.toMatch(/\.safetensors$/)
+    const parameters = JSON.parse(formatFooocusParameters(details)) as Record<string, string>
+    expect(parameters['base_model']).toMatch(/\.safetensors$/)
+    expect(parameters['lora_combined_1']).toMatch(/\.safetensors : /)
+    for (const key of ['sharpness', 'adm_guidance', 'base_model_hash']) {
+      expect(parameters[key]).toBe(details.params[key])
+    }
+  })
+
+  it('derives the fields from the merged details when the params are not from Fooocus', () => {
+    const a1111 = new A1111InfotextParser()
+    const parsed = a1111.parse(
+      'a cat\nSteps: 20, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512'
+    )
+    if (!parsed) throw new Error('fixture text did not parse')
+    const details: GenerationDetails = {
+      ...detailsOf('2026-09-27_20-38-19_1754.png'),
+      paramsFormat: GenerationFormat.A1111Infotext,
+      params: parsed.params,
+      fooocusParams: null
+    }
+    const parameters = JSON.parse(formatFooocusParameters(details)) as Record<string, unknown>
+    expect(parameters).toMatchObject({
+      prompt: details.prompt,
+      negative_prompt: details.negativePrompt,
+      steps: details.steps,
+      guidance_scale: details.cfgScale,
+      seed: details.seed,
+      resolution: `(${details.width}, ${details.height})`,
+      base_model: details.resources[0]?.name,
+      lora_combined_1: 'add-detail-xl : 0.6',
+      lora_combined_2: 'Pony Realism Slider : 1'
+    })
+    expect(parameters).not.toHaveProperty('Steps')
+    expect(parameters).not.toHaveProperty('sharpness')
   })
 })
 

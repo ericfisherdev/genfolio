@@ -78,6 +78,14 @@
       <button type="button" class="copy-all" onclick={() => oncopy(CopyVariant.All)}>
         Copy all
       </button>
+      <button
+        type="button"
+        class="copy-all"
+        title="Copy the parameters as JSON; paste into Fooocus's prompt box and click Load Parameters"
+        onclick={() => oncopy(CopyVariant.Fooocus)}
+      >
+        Copy for Fooocus
+      </button>
     {/if}
     <button
       type="button"

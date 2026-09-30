@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Generation data
+
+- "Copy for Fooocus" on the generation panel: the parameters as the JSON Fooocus's prompt box
+  loads with "Load Parameters". Model file names come from the Fooocus log when the image
+  embeds only their stems, so the dropdowns select the right files. "Copy all" (A1111 infotext)
+  is unchanged.
+
 ## 0.1.0 — first release
 
 The first usable Genfolio: a desktop gallery for images generated with AUTOMATIC1111 and

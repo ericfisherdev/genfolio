@@ -56,6 +56,7 @@ const FIXTURE: GenerationDetails = {
     }
   ],
   paramsFormat: GenerationFormat.FooocusJson,
+  fooocusParams: null,
   params: {},
   sources: [
     { origin: MetadataOrigin.PngText, records: [{ key: 'parameters', value: 'raw text' }] },
@@ -135,11 +136,13 @@ describe('GenerationPanel', () => {
   it('copies each variant through its button', async () => {
     const { oncopy } = renderPanel(FIXTURE)
     await fireEvent.click(screen.getByRole('button', { name: 'Copy all' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy for Fooocus' }))
     await fireEvent.click(screen.getByRole('button', { name: 'Copy prompt' }))
     await fireEvent.click(screen.getByRole('button', { name: '+ LoRA tags' }))
     await fireEvent.click(screen.getByRole('button', { name: 'Copy negative prompt' }))
     expect(oncopy.mock.calls.map(([variant]) => variant)).toEqual([
       CopyVariant.All,
+      CopyVariant.Fooocus,
       CopyVariant.Prompt,
       CopyVariant.PromptWithLoras,
       CopyVariant.Negative
