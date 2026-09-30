@@ -2,6 +2,7 @@ import { appendFileSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs
 import { join } from 'node:path'
 
 export enum LogLevel {
+  Info = 'INFO',
   Warn = 'WARN',
   Error = 'ERROR'
 }

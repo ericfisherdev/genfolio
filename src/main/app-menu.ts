@@ -2,13 +2,14 @@ import type { MenuItemConstructorOptions } from 'electron'
 
 export interface AppMenuActions {
   showAbout(): void
+  checkForUpdates(): void
   openLogs(): void
   openWebsite(): void
 }
 
 /**
  * The application menu: Quit, the usual edit and view roles (developer tools only in
- * development), and Help with About, the logs folder and the project page.
+ * development), and Help with About, Check for Updates…, the logs folder and the project page.
  */
 export function appMenuTemplate(
   actions: AppMenuActions,
@@ -34,6 +35,7 @@ export function appMenuTemplate(
       label: 'Help',
       submenu: [
         { label: 'About Genfolio', click: () => actions.showAbout() },
+        { label: 'Check for Updates…', click: () => actions.checkForUpdates() },
         { label: 'Open Logs Folder', click: () => actions.openLogs() },
         { type: 'separator' },
         { label: 'Genfolio on GitHub', click: () => actions.openWebsite() }

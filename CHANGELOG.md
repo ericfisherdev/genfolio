@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Updating
+
+- Help → Check for Updates…: finds the latest GitHub release, downloads it on request with
+  progress in the notice bar, and installs it on a second confirmation. The AppImage replaces
+  itself; pacman and deb installs go through the system's password dialog. Failures name the
+  reason and offer the releases page.
+
+### Releasing
+
+- Releases are built by the Release workflow from a `v<version>` tag and include the update feed
+  (`latest-linux.yml`) for the in-app updater; the packages now carry `app-update.yml` and the
+  package type electron-updater needs. 0.1.0 was built without these, so it has to be replaced by
+  hand once.
+
 ### Generation data
 
 - "Copy for Fooocus" on the generation panel: the parameters as the JSON Fooocus's prompt box

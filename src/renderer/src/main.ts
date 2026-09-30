@@ -20,6 +20,7 @@ import { refreshAfterAlbumChange, refreshAfterTagChange } from './lib/state/refr
 import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
+import { UpdateNotices } from './lib/state/update-notices'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
 import './styles/tokens.css'
 
@@ -33,6 +34,7 @@ const library = new LibraryState(api)
 const problems = new ProblemReports(api, library)
 window.addEventListener('error', (event) => problems.unexpected(event.error))
 window.addEventListener('unhandledrejection', (event) => problems.unexpected(event.reason))
+new UpdateNotices(api, library)
 const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
 const deletion = new ImageDeletion(api, library, () => void library.refresh())

@@ -42,6 +42,22 @@ Run the e2e suite against a packaged build with `npm run test:e2e:packaged`.
 with the third-party licences in `resources/THIRD_PARTY_LICENSES.txt`. The icon is drawn in
 `build/icon.svg`; `npm run icons` renders its PNG sizes. `genfolio --version` prints the version.
 
+## Updating
+
+Help → Check for Updates… looks up the latest GitHub release. If there is a newer one, Genfolio
+offers to download it and, once downloaded, to install and restart. The AppImage replaces
+itself; the pacman and deb packages are installed through the system's authentication dialog,
+which asks for your password. Nothing is checked, downloaded or installed unless you ask.
+Development and unpacked builds point at the releases page instead.
+
+## Releasing
+
+Set the version in `package.json`, add the changelog entry, then push a tag `v<version>` on
+`main`. The Release workflow builds the packages and attaches them, `SHA256SUMS` and the update
+feed `latest-linux.yml` to a **draft** release for the tag; check the notes and publish it. Running
+the workflow by hand instead keeps the packages as a workflow artifact, without a release. A
+local `npm run package:linux` never uploads anything.
+
 Logs (no file paths or prompts) are in `~/.config/Genfolio/logs`, also reachable from
 Help → Open Logs Folder.
 

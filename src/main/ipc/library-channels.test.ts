@@ -69,7 +69,8 @@ describe('registerLibraryChannels', () => {
       IpcChannel.SimilarGroupMembers,
       IpcChannel.OpenLogs,
       IpcChannel.ReportRendererError,
-      IpcChannel.Diagnostics
+      IpcChannel.Diagnostics,
+      IpcChannel.CancelUpdateDownload
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

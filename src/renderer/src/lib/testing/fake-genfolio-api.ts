@@ -51,6 +51,8 @@ export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioA
     getGeneration: unexpected('getGeneration'),
     copyGeneration: unexpected('copyGeneration'),
     onScanEvent: () => () => undefined,
+    onUpdateEvent: () => () => undefined,
+    cancelUpdateDownload: unexpected('cancelUpdateDownload'),
     ...overrides
   }
 }

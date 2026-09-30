@@ -1,7 +1,9 @@
 import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { open, realpath, rm, stat } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { ImageDeleter } from '@application/image-deleter'
 import { ImageFileResolver } from '@application/image-file-resolver'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
@@ -33,11 +35,15 @@ import {
   handleImageScheme,
   registerImageSchemeAsPrivileged
 } from './protocol/register-image-scheme'
-import { broadcastScanEvent } from './scan-event-broadcast'
+import { broadcastScanEvent, broadcastUpdateEvent } from './event-broadcast'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
 import { LibraryServiceSupervisor } from './service/library-service-supervisor'
 import { claimSingleInstance, focusWindow } from './single-instance'
+import { ElectronUpdaterSource } from './updates/electron-updater-source'
+import { detectInstallMethod, PACKAGE_TYPE_FILE } from './updates/install-method'
+import { UpdateCoordinator } from './updates/update-coordinator'
+import { sanitizeUpdaterLog } from './updates/updater-log-sanitizer'
 import { userDataLocation } from './user-data-override'
 import { createMainWindow } from './window'
 
@@ -53,6 +59,24 @@ const rendererEntry: RendererEntry =
     : { kind: 'file', path: join(__dirname, '../renderer/index.html') }
 
 const PROJECT_URL = 'https://github.com/ericfisherdev/genfolio'
+const RELEASES_URL = `${PROJECT_URL}/releases`
+
+/** The message box goes over the focused window when there is one. */
+function showMessageBox(
+  options: Electron.MessageBoxOptions
+): Promise<Electron.MessageBoxReturnValue> {
+  const window = BrowserWindow.getFocusedWindow()
+  return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)
+}
+
+/** electron-builder's package marker, or undefined when this build has none. */
+function readPackageType(): string | undefined {
+  try {
+    return readFileSync(join(process.resourcesPath, PACKAGE_TYPE_FILE), 'utf8')
+  } catch {
+    return undefined
+  }
+}
 
 function libraryDatabasePath(): string {
   return join(app.getPath('userData'), 'genfolio.db')
@@ -94,11 +118,30 @@ function onReady(): void {
     iconPath: icon,
     credits: 'Third-party licences: THIRD_PARTY_LICENSES.txt in the application resources'
   })
+  const mainLog = new RotatingFileLog(logsDir, 'main')
+  const updates = new UpdateCoordinator({
+    source: new ElectronUpdaterSource(autoUpdater, {
+      info: (message) => mainLog.write(LogLevel.Info, `updater: ${sanitizeUpdaterLog(message)}`),
+      warn: (message) => mainLog.write(LogLevel.Warn, `updater: ${sanitizeUpdaterLog(message)}`),
+      error: (message) => mainLog.write(LogLevel.Error, `updater: ${sanitizeUpdaterLog(message)}`)
+    }),
+    installMethod: detectInstallMethod(process.env, app.isPackaged, readPackageType),
+    currentVersion: app.getVersion(),
+    releasesUrl: RELEASES_URL,
+    show: showMessageBox,
+    openExternal: (url) => void shell.openExternal(url),
+    publish: broadcastUpdateEvent,
+    log: {
+      info: (message) => mainLog.write(LogLevel.Info, message),
+      error: (message) => mainLog.write(LogLevel.Error, message)
+    }
+  })
   Menu.setApplicationMenu(
     Menu.buildFromTemplate(
       appMenuTemplate(
         {
           showAbout: () => app.showAboutPanel(),
+          checkForUpdates: () => void updates.checkInteractively(),
           openLogs: () => void openLogs(),
           openWebsite: () => void shell.openExternal(PROJECT_URL)
         },
@@ -106,7 +149,6 @@ function onReady(): void {
       )
     )
   )
-  const mainLog = new RotatingFileLog(logsDir, 'main')
   const libraryService = new LibraryServiceSupervisor(
     (onExit) =>
       new LibraryServiceClient(forkLibraryService(libraryDatabasePath(), logsDir), {
@@ -139,7 +181,8 @@ function onReady(): void {
     diagnostics: () => ({
       serviceRestarts: libraryService.restarts,
       serviceStopped: libraryService.stopped
-    })
+    }),
+    cancelUpdateDownload: () => updates.cancelDownload()
   })
   denyAllPermissions(session.defaultSession)
   const imageFiles = new ImageFileResolver(
@@ -151,10 +194,7 @@ function onReady(): void {
     new ImageDeleter(
       imageFiles,
       { trash: (path) => shell.trashItem(path), remove: (path) => rm(path) },
-      new DialogDeleteConfirmer((options) => {
-        const window = BrowserWindow.getFocusedWindow()
-        return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)
-      }),
+      new DialogDeleteConfirmer(showMessageBox),
       {
         forget: async (ids) =>
           ids.length === 0
