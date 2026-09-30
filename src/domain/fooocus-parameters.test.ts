@@ -48,6 +48,39 @@ describe('fooocusParamsOf', () => {
     })
   })
 
+  it('replaces a dotted stem with its file name, which the extension alone cannot tell apart', () => {
+    const embedded = source(MetadataOrigin.PngText, GenerationFormat.FooocusJson, {
+      base_model: 'sd_xl_base_1.0',
+      refiner_model: 'sd_xl_refiner_1.0_0.9vae',
+      lora_combined_1: 'sd_xl_offset_example-lora_1.0 : 0.1'
+    })
+    const log = source(MetadataOrigin.FooocusLog, GenerationFormat.FooocusJson, {
+      base_model: 'sdxl/sd_xl_base_1.0.safetensors',
+      refiner_model: 'sd_xl_refiner_1.0_0.9vae.safetensors',
+      lora_combined_1: 'sd_xl_offset_example-lora_1.0.safetensors : 0.1'
+    })
+    expect(fooocusParamsOf([embedded, log])).toEqual({
+      base_model: 'sdxl/sd_xl_base_1.0.safetensors',
+      refiner_model: 'sd_xl_refiner_1.0_0.9vae.safetensors',
+      lora_combined_1: 'sd_xl_offset_example-lora_1.0.safetensors : 0.1'
+    })
+  })
+
+  it('keeps a file name the best source already gives, and a stem no later file matches', () => {
+    const embedded = source(MetadataOrigin.PngText, GenerationFormat.FooocusJson, {
+      base_model: 'sdxl/model_v1.safetensors',
+      lora_combined_1: 'detail : 0.5'
+    })
+    const log = source(MetadataOrigin.FooocusLog, GenerationFormat.FooocusJson, {
+      base_model: 'other/model_v1.safetensors',
+      lora_combined_1: 'other.safetensors : 0.5'
+    })
+    expect(fooocusParamsOf([embedded, log])).toEqual({
+      base_model: 'sdxl/model_v1.safetensors',
+      lora_combined_1: 'detail : 0.5'
+    })
+  })
+
   it('keeps the best source of a model field when no source names its file', () => {
     const embedded = source(MetadataOrigin.PngText, GenerationFormat.FooocusJson, {
       base_model: 'model_v1'

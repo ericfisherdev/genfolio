@@ -225,18 +225,24 @@ describe('Fooocus parameters', () => {
     }
   })
 
-  it('derives the fields from the merged details when the params are not from Fooocus', () => {
-    const a1111 = new A1111InfotextParser()
-    const parsed = a1111.parse(
-      'a cat\nSteps: 20, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512'
-    )
+  /** Details whose params, sampler and scheduler come from A1111 infotext. */
+  const a1111Details = (paramsLine: string): GenerationDetails => {
+    const parsed = new A1111InfotextParser().parse(`a cat\n${paramsLine}`)
     if (!parsed) throw new Error('fixture text did not parse')
-    const details: GenerationDetails = {
+    return {
       ...detailsOf('2026-09-27_20-38-19_1754.png'),
       paramsFormat: GenerationFormat.A1111Infotext,
       params: parsed.params,
+      sampler: parsed.sampler ?? null,
+      scheduler: parsed.scheduler ?? null,
       fooocusParams: null
     }
+  }
+
+  it('derives the fields from the merged details when the params are not from Fooocus', () => {
+    const details = a1111Details(
+      'Steps: 20, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7, Seed: 1, Size: 512x512'
+    )
     const parameters = JSON.parse(formatFooocusParameters(details)) as Record<string, unknown>
     expect(parameters).toMatchObject({
       prompt: details.prompt,
@@ -246,11 +252,20 @@ describe('Fooocus parameters', () => {
       seed: details.seed,
       resolution: `(${details.width}, ${details.height})`,
       base_model: details.resources[0]?.name,
+      sampler: 'euler_ancestral',
       lora_combined_1: 'add-detail-xl : 0.6',
       lora_combined_2: 'Pony Realism Slider : 1'
     })
+    // Fooocus has no "Automatic" scheduler; leaving it out keeps the UI's choice.
+    expect(parameters).not.toHaveProperty('scheduler')
     expect(parameters).not.toHaveProperty('Steps')
     expect(parameters).not.toHaveProperty('sharpness')
+  })
+
+  it('maps an A1111 Karras sampler label to Fooocus sampler and scheduler names', () => {
+    const details = a1111Details('Steps: 20, Sampler: DPM++ 2M SDE Karras, CFG scale: 7, Seed: 1')
+    const parameters = JSON.parse(formatFooocusParameters(details)) as Record<string, unknown>
+    expect(parameters).toMatchObject({ sampler: 'dpmpp_2m_sde', scheduler: 'karras' })
   })
 })
 

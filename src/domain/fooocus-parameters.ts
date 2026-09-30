@@ -1,5 +1,6 @@
 import { GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import type { GenerationDetails, GenerationResource } from '@shared/generation'
+import { fooocusSamplerKey, fooocusSchedulerName } from './fooocus-sampler-names'
 import type { SourcedGeneration } from './generation'
 
 /** Fooocus writes `name : weight`; its loader splits on the same separator. */
@@ -9,20 +10,31 @@ const UNKNOWN_LORA_WEIGHT = 1
 /** Fooocus fields that name a model file. */
 const MODEL_FILE_KEYS = new Set(['base_model', 'refiner_model', 'vae'])
 const LORA_KEY = /^lora_combined_\d+$/
-const FILE_EXTENSION = /\.[A-Za-z0-9]+$/
 
-/** Whether a model-file field's value is a file name rather than a bare stem. */
-function namesFile(key: string, value: string): boolean {
-  const name = LORA_KEY.test(key) ? (value.split(LORA_SEPARATOR)[0] ?? '') : value
-  return FILE_EXTENSION.test(name)
+const isModelField = (key: string): boolean => MODEL_FILE_KEYS.has(key) || LORA_KEY.test(key)
+
+/** The model a model-file field's value names (a LoRA's value also carries its weight). */
+const modelName = (key: string, value: string): string =>
+  LORA_KEY.test(key) ? (value.split(LORA_SEPARATOR)[0] ?? '') : value
+
+/** Python's `Path(name).stem`, which Fooocus embeds in place of the file name. */
+function stemOf(name: string): string {
+  const base = name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1)
+  const dot = base.lastIndexOf('.')
+  return dot > 0 ? base.slice(0, dot) : base
 }
+
+/** Whether `candidate` is the file name of the model `current` names by stem. */
+const namesFileOf = (key: string, current: string, candidate: string): boolean =>
+  candidate !== current && stemOf(modelName(key, candidate)) === modelName(key, current)
 
 /**
  * The Fooocus fields of an image, merged across its Fooocus-format sources, or `undefined` when
  * none of the sources is one. Each field comes from the best source that has it, except that a
- * model field prefers a source giving the file name: Fooocus embeds model *stems* in the image
- * and writes the file names (with folder and extension) only to its log, and its prompt-box
- * loader puts the value into the model dropdown as is, so only a file name selects the model.
+ * model field is replaced by a later source's file name of the same model: Fooocus embeds model
+ * *stems* (`Path(name).stem`) in the image and writes the file names (with folder and extension)
+ * only to its log, and its prompt-box loader puts the value into the model dropdown as is, so
+ * only a file name selects the model.
  */
 export function fooocusParamsOf(
   ranked: readonly SourcedGeneration[]
@@ -35,9 +47,9 @@ export function fooocusParamsOf(
   for (const params of sources) {
     for (const [key, value] of Object.entries(params)) {
       const current = merged[key]
-      const isModelField = MODEL_FILE_KEYS.has(key) || LORA_KEY.test(key)
-      const upgrade = isModelField && !namesFile(key, current ?? '') && namesFile(key, value)
-      if (current === undefined || upgrade) merged[key] = value
+      if (current === undefined || (isModelField(key) && namesFileOf(key, current, value))) {
+        merged[key] = value
+      }
     }
   }
   return merged
@@ -49,7 +61,8 @@ const resourcesOf = (details: GenerationDetails, kind: ResourceKind): Generation
 /**
  * The Fooocus fields the merged details can stand in for, under the keys Fooocus's parameter
  * loader reads. Values Fooocus evaluates as Python literals (`styles`, `resolution`) are written
- * as such. Absent fields are left out so the loader keeps the UI's current value.
+ * as such, and A1111 sampler and scheduler names are mapped to Fooocus's. Absent fields, and
+ * names Fooocus has no dropdown choice for, are left out so the loader keeps the UI's value.
  */
 function derivedFields(details: GenerationDetails): Record<string, string | number> {
   const checkpoint = resourcesOf(details, ResourceKind.Checkpoint)[0]
@@ -67,8 +80,8 @@ function derivedFields(details: GenerationDetails): Record<string, string | numb
     guidance_scale: details.cfgScale,
     base_model: checkpoint?.name,
     refiner_model: refiner?.name,
-    sampler: details.sampler,
-    scheduler: details.scheduler,
+    sampler: details.sampler === null ? undefined : fooocusSamplerKey(details.sampler),
+    scheduler: fooocusSchedulerName(details.scheduler, details.sampler),
     vae: details.vae,
     seed: details.seed
   }
