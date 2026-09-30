@@ -103,6 +103,18 @@ describe('ElectronUpdaterSource', () => {
     new ElectronUpdaterSource(updater, logger).install()
     expect(updater.quitAndInstall).toHaveBeenCalledWith(false, true)
   })
+
+  it('throws the install failure electron-updater only emits, then stops listening for it', () => {
+    const updater = fakeUpdater(null)
+    // electron-updater's own default listener; without one, emitting `error` throws by itself.
+    updater.on('error', () => undefined)
+    updater.quitAndInstall.mockImplementation(() => {
+      updater.emit('error', new Error('pkexec exited with code 126'))
+    })
+    const source = new ElectronUpdaterSource(updater, logger)
+    expect(() => source.install()).toThrow('pkexec exited with code 126')
+    expect(updater.listenerCount('error')).toBe(1)
+  })
 })
 
 describe('plainNotes', () => {

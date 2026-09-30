@@ -69,9 +69,21 @@ export class ElectronUpdaterSource implements UpdateSource {
   }
 
   install(): void {
-    // Not silent (the package installers may show the system's authentication dialog), and
-    // relaunch afterwards where the installer can.
-    this.updater.quitAndInstall(false, true)
+    // quitAndInstall reports a failed install (a dismissed password prompt, a package manager
+    // error) only through the synchronous `error` event and then returns; catch it in place.
+    let failure: Error | undefined
+    const onError = (error: Error): void => {
+      failure ??= error
+    }
+    this.updater.on('error', onError)
+    try {
+      // Not silent (the package installers may show the system's authentication dialog), and
+      // relaunch afterwards where the installer can.
+      this.updater.quitAndInstall(false, true)
+    } finally {
+      this.updater.removeListener('error', onError)
+    }
+    if (failure) throw failure
   }
 }
 

@@ -34,6 +34,10 @@ export interface UpdateSource {
   download(onProgress: (progress: UpdateProgress) => void): Promise<void>
   /** Stops a running download; a no-op otherwise. */
   cancelDownload(): void
-  /** Quits and installs the downloaded release, relaunching when the installer allows. */
+  /**
+   * Quits and installs the downloaded release, relaunching when the installer allows.
+   * @throws Error when the install failed or the authentication prompt was dismissed; the app
+   *   then stays open.
+   */
   install(): void
 }

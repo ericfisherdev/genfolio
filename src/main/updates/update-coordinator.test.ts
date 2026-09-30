@@ -200,6 +200,21 @@ describe('UpdateCoordinator', () => {
     expect(source.install).not.toHaveBeenCalled()
   })
 
+  it('reports a failed install (a dismissed password prompt) instead of staying on Installing', async () => {
+    const source = fakeSource({
+      install: vi.fn(() => {
+        throw new Error('pkexec exited with code 126')
+      })
+    })
+    const show = answering(['Update now', 'Install and restart', 'Close'])
+    const { updates, events } = coordinator(source, show, InstallMethod.Pacman)
+    await updates.checkInteractively()
+    expect(show.shown[2]).toMatchObject({ message: 'Could not update Genfolio.' })
+    expect(show.shown[2]?.detail).toContain('pkexec exited with code 126')
+    expect(phases(events).slice(-2)).toEqual([UpdatePhase.Installing, UpdatePhase.Failed])
+    expect(updates.busy).toBe(false)
+  })
+
   it('points a build it cannot update at the releases page without checking', async () => {
     const check = vi.fn()
     const show = answering(['Close'])
