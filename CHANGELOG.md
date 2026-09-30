@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Releasing
+
+- Releases are built by the Release workflow from a `v<version>` tag and include the update feed
+  (`latest-linux.yml`) for the in-app updater; the packages now carry `app-update.yml` and the
+  package type electron-updater needs. 0.1.0 was built without these, so it has to be replaced by
+  hand once.
+
 ### Generation data
 
 - "Copy for Fooocus" on the generation panel: the parameters as the JSON Fooocus's prompt box

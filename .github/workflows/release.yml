@@ -1,0 +1,66 @@
+name: Release
+
+# Pushing a `v*` tag builds the Linux packages and attaches them, with the update feed
+# (`latest-linux.yml`) electron-updater reads, to a draft GitHub release for that tag. The
+# release is published by hand after the notes are checked; the in-app updater only sees
+# published releases. Running the workflow by hand builds the packages and keeps them as a
+# workflow artifact, a rehearsal without a release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Read the version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check that the tag matches package.json
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          test "${GITHUB_REF_NAME}" = "v${VERSION}" || {
+            echo "tag ${GITHUB_REF_NAME} does not match package.json version ${VERSION}" >&2
+            exit 1
+          }
+      - run: npm run package:linux
+      - name: Write SHA256SUMS
+        working-directory: release/${{ steps.version.outputs.version }}
+        run: sha256sum -- *.AppImage *.pacman *.deb > SHA256SUMS
+      - name: Keep the packages as an artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: genfolio-${{ steps.version.outputs.version }}-linux
+          path: |
+            release/${{ steps.version.outputs.version }}/*.AppImage
+            release/${{ steps.version.outputs.version }}/*.pacman
+            release/${{ steps.version.outputs.version }}/*.deb
+            release/${{ steps.version.outputs.version }}/SHA256SUMS
+            release/${{ steps.version.outputs.version }}/latest-linux.yml
+          if-no-files-found: error
+      - name: Create the draft release with the packages and the update feed
+        if: github.event_name == 'push'
+        working-directory: release/${{ steps.version.outputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --draft \
+            --verify-tag \
+            --title "Genfolio ${VERSION}" \
+            --notes "See CHANGELOG.md for what changed." \
+            -- *.AppImage *.pacman *.deb SHA256SUMS latest-linux.yml

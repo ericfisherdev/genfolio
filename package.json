@@ -28,7 +28,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
-    "package:linux": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --linux",
+    "package:linux": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --linux --publish never",
     "package:dir": "npm run build && node scripts/third-party-licenses.mjs && electron-builder --dir",
     "icons": "node scripts/render-icons.mjs",
     "postinstall": "electron-builder install-app-deps",

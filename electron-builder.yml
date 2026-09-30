@@ -66,4 +66,11 @@ pacman:
 deb:
   artifactName: ${name}_${version}_${arch}.${ext}
 npmRebuild: false
-publish: null
+# The update feed: electron-updater reads GitHub Releases for `latest-linux.yml`. Setting it also
+# makes electron-builder write `app-update.yml` and `package-type` into the packages. Nothing is
+# uploaded from a build; the release workflow uploads the artifacts.
+publish:
+  provider: github
+  owner: ericfisherdev
+  repo: genfolio
+  releaseType: release
