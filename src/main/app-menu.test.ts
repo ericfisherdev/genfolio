@@ -2,13 +2,20 @@ import { describe, expect, it, vi } from 'vitest'
 import { appMenuTemplate, versionRequested } from './app-menu'
 
 describe('appMenuTemplate', () => {
-  it('offers About, the logs folder and the project page under Help', () => {
-    const actions = { showAbout: vi.fn(), openLogs: vi.fn(), openWebsite: vi.fn() }
+  it('offers About, Check for Updates, the logs folder and the project page under Help', () => {
+    const actions = {
+      showAbout: vi.fn(),
+      checkForUpdates: vi.fn(),
+      openLogs: vi.fn(),
+      openWebsite: vi.fn()
+    }
     const help = appMenuTemplate(actions, false).find((menu) => menu.label === 'Help')
     const items = help?.submenu as { label?: string; click?: () => void }[]
     items.find((item) => item.label === 'About Genfolio')?.click?.()
+    items.find((item) => item.label === 'Check for Updates…')?.click?.()
     items.find((item) => item.label === 'Open Logs Folder')?.click?.()
     expect(actions.showAbout).toHaveBeenCalled()
+    expect(actions.checkForUpdates).toHaveBeenCalled()
     expect(actions.openLogs).toHaveBeenCalled()
   })
 
@@ -16,7 +23,7 @@ describe('appMenuTemplate', () => {
     const roles = (development: boolean): unknown[] =>
       (
         appMenuTemplate(
-          { showAbout: vi.fn(), openLogs: vi.fn(), openWebsite: vi.fn() },
+          { showAbout: vi.fn(), checkForUpdates: vi.fn(), openLogs: vi.fn(), openWebsite: vi.fn() },
           development
         ).find((menu) => menu.label === 'View')?.submenu as { role?: string }[]
       ).map((item) => item.role)

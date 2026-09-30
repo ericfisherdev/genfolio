@@ -9,9 +9,11 @@ export interface AppActions {
   /** Records a renderer error by its name only. */
   logRendererError(name: string): void
   diagnostics(): AppDiagnostics
+  /** Stops an update download in progress; a no-op otherwise. */
+  cancelUpdateDownload(): void
 }
 
-/** Registers the app-level channels: logs, renderer errors and diagnostics. */
+/** Registers the app-level channels: logs, renderer errors, diagnostics and update download. */
 export function registerAppChannels(ipc: IpcHandlerRegistry, actions: AppActions): void {
   ipc.register(IpcChannel.OpenLogs, z.tuple([]), () => actions.openLogs())
   ipc.register(
@@ -20,4 +22,7 @@ export function registerAppChannels(ipc: IpcHandlerRegistry, actions: AppActions
     async (name) => actions.logRendererError(name)
   )
   ipc.register(IpcChannel.Diagnostics, z.tuple([]), async () => actions.diagnostics())
+  ipc.register(IpcChannel.CancelUpdateDownload, z.tuple([]), async () =>
+    actions.cancelUpdateDownload()
+  )
 }

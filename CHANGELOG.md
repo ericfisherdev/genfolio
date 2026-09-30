@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Updating
+
+- Help → Check for Updates…: finds the latest GitHub release, downloads it on request with
+  progress in the notice bar, and installs it on a second confirmation. The AppImage replaces
+  itself; pacman and deb installs go through the system's password dialog. Failures name the
+  reason and offer the releases page.
+
 ### Releasing
 
 - Releases are built by the Release workflow from a `v<version>` tag and include the update feed

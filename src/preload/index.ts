@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannel, IpcEvent, type GenfolioApi } from '@shared/genfolio-api'
 import type { ScanEvent } from '@shared/scan'
+import type { UpdateEvent } from '@shared/updates'
 
 const api: GenfolioApi = {
   getServiceHealth: () => ipcRenderer.invoke(IpcChannel.ServiceHealth),
@@ -57,7 +58,13 @@ const api: GenfolioApi = {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)
     return () => ipcRenderer.removeListener(IpcEvent.Scan, forward)
-  }
+  },
+  onUpdateEvent: (listener) => {
+    const forward = (_event: IpcRendererEvent, update: UpdateEvent): void => listener(update)
+    ipcRenderer.on(IpcEvent.Update, forward)
+    return () => ipcRenderer.removeListener(IpcEvent.Update, forward)
+  },
+  cancelUpdateDownload: () => ipcRenderer.invoke(IpcChannel.CancelUpdateDownload)
 }
 
 contextBridge.exposeInMainWorld('genfolio', api)

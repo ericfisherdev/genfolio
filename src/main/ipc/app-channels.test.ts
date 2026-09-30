@@ -16,7 +16,8 @@ describe('registerAppChannels', () => {
     const actions: AppActions = {
       openLogs: vi.fn(async () => true),
       logRendererError: vi.fn(),
-      diagnostics: () => ({ serviceRestarts: 1, serviceStopped: false })
+      diagnostics: () => ({ serviceRestarts: 1, serviceStopped: false }),
+      cancelUpdateDownload: vi.fn()
     }
     registerAppChannels(registry, actions)
     const invoke = (channel: IpcChannel, ...args: unknown[]): unknown => {
@@ -32,5 +33,7 @@ describe('registerAppChannels', () => {
       serviceRestarts: 1,
       serviceStopped: false
     })
+    await invoke(IpcChannel.CancelUpdateDownload)
+    expect(actions.cancelUpdateDownload).toHaveBeenCalledOnce()
   })
 })

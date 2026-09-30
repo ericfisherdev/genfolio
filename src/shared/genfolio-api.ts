@@ -11,6 +11,7 @@ import type { ScanEvent } from './scan'
 import type { ServiceHealth } from './service-health'
 import type { SimilarGroupsPage } from './similarity'
 import type { SlideshowPreset, SlideshowSettings } from './slideshow'
+import type { UpdateEvent } from './updates'
 
 /** Renderer → main request channels. One channel per API method. */
 export enum IpcChannel {
@@ -56,12 +57,14 @@ export enum IpcChannel {
   RevealImage = 'image:reveal',
   CopyImagePath = 'image:copy-path',
   GetGeneration = 'image:get-generation',
-  CopyGeneration = 'image:copy-generation'
+  CopyGeneration = 'image:copy-generation',
+  CancelUpdateDownload = 'app:cancel-update-download'
 }
 
 /** Main → renderer push channels. */
 export enum IpcEvent {
-  Scan = 'library:scan-event'
+  Scan = 'library:scan-event',
+  Update = 'app:update-event'
 }
 
 /**
@@ -168,4 +171,8 @@ export interface GenfolioApi {
   copyGeneration(imageId: number, variant: CopyVariant): Promise<boolean>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
+  /** Subscribes to the steps of an in-app update (Help → Check for Updates…). */
+  onUpdateEvent(listener: (event: UpdateEvent) => void): () => void
+  /** Stops the update download in progress, if any. */
+  cancelUpdateDownload(): Promise<void>
 }
