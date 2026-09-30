@@ -7,7 +7,8 @@ const TEXT_NAMES: Readonly<Record<CopyVariant, string>> = {
   [CopyVariant.Prompt]: 'prompt',
   [CopyVariant.PromptWithLoras]: 'prompt with LoRA tags',
   [CopyVariant.Negative]: 'negative prompt',
-  [CopyVariant.All]: 'generation data'
+  [CopyVariant.All]: 'generation data',
+  [CopyVariant.Fooocus]: 'Fooocus parameters'
 }
 
 /** Copies generation text through main and reports the outcome in the notice bar. Never rejects. */

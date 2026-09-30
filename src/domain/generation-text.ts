@@ -1,5 +1,6 @@
 import { CopyVariant, GenerationFormat, ResourceKind } from '@shared/generation-kinds'
 import type { GenerationDetails, GenerationResource } from '@shared/generation'
+import { formatFooocusParameters } from './fooocus-parameters'
 
 /** A1111's `quote`: values holding `,`, `:` or a newline are written as JSON strings. */
 function quote(value: string): string {
@@ -103,7 +104,8 @@ export function generationText(details: GenerationDetails, variant: CopyVariant)
     [CopyVariant.Prompt]: () => details.prompt ?? '',
     [CopyVariant.PromptWithLoras]: () => promptWithLoraTags(details),
     [CopyVariant.Negative]: () => details.negativePrompt ?? '',
-    [CopyVariant.All]: () => formatInfotext(details)
+    [CopyVariant.All]: () => formatInfotext(details),
+    [CopyVariant.Fooocus]: () => formatFooocusParameters(details)
   }[variant]()
   return text === '' ? null : text
 }

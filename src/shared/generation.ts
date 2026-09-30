@@ -52,6 +52,11 @@ export const generationDetailsSchema = z
     /** The format `params` was parsed from: A1111 keys, or Fooocus's snake_case fields. */
     paramsFormat: z.enum(GenerationFormat),
     params: z.record(z.string(), z.string()),
+    /**
+     * Fooocus's fields merged across the Fooocus-format sources, for pasting into Fooocus;
+     * null when no source is one.
+     */
+    fooocusParams: z.record(z.string(), z.string()).nullable(),
     /** Raw records grouped by where they were found, in storage order. */
     sources: z.array(metadataSourceSchema).readonly()
   })
