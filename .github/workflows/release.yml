@@ -26,6 +26,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # fpm builds the pacman package with bsdtar, which the Ubuntu runner lacks. The runner's
+      # package index is a snapshot, so refresh it first or a superseded version can 404.
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libarchive-tools
       - name: Read the version
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"

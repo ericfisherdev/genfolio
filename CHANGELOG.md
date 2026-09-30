@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-09-30
+
+The first release that can update itself, and the first to carry the update feed.
 
 ### Updating
 
