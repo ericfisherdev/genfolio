@@ -39,6 +39,13 @@ describe('refreshAfterTagChange', () => {
     expect(gallery.refreshLayout).toHaveBeenCalled()
   })
 
+  it('reloads a view of untagged images', () => {
+    const untagged: GalleryQuery = { ...PLAIN, filters: { untagged: true } }
+    const { gallery, facets } = fakes(untagged)
+    refreshAfterTagChange(gallery, facets, LayoutUpdate.Now)
+    expect(gallery.refreshLayout).toHaveBeenCalled()
+  })
+
   it('reloads an album, which may be a smart one searching by tags', () => {
     const album: GalleryQuery = { ...PLAIN, scope: { kind: GalleryScopeKind.Album, albumId: 2 } }
     const { gallery, facets } = fakes(album)
@@ -62,6 +69,14 @@ describe('refreshAfterAlbumChange', () => {
     refreshAfterAlbumChange(gallery, facets, LayoutUpdate.Now)
     expect(facets.load).not.toHaveBeenCalled()
     expect(gallery.refreshLayout).not.toHaveBeenCalled()
+  })
+
+  it('reloads a view of images in no album, outside an album scope', () => {
+    const unalbumed: GalleryQuery = { ...PLAIN, filters: { unalbumed: true } }
+    const { gallery, facets } = fakes(unalbumed)
+    refreshAfterAlbumChange(gallery, facets, LayoutUpdate.Now)
+    expect(facets.load).toHaveBeenCalledWith(unalbumed)
+    expect(gallery.refreshLayout).toHaveBeenCalled()
   })
 
   it('reloads an album view and its facets, or flags it stale while an image is open', () => {

@@ -132,6 +132,22 @@ export class TagFilter implements CriteriaFilter {
   }
 }
 
+/** Images with no tag at all. */
+export class UntaggedFilter implements CriteriaFilter {
+  condition({ untagged }: SearchFilters): SqlCondition | undefined {
+    return untagged ? { sql: 'id NOT IN (SELECT image_id FROM image_tags)', params: [] } : undefined
+  }
+}
+
+/** Images in no manual album (a smart album holds no rows: it is a saved search). */
+export class UnalbumedFilter implements CriteriaFilter {
+  condition({ unalbumed }: SearchFilters): SqlCondition | undefined {
+    return unalbumed
+      ? { sql: 'id NOT IN (SELECT image_id FROM album_images)', params: [] }
+      : undefined
+  }
+}
+
 export class FavoriteFilter implements CriteriaFilter {
   condition({ favoritesOnly }: SearchFilters): SqlCondition | undefined {
     return favoritesOnly ? { sql: 'is_favorite = 1', params: [] } : undefined
@@ -155,6 +171,8 @@ export function createSearchFilters(): CriteriaFilter[] {
     new SamePromptFilter(),
     new HasMetadataFilter(),
     new TagFilter(),
+    new UntaggedFilter(),
+    new UnalbumedFilter(),
     new FavoriteFilter(),
     new MinRatingFilter()
   ]

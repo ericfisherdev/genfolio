@@ -168,6 +168,8 @@
       const names = filters.tags.excludeIds.map((id) => nameOf(tagFacets, id)).join(', ')
       list.push({ label: `Without: ${names}`, remove: () => setTags({ excludeIds: [] }) })
     }
+    if (filters.untagged) list.push({ label: 'Not tagged', remove: without('untagged') })
+    if (filters.unalbumed) list.push({ label: 'No album', remove: without('unalbumed') })
     if (filters.favoritesOnly) {
       list.push({ label: 'Favourites', remove: without('favoritesOnly') })
     }
@@ -296,6 +298,20 @@
         selected={filters.tags?.excludeIds ?? []}
         onchange={(excludeIds) => setTags({ excludeIds })}
       />
+      <button
+        type="button"
+        class="chip-toggle"
+        aria-pressed={filters.untagged === true}
+        onclick={() => apply({ ...filters, untagged: filters.untagged ? undefined : true })}
+        >Not Tagged</button
+      >
+      <button
+        type="button"
+        class="chip-toggle"
+        aria-pressed={filters.unalbumed === true}
+        onclick={() => apply({ ...filters, unalbumed: filters.unalbumed ? undefined : true })}
+        >No Album</button
+      >
       <button
         type="button"
         class="chip-toggle"

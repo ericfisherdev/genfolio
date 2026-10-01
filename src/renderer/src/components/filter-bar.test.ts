@@ -185,6 +185,17 @@ describe('FilterBar', () => {
     expect(active.textContent).toContain('★★★ or more')
   })
 
+  it('filters untagged images and images in no album', async () => {
+    const harness = await renderBar()
+    await fireEvent.click(screen.getByRole('button', { name: 'Not Tagged' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'No Album' }))
+    expect(filters(harness)).toEqual({ untagged: true, unalbumed: true })
+    expect(harness.hash.current).toBe('#/?untag=1&unalbum=1')
+    const active = screen.getByRole('list', { name: 'Active filters' })
+    expect(active.textContent).toContain('Not tagged')
+    expect(active.textContent).toContain('No album')
+  })
+
   it('includes tags by any or all and excludes others', async () => {
     const harness = await renderBar()
     await fireEvent.click(screen.getByRole('button', { name: /^Tags/ }))

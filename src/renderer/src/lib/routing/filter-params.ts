@@ -95,6 +95,8 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
           ])
         : undefined
     ],
+    ['untagged', params.get('untag') === '1' ? true : undefined],
+    ['unalbumed', params.get('unalbum') === '1' ? true : undefined],
     ['favoritesOnly', params.get('fav') === '1' ? true : undefined],
     [
       'minRating',
@@ -126,6 +128,8 @@ export function writeFilters(filters: SearchFilters | undefined, params: URLSear
   set('tag', filters.tags?.ids?.join(','))
   set('tmode', filters.tags?.mode === SetMatchMode.All ? SetMatchMode.All : undefined)
   set('xtag', filters.tags?.excludeIds?.join(','))
+  set('untag', filters.untagged ? 1 : undefined)
+  set('unalbum', filters.unalbumed ? 1 : undefined)
   set('fav', filters.favoritesOnly ? 1 : undefined)
   set('rmin', filters.minRating)
 }

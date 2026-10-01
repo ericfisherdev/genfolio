@@ -4,6 +4,7 @@ import type { DirectoryId, ImageId } from '@domain/library'
 import { galleryQuerySchema, GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
+import { SqliteAlbumRepository } from '../repositories/sqlite-album-repository'
 import { SqliteImageMarkRepository } from '../repositories/sqlite-image-mark-repository'
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
@@ -195,6 +196,27 @@ describe('tags', () => {
         keywords: { query: 'red', scope: KeywordScope.Positive }
       })
     ).toEqual([1, 2])
+  })
+})
+
+describe('untagged and unalbumed', () => {
+  const image = (n: number): ImageId => ids.get(n) ?? (0 as ImageId)
+
+  it('finds images carrying no tag, alone and with other filters', () => {
+    const repository = new SqliteTagRepository(db)
+    const red = repository.create('red', 1).id
+    repository.apply([red], [image(1), image(2), image(3)])
+    expect(search({ untagged: true })).toEqual([4, 5, 6])
+    expect(
+      search({ untagged: true, keywords: { query: 'red', scope: KeywordScope.Positive } })
+    ).toEqual([4])
+  })
+
+  it('finds images in no manual album', () => {
+    const albums = new SqliteAlbumRepository(db)
+    const keepers = albums.create('keepers', 1).id
+    albums.add(keepers, [image(2), image(5)])
+    expect(search({ unalbumed: true })).toEqual([1, 3, 4, 6])
   })
 })
 
