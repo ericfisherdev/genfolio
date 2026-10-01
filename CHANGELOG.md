@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — 2026-10-01
+
+Two filters for working through the library.
+
+### Filters
+
+- **Not Tagged**: images that carry no tags, to tag the library over time until every image has
+  one.
+- **No Album**: images that are in no manual album (smart albums are saved searches and hold no
+  images), to leave out what is already filed.
+- Both combine with every other filter, such as a LoRA, show as removable chips, are kept in the
+  address and in saved smart albums, and update as you tag or file: an image leaves the view once
+  it is tagged or added to an album.
+
 ## 0.2.0 — 2026-09-30
 
 The first release that can update itself, and the first to carry the update feed.
