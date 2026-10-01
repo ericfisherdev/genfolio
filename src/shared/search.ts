@@ -50,6 +50,10 @@ export const searchFiltersSchema = z
         message: 'a tag filter needs tags to include or exclude'
       })
       .optional(),
+    /** Only images carrying no tags (false isn't a filter). */
+    untagged: z.literal(true).optional(),
+    /** Only images in no manual album (false isn't a filter). */
+    unalbumed: z.literal(true).optional(),
     /** Only images marked as favourites (false isn't a filter). */
     favoritesOnly: z.literal(true).optional(),
     /** At least this many stars. */
@@ -137,6 +141,8 @@ export const storedSearchFiltersSchema = z
         message: 'a tag filter needs tags to include or exclude'
       })
       .optional(),
+    untagged: z.literal(true).optional(),
+    unalbumed: z.literal(true).optional(),
     favoritesOnly: z.literal(true).optional(),
     minRating: z.number().int().min(1).max(MAX_RATING).optional()
   })
