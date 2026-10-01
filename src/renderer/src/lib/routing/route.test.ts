@@ -63,6 +63,8 @@ describe('routes with filters', () => {
     seed: '42',
     samePromptAs: 7,
     hasMetadata: true,
+    untagged: true,
+    unalbumed: true,
     favoritesOnly: true,
     minRating: 3,
     tags: { ids: [8, 9], mode: SetMatchMode.All, excludeIds: [10] }

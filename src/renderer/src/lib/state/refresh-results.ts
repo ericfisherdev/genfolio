@@ -8,9 +8,9 @@ type Facets = Pick<FacetsState, 'load'>
 
 /**
  * After tags change: tag counts are facets, and a view filtered by tags (or an album, which
- * may be a smart one searching by tags) may gain or lose images, as may a view of untagged images. With `LayoutUpdate.Deferred`
- * (an image is open and being stepped through) the layout is only flagged stale, for the
- * grid to reload when shown again.
+ * may be a smart one searching by tags) may gain or lose images, as may a view of untagged
+ * images. With `LayoutUpdate.Deferred` (an image is open and being stepped through) the
+ * layout is only flagged stale, for the grid to reload when shown again.
  */
 export function refreshAfterTagChange(
   gallery: Results,
