@@ -227,8 +227,11 @@ export class ModelsState {
     if (outcome === CivitaiOutcome.NotFound) {
       this.notices.notify('Civitai no longer has the linked model version.')
     }
-    // Unlinked meanwhile: nothing was written, so show the model as it now is.
-    if (outcome === CivitaiOutcome.Unlinked) await this.select(key)
+    // Unlinked meanwhile: nothing was written, so show the model as it now is, unless the
+    // user has since opened another one.
+    if (outcome === CivitaiOutcome.Unlinked && sameKey(this.selected, key)) {
+      await this.select(key)
+    }
   }
 
   /** Forgets the link and what Civitai said; what the user wrote stays. */

@@ -98,4 +98,28 @@ describe('ModelsState', () => {
     expect(state.detail?.identity).toBe('m1')
     expect(state.civitaiBusy).toBe(false)
   })
+
+  it('does not reopen a model the user left when its refresh finds it unlinked', async () => {
+    const api = libraryApi()
+    const model = (n: number): ModelDetail =>
+      ({
+        ...entry(n),
+        custom: EMPTY_MODEL_FIELDS,
+        civitai: null,
+        addedByHand: false
+      }) as ModelDetail
+    let answer: (value: unknown) => void = () => undefined
+    api.refreshModelFromCivitai = vi.fn(() => new Promise((resolve) => (answer = resolve))) as never
+    api.getModel = vi.fn(async (key: { identity: string }) =>
+      model(key.identity === 'm0' ? 0 : 1)
+    ) as never
+    const state = new ModelsState(api, { notify: vi.fn() })
+    await state.select({ kind: ModelKind.Lora, identity: 'm0' })
+    const refresh = state.refreshFromCivitai({ kind: ModelKind.Lora, identity: 'm0' })
+    await state.select({ kind: ModelKind.Lora, identity: 'm1' })
+    answer({ outcome: CivitaiOutcome.Unlinked })
+    await refresh
+    expect(state.selected?.identity).toBe('m1')
+    expect(state.detail?.identity).toBe('m1')
+  })
 })

@@ -172,7 +172,11 @@
           {hasOwnInfo ? 'Edit' : 'Add info'}
         </button>
         {#if hasOwnInfo || model.addedByHand}
-          <button type="button" onclick={() => (confirmingClear = true)}>
+          <button
+            type="button"
+            disabled={models.civitaiBusy}
+            onclick={() => (confirmingClear = true)}
+          >
             {model.addedByHand ? 'Remove model' : 'Clear info'}
           </button>
         {/if}
