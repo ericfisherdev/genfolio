@@ -4,6 +4,7 @@ import type { AppDiagnostics } from './diagnostics'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { ModelKind } from './generation-kinds'
+import type { CivitaiCandidate, CivitaiResult, CivitaiSearchParams } from './civitai'
 import type { ModelFolders } from './model-folders'
 import type {
   ModelChange,
@@ -77,7 +78,13 @@ export enum IpcChannel {
   SaveModel = 'models:save',
   CreateModel = 'models:create',
   ClearModel = 'models:clear',
-  CopyModelTriggerWords = 'models:copy-trigger-words'
+  CopyModelTriggerWords = 'models:copy-trigger-words',
+  LookupModelOnCivitai = 'models:civitai-lookup',
+  SearchCivitai = 'models:civitai-search',
+  LinkModelToCivitai = 'models:civitai-link',
+  RefreshModelFromCivitai = 'models:civitai-refresh',
+  UnlinkModelFromCivitai = 'models:civitai-unlink',
+  OpenModelOnCivitai = 'models:civitai-open'
 }
 
 /** Main → renderer push channels. */
@@ -212,6 +219,21 @@ export interface GenfolioApi {
    * none.
    */
   copyModelTriggerWords(key: ModelKey): Promise<boolean>
+  /**
+   * Links the model to the Civitai version with one of its file hashes (an exact match) and
+   * fills in what Civitai says. Contacts civitai.com; rejects when Civitai can't answer.
+   */
+  lookupModelOnCivitai(key: ModelKey): Promise<CivitaiResult>
+  /** Versions of Civitai models of the kind matching the text; contacts civitai.com. */
+  searchCivitai(params: CivitaiSearchParams): Promise<readonly CivitaiCandidate[]>
+  /** Links the model to the chosen Civitai version, replacing an earlier link. */
+  linkModelToCivitai(key: ModelKey, modelId: number, versionId: number): Promise<CivitaiResult>
+  /** Fetches the linked Civitai version again; NotFound when there is no link. */
+  refreshModelFromCivitai(key: ModelKey): Promise<CivitaiResult>
+  /** Forgets the link and what Civitai said; what the user wrote stays. False when none. */
+  unlinkModelFromCivitai(key: ModelKey): Promise<boolean>
+  /** Opens the linked Civitai page in the browser (main builds the address); false when none. */
+  openModelOnCivitai(key: ModelKey): Promise<boolean>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
   /** Subscribes to the steps of an in-app update (Help → Check for Updates…). */

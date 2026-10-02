@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { ChangeOutcome } from '@shared/change-outcome'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import { ModelKind } from '@shared/generation-kinds'
-import type { ModelDetail, ModelEntry, ModelList } from '@shared/models'
+import {
+  EMPTY_MODEL_FIELDS,
+  type ModelDetail,
+  type ModelEntry,
+  type ModelList
+} from '@shared/models'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
@@ -24,8 +29,9 @@ const entry = (fields: Partial<ModelEntry> = {}): ModelEntry => ({
 
 const detail = (fields: Partial<ModelDetail> = {}): ModelDetail => ({
   ...entry(),
-  description: null,
-  notes: null,
+  custom: EMPTY_MODEL_FIELDS,
+  civitai: null,
+  addedByHand: false,
   ...fields
 })
 
@@ -44,8 +50,13 @@ const documented = detail({
   baseModel: 'SDXL 1.0',
   triggerWords: ['add detail', 'sharp'],
   strength: 0.8,
-  description: 'Adds fine detail.',
-  notes: 'Keep below 1.0'
+  custom: {
+    baseModel: 'SDXL 1.0',
+    triggerWords: ['add detail', 'sharp'],
+    strength: 0.8,
+    description: 'Adds fine detail.',
+    notes: 'Keep below 1.0'
+  }
 })
 
 describe('ModelsView', () => {
@@ -74,9 +85,10 @@ describe('ModelsView', () => {
     render(ModelsView, { context })
     await fireEvent.click(await screen.findByRole('button', { name: /detail/ }))
     const panel = await screen.findByRole('article', { name: 'detail details' })
-    expect(within(panel).getByText('SDXL 1.0')).toBeTruthy()
-    expect(within(panel).getByText('0.8')).toBeTruthy()
-    expect(within(panel).getByText('Adds fine detail.')).toBeTruthy()
+    const own = within(within(panel).getByRole('region', { name: 'Your info' }))
+    expect(own.getByText('SDXL 1.0')).toBeTruthy()
+    expect(own.getByText('0.8')).toBeTruthy()
+    expect(own.getByText('Adds fine detail.')).toBeTruthy()
     expect(within(panel).getByRole('list', { name: 'Trigger words' }).textContent).toContain(
       'sharp'
     )
@@ -117,7 +129,12 @@ describe('ModelsView', () => {
   it('records fields for a model without info', async () => {
     const saveModel = vi.fn(async (_key, fields) => ({
       outcome: ChangeOutcome.Done as const,
-      model: detail({ ...fields, hasInfo: true })
+      model: detail({
+        custom: fields,
+        hasInfo: true,
+        baseModel: fields.baseModel,
+        triggerWords: fields.triggerWords
+      })
     }))
     const { context } = harness({
       listModels: async () => list([entry()]),

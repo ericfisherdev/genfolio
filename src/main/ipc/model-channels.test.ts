@@ -12,6 +12,7 @@ function setup(reply: unknown = null): {
   invoke: (channel: IpcChannel, ...args: unknown[]) => unknown
   request: ReturnType<typeof vi.fn>
   clipboard: ReturnType<typeof vi.fn>
+  openExternal: ReturnType<typeof vi.fn>
 } {
   const handlers = new Map<IpcChannel, { schema: z.ZodType; handler: Handler }>()
   const registry: IpcHandlerRegistry = {
@@ -20,13 +21,19 @@ function setup(reply: unknown = null): {
   }
   const request = vi.fn(async () => reply)
   const clipboard = vi.fn()
-  registerModelChannels(registry, { request } as unknown as ServiceRequester, clipboard)
+  const openExternal = vi.fn()
+  registerModelChannels(
+    registry,
+    { request } as unknown as ServiceRequester,
+    clipboard,
+    openExternal
+  )
   const invoke = (channel: IpcChannel, ...args: unknown[]): unknown => {
     const entry = handlers.get(channel)
     if (!entry) throw new Error(`${channel} not registered`)
     return entry.handler(...(entry.schema.parse(args) as unknown[]))
   }
-  return { invoke, request, clipboard }
+  return { invoke, request, clipboard, openExternal }
 }
 
 const key = { kind: 'lora', identity: 'detail' }
@@ -81,5 +88,54 @@ describe('registerModelChannels', () => {
     await expect(missing.invoke(IpcChannel.CopyModelTriggerWords, key)).resolves.toBe(false)
     expect(none.clipboard).not.toHaveBeenCalled()
     expect(missing.clipboard).not.toHaveBeenCalled()
+  })
+
+  it('validates and forwards the Civitai calls', async () => {
+    const { invoke, request } = setup({ unlinked: true })
+    await invoke(IpcChannel.LookupModelOnCivitai, key)
+    expect(request).toHaveBeenLastCalledWith(ServiceMethod.ModelsCivitaiLookup, key)
+    await invoke(IpcChannel.SearchCivitai, {
+      kind: 'lora',
+      text: ' add detail ',
+      identity: 'detail'
+    })
+    expect(request).toHaveBeenLastCalledWith(ServiceMethod.ModelsCivitaiSearch, {
+      kind: 'lora',
+      text: 'add detail',
+      identity: 'detail'
+    })
+    await invoke(IpcChannel.LinkModelToCivitai, key, 5, 9)
+    expect(request).toHaveBeenLastCalledWith(ServiceMethod.ModelsCivitaiLink, {
+      key,
+      modelId: 5,
+      versionId: 9
+    })
+    await invoke(IpcChannel.RefreshModelFromCivitai, key)
+    expect(request).toHaveBeenLastCalledWith(ServiceMethod.ModelsCivitaiRefresh, key)
+    await expect(invoke(IpcChannel.UnlinkModelFromCivitai, key)).resolves.toBe(true)
+    expect(() => invoke(IpcChannel.SearchCivitai, { kind: 'lora', text: '   ' })).toThrow()
+    expect(() =>
+      invoke(IpcChannel.SearchCivitai, { kind: 'lora', text: 'x'.repeat(201) })
+    ).toThrow()
+    expect(() => invoke(IpcChannel.LinkModelToCivitai, key, 0, 9)).toThrow()
+    expect(() => invoke(IpcChannel.LinkModelToCivitai, key, 5, 1.5)).toThrow()
+  })
+
+  it('opens the linked Civitai page from the stored ids, never from the renderer', async () => {
+    const { invoke, openExternal } = setup({ civitai: { modelId: 122359, versionId: 135867 } })
+    await expect(invoke(IpcChannel.OpenModelOnCivitai, key)).resolves.toBe(true)
+    expect(openExternal).toHaveBeenCalledWith(
+      'https://civitai.com/models/122359?modelVersionId=135867'
+    )
+    expect(() => invoke(IpcChannel.OpenModelOnCivitai, key, 'https://evil.example')).toThrow()
+  })
+
+  it('opens nothing for a model that is not linked or unknown', async () => {
+    const unlinked = setup({ civitai: null })
+    await expect(unlinked.invoke(IpcChannel.OpenModelOnCivitai, key)).resolves.toBe(false)
+    const unknown = setup(null)
+    await expect(unknown.invoke(IpcChannel.OpenModelOnCivitai, key)).resolves.toBe(false)
+    expect(unlinked.openExternal).not.toHaveBeenCalled()
+    expect(unknown.openExternal).not.toHaveBeenCalled()
   })
 })

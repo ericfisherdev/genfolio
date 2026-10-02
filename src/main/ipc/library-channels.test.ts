@@ -79,7 +79,13 @@ describe('registerLibraryChannels', () => {
       IpcChannel.SaveModel,
       IpcChannel.CreateModel,
       IpcChannel.ClearModel,
-      IpcChannel.CopyModelTriggerWords
+      IpcChannel.CopyModelTriggerWords,
+      IpcChannel.LookupModelOnCivitai,
+      IpcChannel.SearchCivitai,
+      IpcChannel.LinkModelToCivitai,
+      IpcChannel.RefreshModelFromCivitai,
+      IpcChannel.UnlinkModelFromCivitai,
+      IpcChannel.OpenModelOnCivitai
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

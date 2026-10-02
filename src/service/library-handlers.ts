@@ -16,12 +16,15 @@ import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
 import { AlbumService } from '@application/album-service'
 import { ModelFolderSettings } from '@application/model-folder-settings'
+import { ModelCivitaiService } from '@application/model-civitai-service'
 import { ModelInfoService } from '@application/model-info-service'
+import type { CivitaiCatalog } from '@domain/civitai'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
 import { SqliteAppSettingsRepository } from '@infrastructure/db/repositories/sqlite-app-settings-repository'
+import { SqliteModelCivitaiRepository } from '@infrastructure/db/repositories/sqlite-model-civitai-repository'
 import { SqliteModelInfoRepository } from '@infrastructure/db/repositories/sqlite-model-info-repository'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
 import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqlite-generation-repository'
@@ -71,7 +74,8 @@ const HASH_CONCURRENCY = 2
 export function createLibraryHandlers(
   db: Database.Database,
   emit: (event: ScanEvent) => void,
-  log: Pick<RotatingFileLog, 'write'>
+  log: Pick<RotatingFileLog, 'write'>,
+  civitai: CivitaiCatalog
 ): ServiceHandlers {
   const scanLogger: ScanLogger = {
     warn: (message, ref) => {
@@ -132,6 +136,8 @@ export function createLibraryHandlers(
   const presets = new SqliteSlideshowPresetRepository(db)
   const modelFolders = new ModelFolderSettings(new SqliteAppSettingsRepository(db))
   const modelInfo = new ModelInfoService(new SqliteModelInfoRepository(db), now)
+  const civitaiLinks = new SqliteModelCivitaiRepository(db)
+  const modelCivitai = new ModelCivitaiService(civitai, civitaiLinks, civitaiLinks, modelInfo, now)
   const tags = new TagService(new SqliteTagRepository(db), now)
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
@@ -254,6 +260,12 @@ export function createLibraryHandlers(
     [ServiceMethod.ModelsCreate]: async ({ kind, name, fields }) =>
       modelInfo.create(kind, name, fields),
     [ServiceMethod.ModelsClear]: async (key) => ({ cleared: modelInfo.clear(key) }),
+    [ServiceMethod.ModelsCivitaiLookup]: (key) => modelCivitai.lookup(key),
+    [ServiceMethod.ModelsCivitaiSearch]: (params) => modelCivitai.search(params),
+    [ServiceMethod.ModelsCivitaiLink]: ({ key, modelId, versionId }) =>
+      modelCivitai.link(key, modelId, versionId),
+    [ServiceMethod.ModelsCivitaiRefresh]: (key) => modelCivitai.refresh(key),
+    [ServiceMethod.ModelsCivitaiUnlink]: async (key) => ({ unlinked: modelCivitai.unlink(key) }),
     [ServiceMethod.PresetsList]: async () => presets.list(),
     [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
     [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),

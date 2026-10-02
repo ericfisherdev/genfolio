@@ -178,7 +178,12 @@ function onReady(): void {
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
   registerSettingsChannels(ipc, libraryService, pickFolderWithDialog)
-  registerModelChannels(ipc, libraryService, (text) => clipboard.writeText(text))
+  registerModelChannels(
+    ipc,
+    libraryService,
+    (text) => clipboard.writeText(text),
+    (url) => void shell.openExternal(url)
+  )
   registerAppChannels(ipc, {
     openLogs,
     logRendererError: (name) => mainLog.write(LogLevel.Error, `renderer: ${name}`),

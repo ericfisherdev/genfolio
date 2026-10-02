@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { ModelInfoRepository } from '@domain/repositories'
 import type { ModelKind } from '@shared/generation-kinds'
+import type { CivitaiInfo } from '@shared/model-civitai'
 import type {
   ModelDetail,
   ModelEntry,
@@ -15,16 +16,36 @@ interface EntryRow {
   identity: string
   name: string
   image_count: number
+  model_id: number | null
   info_id: number | null
+  civitai_id: number | null
   base_model: string | null
-  trigger_words_json: string | null
+  custom_base_model: string | null
+  custom_words: string | null
+  civitai_words: string | null
   strength: number | null
-  description: string | null
+  custom_description: string | null
   notes: string | null
+  civitai_model_id: number | null
+  civitai_version_id: number | null
+  civitai_model_name: string | null
+  civitai_version_name: string | null
+  civitai_base_model: string | null
+  civitai_description: string | null
+  civitai_version_description: string | null
+  civitai_creator: string | null
+  civitai_nsfw: number | null
+  civitai_tags: string | null
+  civitai_downloads: number | null
+  civitai_thumbs_up: number | null
+  civitai_published_at: string | null
+  civitai_fetched_at: number | null
 }
 
 // Models the library's images use, then those added by hand that no image uses (the models
 // row is pruned once unused, so a model can have an entry and no row, or a row and no entry).
+// What the user wrote and what Civitai said sit side by side: base_model is the user's when set,
+// else Civitai's; image counts are added only for the rows a query returns.
 const ENTRIES = `
   WITH catalog AS (
     SELECT m.id AS model_id, m.kind, m.identity, m.display_name AS name FROM models m
@@ -33,17 +54,22 @@ const ENTRIES = `
     WHERE NOT EXISTS (SELECT 1 FROM models m WHERE m.kind = i.kind AND m.identity = i.identity)
   ),
   entries AS (
-    SELECT c.kind, c.identity, c.name,
-      CASE c.kind
-        WHEN 'lora' THEN
-          (SELECT COUNT(DISTINCT image_id) FROM generation_loras WHERE model_id = c.model_id)
-        ELSE
-          (SELECT COUNT(*) FROM generations
-           WHERE checkpoint_id = c.model_id OR refiner_id = c.model_id)
-      END AS image_count,
-      i.id AS info_id, i.base_model, i.trigger_words_json, i.strength, i.description, i.notes
+    SELECT c.model_id, c.kind, c.identity, c.name,
+      i.id AS info_id, v.id AS civitai_id,
+      COALESCE(i.base_model, v.base_model) AS base_model,
+      i.base_model AS custom_base_model,
+      i.trigger_words_json AS custom_words, v.trigger_words_json AS civitai_words,
+      i.strength, i.description AS custom_description, i.notes,
+      v.civitai_model_id, v.civitai_version_id,
+      v.model_name AS civitai_model_name, v.version_name AS civitai_version_name,
+      v.base_model AS civitai_base_model, v.description AS civitai_description,
+      v.version_description AS civitai_version_description, v.creator AS civitai_creator,
+      v.nsfw AS civitai_nsfw, v.tags_json AS civitai_tags, v.downloads AS civitai_downloads,
+      v.thumbs_up AS civitai_thumbs_up, v.published_at AS civitai_published_at,
+      v.fetched_at AS civitai_fetched_at
     FROM catalog c
     LEFT JOIN model_info i ON i.kind = c.kind AND i.identity = c.identity
+    LEFT JOIN model_civitai v ON v.kind = c.kind AND v.identity = c.identity
   )`
 
 // An absent filter is NULL (or 0), so the statement's text never depends on the query. Text is
@@ -53,29 +79,79 @@ const MATCHING = `
   FROM entries
   WHERE (@kind IS NULL OR kind = @kind)
     AND (@baseModel IS NULL OR fold(base_model) = fold(@baseModel))
-    AND (@withoutInfo = 0 OR info_id IS NULL)
+    AND (@withoutInfo = 0 OR (info_id IS NULL AND civitai_id IS NULL))
     AND (@text IS NULL
       OR instr(fold(name), @text) > 0
       OR instr(fold(COALESCE(base_model, '')), @text) > 0
-      OR EXISTS (SELECT 1 FROM json_each(trigger_words_json) word WHERE instr(fold(word.value), @text) > 0)
-      OR instr(fold(COALESCE(description, '')), @text) > 0
+      OR EXISTS (SELECT 1 FROM json_each(COALESCE(custom_words, '[]')) word
+                 WHERE instr(fold(word.value), @text) > 0)
+      OR EXISTS (SELECT 1 FROM json_each(COALESCE(civitai_words, '[]')) word
+                 WHERE instr(fold(word.value), @text) > 0)
+      OR instr(fold(COALESCE(custom_description, '')), @text) > 0
+      OR instr(fold(COALESCE(civitai_description, '')), @text) > 0
+      OR instr(fold(COALESCE(civitai_version_description, '')), @text) > 0
       OR instr(fold(COALESCE(notes, '')), @text) > 0)`
+
+const IMAGE_COUNT = `
+  CASE e.kind
+    WHEN 'lora' THEN
+      (SELECT COUNT(DISTINCT image_id) FROM generation_loras WHERE model_id = e.model_id)
+    ELSE
+      (SELECT COUNT(*) FROM generations
+       WHERE checkpoint_id = e.model_id OR refiner_id = e.model_id)
+  END`
+
+const words = (json: string | null): string[] => (json ? (JSON.parse(json) as string[]) : [])
+
+/** The user's words first, then Civitai's that they don't already have. */
+function allWords(custom: string[], fetched: string[]): string[] {
+  const seen = new Set(custom.map((word) => word.toLowerCase()))
+  return [...custom, ...fetched.filter((word) => !seen.has(word.toLowerCase()))]
+}
 
 const entryOf = (row: EntryRow): ModelEntry => ({
   kind: row.kind,
   identity: row.identity,
   name: row.name,
   imageCount: row.image_count,
-  hasInfo: row.info_id !== null,
+  hasInfo: row.info_id !== null || row.civitai_id !== null,
   baseModel: row.base_model,
-  triggerWords: row.trigger_words_json ? (JSON.parse(row.trigger_words_json) as string[]) : [],
+  triggerWords: allWords(words(row.custom_words), words(row.civitai_words)),
   strength: row.strength
 })
 
+function civitaiOf(row: EntryRow): CivitaiInfo | null {
+  if (row.civitai_id === null) return null
+  return {
+    modelId: row.civitai_model_id ?? 0,
+    versionId: row.civitai_version_id ?? 0,
+    modelName: row.civitai_model_name ?? '',
+    versionName: row.civitai_version_name ?? '',
+    baseModel: row.civitai_base_model,
+    triggerWords: words(row.civitai_words),
+    description: row.civitai_description,
+    versionDescription: row.civitai_version_description,
+    creator: row.civitai_creator,
+    nsfw: row.civitai_nsfw === 1,
+    tags: words(row.civitai_tags),
+    downloads: row.civitai_downloads,
+    thumbsUp: row.civitai_thumbs_up,
+    publishedAt: row.civitai_published_at,
+    fetchedAt: row.civitai_fetched_at ?? 0
+  }
+}
+
 const detailOf = (row: EntryRow): ModelDetail => ({
   ...entryOf(row),
-  description: row.description,
-  notes: row.notes
+  custom: {
+    baseModel: row.custom_base_model,
+    triggerWords: words(row.custom_words),
+    strength: row.strength,
+    description: row.custom_description,
+    notes: row.notes
+  },
+  civitai: civitaiOf(row),
+  addedByHand: row.model_id === null
 })
 
 export class SqliteModelInfoRepository implements ModelInfoRepository {
@@ -87,23 +163,32 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   private readonly insertFromLibrary: Database.Statement
   private readonly insertNew: Database.Statement
   private readonly deleteEntry: Database.Statement
+  private readonly deleteOrphanLink: Database.Statement
 
   constructor(private readonly db: Database.Database) {
     db.function('fold', { deterministic: true }, (text: unknown) =>
       typeof text === 'string' ? text.toLowerCase() : text
     )
     this.selectPage = db.prepare(
-      `${ENTRIES} SELECT * ${MATCHING}
-       ORDER BY name COLLATE NOCASE, kind, identity LIMIT @limit OFFSET @offset`
+      `${ENTRIES}
+       SELECT e.*, ${IMAGE_COUNT} AS image_count FROM (
+         SELECT * ${MATCHING}
+         ORDER BY name COLLATE NOCASE, kind, identity LIMIT @limit OFFSET @offset
+       ) e
+       ORDER BY e.name COLLATE NOCASE, e.kind, e.identity`
     )
     this.countMatching = db.prepare(`${ENTRIES} SELECT COUNT(*) AS total ${MATCHING}`)
     this.selectBaseModels = db
       .prepare(
-        `SELECT MIN(base_model) FROM model_info WHERE base_model IS NOT NULL
+        `${ENTRIES} SELECT MIN(base_model) FROM entries WHERE base_model IS NOT NULL
          GROUP BY fold(base_model) ORDER BY 1 COLLATE NOCASE`
       )
       .pluck()
-    this.selectOne = db.prepare(`${ENTRIES} SELECT * FROM entries WHERE kind = ? AND identity = ?`)
+    this.selectOne = db.prepare(
+      `${ENTRIES}
+       SELECT e.*, ${IMAGE_COUNT} AS image_count
+       FROM (SELECT * FROM entries WHERE kind = ? AND identity = ?) e`
+    )
     const columns = `base_model = @baseModel, trigger_words_json = @triggerWords,
       strength = @strength, description = @description, notes = @notes, updated_at = @now`
     this.update = db.prepare(
@@ -123,6 +208,12 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
        ON CONFLICT (kind, identity) DO NOTHING`
     )
     this.deleteEntry = db.prepare('DELETE FROM model_info WHERE kind = ? AND identity = ?')
+    // A model added by hand leaves the list with its entry, so its Civitai link goes too rather
+    // than lingering unseen to reattach to a later model of the same name.
+    this.deleteOrphanLink = db.prepare(
+      `DELETE FROM model_civitai WHERE kind = @kind AND identity = @identity
+       AND NOT EXISTS (SELECT 1 FROM models m WHERE m.kind = @kind AND m.identity = @identity)`
+    )
   }
 
   list(query: ModelListQuery): ModelList {
@@ -159,7 +250,11 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   }
 
   clear({ kind, identity }: ModelKey): boolean {
-    return this.deleteEntry.run(kind, identity).changes > 0
+    return this.db.transaction(() => {
+      const removed = this.deleteEntry.run(kind, identity).changes > 0
+      if (removed) this.deleteOrphanLink.run({ kind, identity })
+      return removed
+    })()
   }
 
   private columnsOf(fields: ModelFields): Record<string, unknown> {
