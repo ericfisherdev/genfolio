@@ -49,6 +49,7 @@ export function queryForRoute(
     case RouteKind.SimilarGroups:
     case RouteKind.Settings:
     case RouteKind.Models:
+    case RouteKind.Civitai:
       return previous
   }
 }

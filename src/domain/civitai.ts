@@ -46,14 +46,32 @@ export class CivitaiUnavailableError extends Error {
   }
 }
 
+/** What to look for among Civitai's models. */
+export interface CivitaiSearchQuery {
+  readonly kind: ModelKind
+  /** Matched against names; none lists the most downloaded. */
+  readonly text?: string
+  /** Civitai's own base model name, e.g. `SDXL 1.0`. */
+  readonly baseModel?: string
+  /** From a previous page's `nextCursor`. */
+  readonly cursor?: string
+  readonly limit: number
+}
+
+export interface CivitaiSearchPage {
+  readonly models: CivitaiModel[]
+  /** Pass as `cursor` for the next page; null at the end. */
+  readonly nextCursor: string | null
+}
+
 /** The public Civitai catalogue. Every method throws CivitaiUnavailableError when it can't answer. */
 export interface CivitaiCatalog {
   /** The model version having a file with this hash (any of the hash forms), or null. */
   versionByHash(hash: string): Promise<{ modelId: number; versionId: number } | null>
   /** The model with its versions, or null when Civitai has none with this id. */
   model(modelId: number): Promise<CivitaiModel | null>
-  /** Models of this kind whose name matches `text`, best first. */
-  searchModels(kind: ModelKind, text: string, limit: number): Promise<CivitaiModel[]>
+  /** A page of models of one kind, narrowed by name and base model. */
+  searchModels(query: CivitaiSearchQuery): Promise<CivitaiSearchPage>
 }
 
 /** The model's page on Civitai, at the version when given. */

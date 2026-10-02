@@ -45,7 +45,10 @@ export const versionByHashSchema = z.object({
   modelId: z.number().int().positive()
 })
 
-export const searchSchema = z.object({ items: z.array(z.unknown()) })
+export const searchSchema = z.object({
+  items: z.array(z.unknown()),
+  metadata: z.object({ nextCursor: z.string().nullish() }).nullish()
+})
 
 type FileResponse = z.infer<typeof fileSchema>
 type VersionResponse = z.infer<typeof versionSchema>

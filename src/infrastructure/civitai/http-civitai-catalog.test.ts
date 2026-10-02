@@ -104,16 +104,50 @@ describe('HttpCivitaiCatalog', () => {
     const { catalog: civitai, fetch } = catalog(() =>
       json({ items: [MODEL, { id: 'bad' }, { ...MODEL, id: 2 }] })
     )
-    const found = await civitai.searchModels(ModelKind.Lora, 'add detail', 20)
-    expect(found.map((model) => model.id)).toEqual([122359, 2])
+    const found = await civitai.searchModels({
+      kind: ModelKind.Lora,
+      text: 'add detail',
+      limit: 20
+    })
+    expect(found.models.map((model) => model.id)).toEqual([122359, 2])
     const url = new URL(String(fetch.mock.calls[0]?.[0]))
     expect(url.searchParams.get('query')).toBe('add detail')
     expect(url.searchParams.get('limit')).toBe('20')
     expect(url.searchParams.getAll('types')).toEqual(['LORA', 'LoCon', 'DoRA'])
-    await civitai.searchModels(ModelKind.Checkpoint, 'x', 5)
+    expect(url.searchParams.has('sort')).toBe(false)
+    await civitai.searchModels({ kind: ModelKind.Checkpoint, text: 'x', limit: 5 })
     expect(new URL(String(fetch.mock.calls[1]?.[0])).searchParams.getAll('types')).toEqual([
       'Checkpoint'
     ])
+  })
+
+  it('narrows by base model, pages by cursor, and lists the most downloaded without a text', async () => {
+    const { catalog: civitai, fetch } = catalog(() =>
+      json({ items: [MODEL], metadata: { nextCursor: '99|1' } })
+    )
+    const page = await civitai.searchModels({
+      kind: ModelKind.Lora,
+      baseModel: 'SDXL 1.0',
+      cursor: '3',
+      limit: 10
+    })
+    expect(page.nextCursor).toBe('99|1')
+    const url = new URL(String(fetch.mock.calls[0]?.[0]))
+    expect(url.searchParams.get('baseModels')).toBe('SDXL 1.0')
+    expect(url.searchParams.get('cursor')).toBe('3')
+    expect(url.searchParams.get('sort')).toBe('Most Downloaded')
+    expect(url.searchParams.has('query')).toBe(false)
+  })
+
+  it('has no next cursor on the last page', async () => {
+    const { catalog: civitai } = catalog(() => json({ items: [MODEL], metadata: {} }))
+    await expect(
+      civitai.searchModels({ kind: ModelKind.Lora, text: 'x', limit: 1 })
+    ).resolves.toMatchObject({ nextCursor: null })
+    const bare = catalog(() => json({ items: [] }))
+    await expect(
+      bare.catalog.searchModels({ kind: ModelKind.Lora, text: 'x', limit: 1 })
+    ).resolves.toEqual({ models: [], nextCursor: null })
   })
 
   it.each([

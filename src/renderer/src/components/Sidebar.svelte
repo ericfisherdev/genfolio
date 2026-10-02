@@ -91,6 +91,15 @@
 
   <button
     type="button"
+    class="all civitai"
+    aria-current={router.route.kind === RouteKind.Civitai ? 'page' : undefined}
+    onclick={() => router.navigate({ kind: RouteKind.Civitai })}
+  >
+    <span>Get models</span>
+  </button>
+
+  <button
+    type="button"
     class="all models"
     aria-current={router.route.kind === RouteKind.Models ? 'page' : undefined}
     onclick={() => router.navigate({ kind: RouteKind.Models })}
@@ -188,7 +197,7 @@
     padding: 3px var(--space-2);
     color: var(--color-text-muted);
   }
-  .models {
+  .civitai {
     margin-top: auto;
   }
   .diagnostics {

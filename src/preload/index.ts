@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannel, IpcEvent, type GenfolioApi } from '@shared/genfolio-api'
+import type { DownloadSnapshot } from '@shared/downloads'
 import type { ScanEvent } from '@shared/scan'
 import type { UpdateEvent } from '@shared/updates'
 
@@ -71,6 +72,20 @@ const api: GenfolioApi = {
   refreshModelFromCivitai: (key) => ipcRenderer.invoke(IpcChannel.RefreshModelFromCivitai, key),
   unlinkModelFromCivitai: (key) => ipcRenderer.invoke(IpcChannel.UnlinkModelFromCivitai, key),
   openModelOnCivitai: (key) => ipcRenderer.invoke(IpcChannel.OpenModelOnCivitai, key),
+  browseCivitai: (query) => ipcRenderer.invoke(IpcChannel.BrowseCivitai, query),
+  startDownload: (request) => ipcRenderer.invoke(IpcChannel.StartDownload, request),
+  cancelDownload: (id) => ipcRenderer.invoke(IpcChannel.CancelDownload, id),
+  listDownloads: () => ipcRenderer.invoke(IpcChannel.ListDownloads),
+  clearFinishedDownloads: () => ipcRenderer.invoke(IpcChannel.ClearFinishedDownloads),
+  getCivitaiKeyStatus: () => ipcRenderer.invoke(IpcChannel.CivitaiKeyStatus),
+  setCivitaiKey: (key) => ipcRenderer.invoke(IpcChannel.SetCivitaiKey, key),
+  clearCivitaiKey: () => ipcRenderer.invoke(IpcChannel.ClearCivitaiKey),
+  onDownloadEvent: (listener) => {
+    const forward = (_event: IpcRendererEvent, snapshot: DownloadSnapshot): void =>
+      listener(snapshot)
+    ipcRenderer.on(IpcEvent.Download, forward)
+    return () => ipcRenderer.removeListener(IpcEvent.Download, forward)
+  },
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)

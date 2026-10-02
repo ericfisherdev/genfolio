@@ -16,6 +16,7 @@ describe('routes', () => {
     { kind: RouteKind.SimilarGroups },
     { kind: RouteKind.Settings },
     { kind: RouteKind.Models },
+    { kind: RouteKind.Civitai },
     { kind: RouteKind.SimilarGroup, groupId: 4 },
     { kind: RouteKind.SimilarGroup, groupId: 4, filters: { favoritesOnly: true } },
     { kind: RouteKind.Slideshow, startId: 7 }

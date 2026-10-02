@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ModelKind } from '@shared/generation-kinds'
   import { getAppServices } from '../lib/app-context'
+  import CivitaiKeySettings from './CivitaiKeySettings.svelte'
 
   const { modelFolders } = getAppServices()
 
@@ -47,6 +48,8 @@
   {:else}
     <p class="help">Loading…</p>
   {/if}
+
+  <CivitaiKeySettings />
 </section>
 
 <style>

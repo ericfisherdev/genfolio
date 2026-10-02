@@ -6,6 +6,9 @@ import type { SlideshowNavigator } from './slideshow/slideshow-navigator'
 import type { SlideshowPresetsState } from './slideshow/slideshow-presets.svelte'
 import type { SlideshowSettingsState } from './slideshow/slideshow-settings.svelte'
 import type { FacetsState } from './state/facets.svelte'
+import type { CivitaiBrowseState } from './state/civitai-browse.svelte'
+import type { CivitaiKeyState } from './state/civitai-key.svelte'
+import type { DownloadsState } from './state/downloads.svelte'
 import type { ModelFoldersState } from './state/model-folders.svelte'
 import type { ModelsState } from './state/models.svelte'
 import type { SimilarityState } from './state/similarity.svelte'
@@ -42,6 +45,9 @@ export interface AppServices {
   readonly similarity: SimilarityState
   readonly modelFolders: ModelFoldersState
   readonly models: ModelsState
+  readonly civitaiBrowse: CivitaiBrowseState
+  readonly downloads: DownloadsState
+  readonly civitaiKey: CivitaiKeyState
 }
 
 const APP_SERVICES = Symbol('app-services')

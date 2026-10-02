@@ -1,5 +1,11 @@
 import type { z } from 'zod'
-import { CivitaiUnavailableError, type CivitaiCatalog, type CivitaiModel } from '@domain/civitai'
+import {
+  CivitaiUnavailableError,
+  type CivitaiCatalog,
+  type CivitaiModel,
+  type CivitaiSearchPage,
+  type CivitaiSearchQuery
+} from '@domain/civitai'
 import { ModelKind } from '@shared/generation-kinds'
 import { modelOf, modelSchema, searchSchema, versionByHashSchema } from './civitai-responses'
 
@@ -43,15 +49,20 @@ export class HttpCivitaiCatalog implements CivitaiCatalog {
     return found ? modelOf(found) : null
   }
 
-  async searchModels(kind: ModelKind, text: string, limit: number): Promise<CivitaiModel[]> {
-    const params = new URLSearchParams({ query: text, limit: String(limit) })
-    for (const type of CIVITAI_TYPES[kind]) params.append('types', type)
+  async searchModels(query: CivitaiSearchQuery): Promise<CivitaiSearchPage> {
+    const params = new URLSearchParams({ limit: String(query.limit) })
+    for (const type of CIVITAI_TYPES[query.kind]) params.append('types', type)
+    if (query.text) params.set('query', query.text)
+    else params.set('sort', 'Most Downloaded')
+    if (query.baseModel) params.set('baseModels', query.baseModel)
+    if (query.cursor) params.set('cursor', query.cursor)
     const found = await this.get(`/models?${params}`, searchSchema)
     // One model that doesn't fit what is read is left out; it doesn't fail the whole search.
-    return (found?.items ?? []).flatMap((item) => {
+    const models = (found?.items ?? []).flatMap((item) => {
       const parsed = modelSchema.safeParse(item)
       return parsed.success ? [modelOf(parsed.data)] : []
     })
+    return { models, nextCursor: found?.metadata?.nextCursor ?? null }
   }
 
   /** The parsed body, or null on 404. */

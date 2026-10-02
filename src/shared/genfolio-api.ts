@@ -5,6 +5,9 @@ import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { ModelKind } from './generation-kinds'
 import type { CivitaiCandidate, CivitaiResult, CivitaiSearchParams } from './civitai'
+import type { CivitaiBrowsePage, CivitaiBrowseQuery } from './civitai-browse'
+import type { CivitaiKeyStatus } from './civitai-key'
+import type { DownloadRequest, DownloadSnapshot } from './downloads'
 import type { ModelFolders } from './model-folders'
 import type {
   ModelChange,
@@ -84,13 +87,22 @@ export enum IpcChannel {
   LinkModelToCivitai = 'models:civitai-link',
   RefreshModelFromCivitai = 'models:civitai-refresh',
   UnlinkModelFromCivitai = 'models:civitai-unlink',
-  OpenModelOnCivitai = 'models:civitai-open'
+  OpenModelOnCivitai = 'models:civitai-open',
+  BrowseCivitai = 'civitai:browse',
+  StartDownload = 'downloads:start',
+  CancelDownload = 'downloads:cancel',
+  ListDownloads = 'downloads:list',
+  ClearFinishedDownloads = 'downloads:clear-finished',
+  CivitaiKeyStatus = 'civitai:key-status',
+  SetCivitaiKey = 'civitai:set-key',
+  ClearCivitaiKey = 'civitai:clear-key'
 }
 
 /** Main → renderer push channels. */
 export enum IpcEvent {
   Scan = 'library:scan-event',
-  Update = 'app:update-event'
+  Update = 'app:update-event',
+  Download = 'downloads:event'
 }
 
 /**
@@ -234,6 +246,30 @@ export interface GenfolioApi {
   unlinkModelFromCivitai(key: ModelKey): Promise<boolean>
   /** Opens the linked Civitai page in the browser (main builds the address); false when none. */
   openModelOnCivitai(key: ModelKey): Promise<boolean>
+  /**
+   * A page of Civitai models of one kind, narrowed by name and base model. Contacts civitai.com;
+   * rejects when Civitai can't answer.
+   */
+  browseCivitai(query: CivitaiBrowseQuery): Promise<CivitaiBrowsePage>
+  /**
+   * Queues the download of a Civitai version into the folder chosen in Settings for its kind, in
+   * a subfolder named for its base model, and resolves how it stands. The renderer supplies no
+   * address or path: main gets both from Civitai and the settings.
+   */
+  startDownload(request: DownloadRequest): Promise<DownloadSnapshot>
+  /** Stops a queued or running download; false when there is none such. */
+  cancelDownload(id: string): Promise<boolean>
+  /** Every download since the app started, oldest first, unless cleared. */
+  listDownloads(): Promise<readonly DownloadSnapshot[]>
+  /** Forgets the downloads that have stopped; their files stay. */
+  clearFinishedDownloads(): Promise<void>
+  /** Whether a Civitai API key is saved (never the key) and whether one can be kept safely. */
+  getCivitaiKeyStatus(): Promise<CivitaiKeyStatus>
+  /** Encrypts and saves the key for downloads that need a login; rejects without a system keyring. */
+  setCivitaiKey(key: string): Promise<CivitaiKeyStatus>
+  clearCivitaiKey(): Promise<CivitaiKeyStatus>
+  /** Subscribes to downloads changing; returns the unsubscribe function. */
+  onDownloadEvent(listener: (snapshot: DownloadSnapshot) => void): () => void
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
   /** Subscribes to the steps of an in-app update (Help → Check for Updates…). */
