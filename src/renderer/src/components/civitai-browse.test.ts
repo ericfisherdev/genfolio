@@ -230,6 +230,14 @@ describe('a result card', () => {
     expect(within(card).getByRole('combobox', { name: 'Version' }).textContent).toContain('SD 1.5')
   })
 
+  it('shows one slash between a folder chosen with a trailing slash and the base model folder', async () => {
+    const h = harness({
+      getModelFolders: async () => ({ checkpoint: null, lora: '/models/loras///' })
+    })
+    const card = await openCard(h)
+    await within(card).findByText('/models/loras/sdxl/add-detail-xl.safetensors')
+  })
+
   it('downloads the chosen version by ids alone', async () => {
     const startDownload = vi.fn(async () => snapshot())
     const h = harness({ startDownload })

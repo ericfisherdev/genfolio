@@ -89,6 +89,32 @@ describe('HttpCivitaiCatalog', () => {
     })
   })
 
+  it('splits trigger words written as one comma-separated entry, without repeats or empties', async () => {
+    const { catalog: civitai } = catalog(() =>
+      json({
+        ...MODEL,
+        modelVersions: [
+          {
+            ...MODEL.modelVersions[0],
+            trainedWords: [
+              'abstractionism, brush stroke, traditional media,',
+              'Brush Stroke',
+              ' ,, ',
+              'solo'
+            ]
+          }
+        ]
+      })
+    )
+    const model = await civitai.model(1)
+    expect(model?.versions[0]?.trainedWords).toEqual([
+      'abstractionism',
+      'brush stroke',
+      'traditional media',
+      'solo'
+    ])
+  })
+
   it('tolerates a model with most fields missing', async () => {
     const { catalog: civitai } = catalog(() => json({ id: 1, name: 'bare', type: 'Checkpoint' }))
     await expect(civitai.model(1)).resolves.toMatchObject({

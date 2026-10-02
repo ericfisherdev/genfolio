@@ -29,6 +29,10 @@
   const folder = $derived(modelFolders.folders[kind])
   const kindLabel = $derived(kind === ModelKind.Lora ? 'LoRAs' : 'checkpoints')
   const subfolder = $derived(baseModelFolder(version?.baseModel))
+  // A folder chosen with a trailing slash would otherwise show as `folder//sdxl`.
+  const savePath = $derived(
+    folder === null ? '' : `${folder.replace(/\/+$/, '')}/${subfolder}/${version?.fileName ?? ''}`
+  )
 
   const versionLabel = (candidate: (typeof downloadable)[number]): string =>
     [
@@ -57,7 +61,7 @@
   {/if}
 
   {#if version && request}
-    <div class="row">
+    <div class="row version">
       <label>
         Version
         <select
@@ -84,10 +88,10 @@
         >
       </p>
     {:else}
-      <p class="target">Saves to <code>{folder}/{subfolder}/{version.fileName}</code></p>
+      <p class="target">Saves to <code>{savePath}</code></p>
     {/if}
 
-    <div class="row">
+    <div class="row actions">
       {#if busy}
         <button type="button" disabled>
           {latest?.status === DownloadStatus.Queued ? 'Waiting…' : 'Downloading…'}
@@ -117,6 +121,9 @@
 
 <style>
   article {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
     padding: var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-2);
@@ -155,20 +162,30 @@
     flex-wrap: wrap;
     gap: var(--space-3);
   }
+  .version {
+    min-width: 0;
+  }
   label {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    min-width: 0;
+    width: 100%;
     color: var(--color-text-muted);
     font-size: 0.85rem;
   }
   select {
+    flex: 1;
+    min-width: 0;
     padding: var(--space-1) var(--space-2);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-1);
     color: var(--color-text);
-    max-width: 100%;
+    text-overflow: ellipsis;
+  }
+  .actions {
+    margin-top: auto;
   }
   button {
     background: var(--color-surface-raised);
