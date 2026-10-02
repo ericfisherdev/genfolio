@@ -8,6 +8,12 @@ import {
   MAX_IDS_PER_MARK,
   MAX_RATING
 } from './gallery'
+import {
+  civitaiCandidateSchema,
+  civitaiLinkParamsSchema,
+  civitaiResultSchema,
+  civitaiSearchParamsSchema
+} from './civitai'
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { ModelKind } from './generation-kinds'
 import { folderPathSchema, modelFoldersSchema } from './model-folders'
@@ -79,7 +85,12 @@ export enum ServiceMethod {
   ModelsGet = 'models.get',
   ModelsSave = 'models.save',
   ModelsCreate = 'models.create',
-  ModelsClear = 'models.clear'
+  ModelsClear = 'models.clear',
+  ModelsCivitaiLookup = 'models.civitai-lookup',
+  ModelsCivitaiSearch = 'models.civitai-search',
+  ModelsCivitaiLink = 'models.civitai-link',
+  ModelsCivitaiRefresh = 'models.civitai-refresh',
+  ModelsCivitaiUnlink = 'models.civitai-unlink'
 }
 
 const noParams = z.object({}).strict()
@@ -248,6 +259,20 @@ export const serviceContract = {
   [ServiceMethod.ModelsClear]: {
     params: modelKeySchema,
     result: z.object({ cleared: z.boolean() })
+  },
+  [ServiceMethod.ModelsCivitaiLookup]: { params: modelKeySchema, result: civitaiResultSchema },
+  [ServiceMethod.ModelsCivitaiSearch]: {
+    params: civitaiSearchParamsSchema,
+    result: z.array(civitaiCandidateSchema).readonly()
+  },
+  [ServiceMethod.ModelsCivitaiLink]: {
+    params: civitaiLinkParamsSchema,
+    result: civitaiResultSchema
+  },
+  [ServiceMethod.ModelsCivitaiRefresh]: { params: modelKeySchema, result: civitaiResultSchema },
+  [ServiceMethod.ModelsCivitaiUnlink]: {
+    params: modelKeySchema,
+    result: z.object({ unlinked: z.boolean() })
   },
   [ServiceMethod.GalleryImages]: {
     params: z

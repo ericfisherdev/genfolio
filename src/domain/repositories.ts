@@ -1,5 +1,6 @@
 import type { ModelKind } from '@shared/generation-kinds'
 import type { AlbumKind } from '@shared/album-kinds'
+import type { CivitaiRecord } from '@shared/model-civitai'
 import type { ModelDetail, ModelFields, ModelKey, ModelList, ModelListQuery } from '@shared/models'
 import type { StoredSearchFilters } from '@shared/search'
 import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
@@ -283,6 +284,21 @@ export interface ModelInfoRepository {
   create(key: ModelKey, name: string, fields: ModelFields, now: number): boolean
   /** Forgets the entry (a library model stays listed); false when there was none. */
   clear(key: ModelKey): boolean
+}
+
+/** The Civitai version a model is linked to, and what it said when it was fetched. */
+export interface ModelCivitaiRepository {
+  /** Links the model, replacing any earlier link and what it fetched. */
+  save(key: ModelKey, record: CivitaiRecord, now: number): void
+  /** The linked Civitai model and version, or undefined. */
+  linkOf(key: ModelKey): { modelId: number; versionId: number } | undefined
+  /** Forgets the link; false when there was none. */
+  remove(key: ModelKey): boolean
+}
+
+/** Every file hash seen for a model, in the forms the tools that made the images wrote them. */
+export interface ModelHashLookup {
+  hashesOf(key: ModelKey): string[]
 }
 
 /** Named application settings, stored as text. */

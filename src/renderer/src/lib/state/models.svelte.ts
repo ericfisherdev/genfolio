@@ -1,4 +1,5 @@
 import { ChangeOutcome } from '@shared/change-outcome'
+import { CivitaiOutcome, type CivitaiCandidate, type CivitaiResult } from '@shared/civitai'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import type { ModelKind } from '@shared/generation-kinds'
 import {
@@ -14,7 +15,18 @@ import type { NoticeSink } from './notice-sink'
 
 type ModelsApi = Pick<
   GenfolioApi,
-  'listModels' | 'getModel' | 'saveModel' | 'createModel' | 'clearModel' | 'copyModelTriggerWords'
+  | 'listModels'
+  | 'getModel'
+  | 'saveModel'
+  | 'createModel'
+  | 'clearModel'
+  | 'copyModelTriggerWords'
+  | 'lookupModelOnCivitai'
+  | 'searchCivitai'
+  | 'linkModelToCivitai'
+  | 'refreshModelFromCivitai'
+  | 'unlinkModelFromCivitai'
+  | 'openModelOnCivitai'
 >
 
 /** Models listed at a time; "Show more" adds another page. */
@@ -37,6 +49,8 @@ export class ModelsState {
   kind: ModelKind | undefined = $state()
   baseModel: string | undefined = $state()
   withoutInfo = $state(false)
+  /** A request to Civitai is in flight, so another one must wait. */
+  civitaiBusy = $state(false)
   selected: ModelKey | undefined = $state.raw()
   detail: ModelDetail | undefined = $state.raw()
 
@@ -161,6 +175,96 @@ export class ModelsState {
         this.notices.notify('This model has no trigger words.')
       }
     })
+  }
+
+  /**
+   * Looks the model up on Civitai by its file hashes. Resolves the outcome, or undefined when
+   * Civitai couldn't answer (reported in the notice bar). NotFound is also reported, with what
+   * to do next.
+   */
+  async lookupOnCivitai(key: ModelKey): Promise<CivitaiOutcome | undefined> {
+    const outcome = await this.askCivitai('look the model up on Civitai', () =>
+      this.api.lookupModelOnCivitai(key)
+    )
+    if (outcome === CivitaiOutcome.NotFound) {
+      this.notices.notify(
+        'No file of this model is on Civitai by its hash. Search Civitai by name.'
+      )
+    }
+    return outcome
+  }
+
+  /** The versions matching, or undefined when Civitai couldn't answer (reported). */
+  async searchCivitai(
+    kind: ModelKind,
+    text: string,
+    identity: string
+  ): Promise<readonly CivitaiCandidate[] | undefined> {
+    let found: readonly CivitaiCandidate[] | undefined
+    this.civitaiBusy = true
+    await this.attempt('search Civitai', async () => {
+      found = await this.api.searchCivitai({ kind, text, identity })
+    })
+    this.civitaiBusy = false
+    return found
+  }
+
+  /** Links the model to the version; resolves whether it is now linked. */
+  async linkToCivitai(key: ModelKey, candidate: CivitaiCandidate): Promise<boolean> {
+    const outcome = await this.askCivitai('link the model', () =>
+      this.api.linkModelToCivitai(key, candidate.modelId, candidate.versionId)
+    )
+    if (outcome === CivitaiOutcome.NotFound) {
+      this.notices.notify('Civitai no longer has that model version.')
+    }
+    return outcome === CivitaiOutcome.Linked
+  }
+
+  async refreshFromCivitai(key: ModelKey): Promise<void> {
+    const outcome = await this.askCivitai('refresh the model from Civitai', () =>
+      this.api.refreshModelFromCivitai(key)
+    )
+    if (outcome === CivitaiOutcome.NotFound) {
+      this.notices.notify('Civitai no longer has the linked model version.')
+    }
+  }
+
+  /** Forgets the link and what Civitai said; what the user wrote stays. */
+  async unlinkFromCivitai(key: ModelKey): Promise<void> {
+    await this.attempt('unlink the model', async () => {
+      await this.api.unlinkModelFromCivitai(key)
+    })
+    await this.select(key)
+    await this.load()
+  }
+
+  async openOnCivitai(key: ModelKey): Promise<void> {
+    await this.attempt('open Civitai', async () => {
+      if (!(await this.api.openModelOnCivitai(key)))
+        this.notices.notify('This model is not linked.')
+    })
+  }
+
+  /** Runs a Civitai request that links a model: shows the result and reloads the list. */
+  private async askCivitai(
+    description: string,
+    request: () => Promise<CivitaiResult>
+  ): Promise<CivitaiOutcome | undefined> {
+    let outcome: CivitaiOutcome | undefined
+    this.civitaiBusy = true
+    await this.attempt(description, async () => {
+      const result = await request()
+      outcome = result.outcome
+      if (result.outcome === CivitaiOutcome.Linked) {
+        this.selected = { kind: result.model.kind, identity: result.model.identity }
+        this.detail = result.model
+      } else if (result.outcome === CivitaiOutcome.Missing) {
+        this.notices.notify('That model is no longer listed.')
+      }
+    })
+    this.civitaiBusy = false
+    if (outcome === CivitaiOutcome.Linked) await this.load()
+    return outcome
   }
 
   private query(offset: number, limit: number): Parameters<ModelsApi['listModels']>[0] {

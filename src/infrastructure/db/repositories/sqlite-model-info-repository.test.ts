@@ -47,7 +47,11 @@ describe('SqliteModelInfoRepository', () => {
       name: 'detail',
       imageCount: 2,
       hasInfo: true,
-      ...detail
+      baseModel: 'SDXL 1.0',
+      triggerWords: ['add detail', 'sharp'],
+      strength: 0.8,
+      custom: detail,
+      civitai: null
     })
     expect(models.save(lora('detail'), { ...detail, baseModel: 'Pony' }, 6)).toBe(true)
     expect(models.find(lora('detail'))?.baseModel).toBe('Pony')

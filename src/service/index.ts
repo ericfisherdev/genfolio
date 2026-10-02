@@ -1,6 +1,7 @@
 import { MigrationRunner } from '@infrastructure/db/migration-runner'
 import { migrations } from '@infrastructure/db/migrations'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
+import { HttpCivitaiCatalog } from '@infrastructure/civitai/http-civitai-catalog'
 import { RotatingFileLog } from '@infrastructure/logging/rotating-file-log'
 import type { ScanEvent } from '@shared/scan'
 import { isServiceRequest } from '@shared/service-rpc-guards'
@@ -24,7 +25,7 @@ function startHandlers(): ServiceHandlers {
   try {
     const db = openLibraryDatabase(requireEnv('GENFOLIO_DB_PATH'), DatabaseMode.ReadWrite)
     new MigrationRunner(db, migrations).migrate()
-    return createLibraryHandlers(db, emit, log)
+    return createLibraryHandlers(db, emit, log, new HttpCivitaiCatalog(fetch))
   } catch (error) {
     const reason = startupFailureReason(error)
     console.error(`[library-service] ${reason}`)

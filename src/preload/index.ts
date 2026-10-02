@@ -64,6 +64,13 @@ const api: GenfolioApi = {
     ipcRenderer.invoke(IpcChannel.CreateModel, kind, name, fields),
   clearModel: (key) => ipcRenderer.invoke(IpcChannel.ClearModel, key),
   copyModelTriggerWords: (key) => ipcRenderer.invoke(IpcChannel.CopyModelTriggerWords, key),
+  lookupModelOnCivitai: (key) => ipcRenderer.invoke(IpcChannel.LookupModelOnCivitai, key),
+  searchCivitai: (params) => ipcRenderer.invoke(IpcChannel.SearchCivitai, params),
+  linkModelToCivitai: (key, modelId, versionId) =>
+    ipcRenderer.invoke(IpcChannel.LinkModelToCivitai, key, modelId, versionId),
+  refreshModelFromCivitai: (key) => ipcRenderer.invoke(IpcChannel.RefreshModelFromCivitai, key),
+  unlinkModelFromCivitai: (key) => ipcRenderer.invoke(IpcChannel.UnlinkModelFromCivitai, key),
+  openModelOnCivitai: (key) => ipcRenderer.invoke(IpcChannel.OpenModelOnCivitai, key),
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)

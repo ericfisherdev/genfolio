@@ -28,6 +28,7 @@ const LATEST_TABLES = [
   'images',
   'library_roots',
   'metadata_raw',
+  'model_civitai',
   'model_hashes',
   'model_info',
   'models',

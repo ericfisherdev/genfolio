@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ChangeOutcome } from './change-outcome'
 import { ModelKind } from './generation-kinds'
+import { civitaiInfoSchema } from './model-civitai'
 import { userNameSchema } from './user-name'
 
 export { ChangeOutcome } from './change-outcome'
@@ -36,7 +37,11 @@ export const modelFieldsSchema = z
 
 export type ModelFields = z.infer<typeof modelFieldsSchema>
 
-/** A model in the list: one the library's images use, or one the user added by hand. */
+/**
+ * A model in the list: one the library's images use, or one the user added by hand. What it
+ * shows combines the user's own entry with what Civitai says: the user's base model and
+ * strength win, and the trigger words are both lists, the user's first.
+ */
 export const modelEntrySchema = z
   .object({
     kind: z.enum(ModelKind),
@@ -44,7 +49,7 @@ export const modelEntrySchema = z
     name: z.string(),
     /** Images that use it (a checkpoint as model or refiner). */
     imageCount: z.number().int().nonnegative(),
-    /** Whether the user has recorded anything about it. */
+    /** Whether anything is recorded about it, by the user or fetched from Civitai. */
     hasInfo: z.boolean(),
     baseModel: z.string().nullable(),
     triggerWords: z.array(z.string()).readonly(),
@@ -54,8 +59,9 @@ export const modelEntrySchema = z
 
 export type ModelEntry = z.infer<typeof modelEntrySchema>
 
+/** A model with what is behind its entry: the user's own fields, and the Civitai link. */
 export const modelDetailSchema = modelEntrySchema
-  .extend({ description: z.string().nullable(), notes: z.string().nullable() })
+  .extend({ custom: modelFieldsSchema, civitai: civitaiInfoSchema.nullable() })
   .strict()
 
 export type ModelDetail = z.infer<typeof modelDetailSchema>
@@ -66,7 +72,7 @@ export const modelListQuerySchema = z
     text: z.string().max(MAX_MODEL_SEARCH).optional(),
     kind: z.enum(ModelKind).optional(),
     baseModel: z.string().max(MAX_BASE_MODEL).optional(),
-    /** Only models the user has recorded nothing about (false isn't a filter). */
+    /** Only models with nothing recorded and no Civitai link (false isn't a filter). */
     withoutInfo: z.literal(true).optional(),
     offset: z.number().int().nonnegative(),
     limit: z.number().int().min(1).max(MAX_MODELS_PER_PAGE)

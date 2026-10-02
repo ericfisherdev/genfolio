@@ -25,8 +25,7 @@ describe('ModelInfoService', () => {
       model: {
         baseModel: 'SDXL 1.0',
         triggerWords: ['add detail', 'sharp'],
-        description: null,
-        notes: 'keep low'
+        custom: { description: null, notes: 'keep low' }
       }
     })
   })
