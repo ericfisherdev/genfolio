@@ -21,30 +21,29 @@
     download them; it is kept encrypted by your system and sent only to civitai.com.
   </p>
   {#if civitaiKey.loaded}
-    {#if !civitaiKey.status.canStore}
-      <p class="help warn">
-        No system keyring was found (such as GNOME Keyring or KWallet), so a key can't be kept
-        safely.
-      </p>
-    {:else}
-      <p class="state">{civitaiKey.status.hasKey ? 'A key is saved.' : 'No key saved.'}</p>
-      <form onsubmit={save}>
-        <input
-          type="password"
-          aria-label="Civitai API key"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder={civitaiKey.status.hasKey
-            ? 'Paste a new key to replace it'
-            : 'Paste your key'}
-          bind:value={key}
-        />
-        <button type="submit" disabled={!key.trim()}>Save</button>
-        {#if civitaiKey.status.hasKey}
-          <button type="button" onclick={() => void civitaiKey.clear()}>Remove</button>
-        {/if}
-      </form>
-    {/if}
+    <p class="state">{civitaiKey.status.hasKey ? 'A key is saved.' : 'No key saved.'}</p>
+    <form onsubmit={save}>
+      <input
+        type="password"
+        aria-label="Civitai API key"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder={civitaiKey.status.hasKey ? 'Paste a new key to replace it' : 'Paste your key'}
+        bind:value={key}
+      />
+      <button type="submit" disabled={!key.trim() || civitaiKey.saving}>
+        {civitaiKey.saving ? 'Saving…' : 'Save'}
+      </button>
+      {#if civitaiKey.status.hasKey}
+        <button type="button" disabled={civitaiKey.saving} onclick={() => void civitaiKey.clear()}>
+          Remove
+        </button>
+      {/if}
+    </form>
+    <p class="help">
+      Saving needs a system keyring (such as GNOME Keyring or KWallet) and can take a moment while
+      it answers.
+    </p>
   {:else}
     <p class="help">Loading…</p>
   {/if}
@@ -63,9 +62,6 @@
     margin: 0 0 var(--space-3);
     color: var(--color-text-muted);
     max-width: 60ch;
-  }
-  .warn {
-    color: var(--color-danger);
   }
   form {
     display: flex;

@@ -9,7 +9,7 @@ const harness = (overrides: Partial<GenfolioApi> = {}): ReturnType<typeof testSe
 
 describe('the Civitai API key setting', () => {
   it('says whether a key is saved, without showing it', async () => {
-    const h = harness({ getCivitaiKeyStatus: async () => ({ hasKey: true, canStore: true }) })
+    const h = harness({ getCivitaiKeyStatus: async () => ({ hasKey: true }) })
     render(SettingsView, { context: h.context })
     await screen.findByText('A key is saved.')
     const input = screen.getByLabelText('Civitai API key', {
@@ -21,7 +21,7 @@ describe('the Civitai API key setting', () => {
   })
 
   it('saves a pasted key, then empties the field', async () => {
-    const setCivitaiKey = vi.fn(async () => ({ hasKey: true, canStore: true }))
+    const setCivitaiKey = vi.fn(async () => ({ hasKey: true }))
     const h = harness({ setCivitaiKey })
     render(SettingsView, { context: h.context })
     await screen.findByText('No key saved.')
@@ -58,9 +58,9 @@ describe('the Civitai API key setting', () => {
   })
 
   it('removes the key', async () => {
-    const clearCivitaiKey = vi.fn(async () => ({ hasKey: false, canStore: true }))
+    const clearCivitaiKey = vi.fn(async () => ({ hasKey: false }))
     const h = harness({
-      getCivitaiKeyStatus: async () => ({ hasKey: true, canStore: true }),
+      getCivitaiKeyStatus: async () => ({ hasKey: true }),
       clearCivitaiKey
     })
     render(SettingsView, { context: h.context })
@@ -69,10 +69,22 @@ describe('the Civitai API key setting', () => {
     await screen.findByText('No key saved.')
   })
 
-  it('explains when there is no keyring to keep a key in, and offers no field', async () => {
-    const h = harness({ getCivitaiKeyStatus: async () => ({ hasKey: false, canStore: false }) })
+  it('says it is saving while the keyring answers, and does not let the key be saved twice', async () => {
+    let finish: (status: { hasKey: boolean }) => void = () => undefined
+    const setCivitaiKey = vi.fn(
+      () => new Promise<{ hasKey: boolean }>((resolve) => (finish = resolve))
+    )
+    const h = harness({ setCivitaiKey })
     render(SettingsView, { context: h.context })
-    await screen.findByText(/No system keyring was found/)
-    expect(screen.queryByLabelText('Civitai API key', { selector: 'input' })).toBeNull()
+    await screen.findByText('No key saved.')
+    await fireEvent.input(screen.getByLabelText('Civitai API key', { selector: 'input' }), {
+      target: { value: 'abcdef0123456789abcdef0123456789' }
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    const saving = await screen.findByRole('button', { name: 'Saving…' })
+    expect((saving as HTMLButtonElement).disabled).toBe(true)
+    finish({ hasKey: true })
+    await screen.findByText('A key is saved.')
+    expect(setCivitaiKey).toHaveBeenCalledTimes(1)
   })
 })

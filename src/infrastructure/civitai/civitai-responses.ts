@@ -63,11 +63,23 @@ const fileOf = (file: FileResponse): CivitaiFile => ({
   hashes: file.hashes ?? {}
 })
 
+/**
+ * Civitai authors often put every trigger word in one entry (`a, b, c,`), so entries are split at
+ * commas, trimmed and stripped of repeats (ignoring case), keeping the first spelling.
+ */
+function triggerWordsOf(entries: readonly string[] | null | undefined): string[] {
+  const seen = new Set<string>()
+  return (entries ?? [])
+    .flatMap((entry) => entry.split(','))
+    .map((word) => word.trim())
+    .filter((word) => word !== '' && !seen.has(word.toLowerCase()) && seen.add(word.toLowerCase()))
+}
+
 const versionOf = (version: VersionResponse): CivitaiVersion => ({
   id: version.id,
   name: version.name,
   baseModel: version.baseModel ?? null,
-  trainedWords: (version.trainedWords ?? []).map((word) => word.trim()).filter(Boolean),
+  trainedWords: triggerWordsOf(version.trainedWords),
   description: htmlToText(version.description),
   publishedAt: version.publishedAt ?? null,
   files: (version.files ?? []).map(fileOf)

@@ -10,8 +10,10 @@ type KeyApi = Pick<GenfolioApi, 'getCivitaiKeyStatus' | 'setCivitaiKey' | 'clear
  * back. Reports failures in the notice bar; never rejects.
  */
 export class CivitaiKeyState {
-  status: CivitaiKeyStatus = $state({ hasKey: false, canStore: true })
+  status: CivitaiKeyStatus = $state({ hasKey: false })
   loaded = $state(false)
+  /** The system keyring can be slow to answer, so saving says it is working. */
+  saving = $state(false)
 
   constructor(
     private readonly api: KeyApi,
@@ -25,7 +27,12 @@ export class CivitaiKeyState {
 
   /** Resolves whether the key was saved. */
   async save(key: string): Promise<boolean> {
-    return this.attempt('save the Civitai API key', () => this.api.setCivitaiKey(key))
+    this.saving = true
+    try {
+      return await this.attempt('save the Civitai API key', () => this.api.setCivitaiKey(key))
+    } finally {
+      this.saving = false
+    }
   }
 
   async clear(): Promise<void> {

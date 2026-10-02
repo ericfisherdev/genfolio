@@ -155,8 +155,14 @@
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    /* min() lets a column shrink below 340px on a narrow window; min-width: 0 on li (below) keeps
+       a long version name or path from widening its column past the window. */
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
     gap: var(--space-3);
+  }
+  li {
+    display: flex;
+    min-width: 0;
   }
   .empty {
     color: var(--color-text-muted);

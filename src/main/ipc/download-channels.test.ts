@@ -27,7 +27,7 @@ function setup(): {
     clearFinished: vi.fn()
   }
   const keys = {
-    status: vi.fn(async () => ({ hasKey: true, canStore: true })),
+    status: vi.fn(async () => ({ hasKey: true })),
     save: vi.fn(async () => undefined),
     clear: vi.fn(async () => undefined)
   }
@@ -99,7 +99,7 @@ describe('registerDownloadChannels', () => {
     const { invoke, keys } = setup()
     const status = await invoke(IpcChannel.SetCivitaiKey, ' abcdef0123456789abcdef0123456789 ')
     expect(keys.save).toHaveBeenCalledWith('abcdef0123456789abcdef0123456789')
-    expect(status).toEqual({ hasKey: true, canStore: true })
+    expect(status).toEqual({ hasKey: true })
     expect(JSON.stringify(status)).not.toContain('abcdef')
   })
 
@@ -119,9 +119,6 @@ describe('registerDownloadChannels', () => {
     const { invoke, keys } = setup()
     await invoke(IpcChannel.ClearCivitaiKey)
     expect(keys.clear).toHaveBeenCalled()
-    await expect(invoke(IpcChannel.CivitaiKeyStatus)).resolves.toEqual({
-      hasKey: true,
-      canStore: true
-    })
+    await expect(invoke(IpcChannel.CivitaiKeyStatus)).resolves.toEqual({ hasKey: true })
   })
 })
