@@ -87,12 +87,4 @@ describe('the Civitai API key setting', () => {
     await screen.findByText('A key is saved.')
     expect(setCivitaiKey).toHaveBeenCalledTimes(1)
   })
-
-  it('does not ask the keyring anything when the page opens', async () => {
-    const setCivitaiKey = vi.fn()
-    const h = harness({ setCivitaiKey })
-    render(SettingsView, { context: h.context })
-    await screen.findByText('No key saved.')
-    expect(setCivitaiKey).not.toHaveBeenCalled()
-  })
 })

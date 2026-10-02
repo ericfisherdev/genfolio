@@ -68,6 +68,14 @@ describe('CivitaiApiKeyStore', () => {
     await expect(store.status()).resolves.toEqual({ hasKey: false })
   })
 
+  it('writes nothing when encrypting is refused', async () => {
+    const { store, stored, cipher } = setup()
+    cipher.encrypt.mockRejectedValue(new KeyStorageUnavailableError())
+    await expect(store.save('abcdef0123456789')).rejects.toBeInstanceOf(KeyStorageUnavailableError)
+    expect(stored.data).toBeUndefined()
+    await expect(store.status()).resolves.toEqual({ hasKey: false })
+  })
+
   it('does not use a stored key it can no longer read or that the keyring now refuses', async () => {
     const { store, stored } = setup()
     stored.data = Buffer.from('garbage')
