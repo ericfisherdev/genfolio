@@ -89,6 +89,15 @@
   <SidebarAlbums />
   <SidebarTags />
 
+  <button
+    type="button"
+    class="all settings"
+    aria-current={router.route.kind === RouteKind.Settings ? 'page' : undefined}
+    onclick={() => router.navigate({ kind: RouteKind.Settings })}
+  >
+    <span>Settings</span>
+  </button>
+
   <details class="diagnostics">
     <summary>Library service</summary>
     <ServiceStatus />
@@ -170,8 +179,10 @@
     padding: 3px var(--space-2);
     color: var(--color-text-muted);
   }
-  .diagnostics {
+  .settings {
     margin-top: auto;
+  }
+  .diagnostics {
     font-size: 0.8rem;
     color: var(--color-text-muted);
   }

@@ -1,8 +1,8 @@
 import { BrowserWindow, dialog } from 'electron'
 import type { FolderPicker } from './ipc/library-channels'
 
-export const pickFolderWithDialog: FolderPicker = async () => {
-  const options = { title: 'Add folder to library', properties: ['openDirectory' as const] }
+export const pickFolderWithDialog: FolderPicker = async (title) => {
+  const options = { title, properties: ['openDirectory' as const, 'createDirectory' as const] }
   const parent = BrowserWindow.getFocusedWindow()
   const result = parent
     ? await dialog.showOpenDialog(parent, options)
