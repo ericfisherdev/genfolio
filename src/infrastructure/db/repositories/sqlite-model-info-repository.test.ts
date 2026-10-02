@@ -114,6 +114,21 @@ describe('SqliteModelInfoRepository', () => {
     expect(names({ text: 'zzz' })).toEqual([])
   })
 
+  it('finds non-ASCII text whatever the case it was typed in', () => {
+    models.save(lora('detail'), { ...detail, notes: 'Über detail, très Élan' }, 5)
+    expect(names({ text: 'ÜBER' })).toEqual(['detail'])
+    expect(names({ text: 'über' })).toEqual(['detail'])
+    expect(names({ text: 'élan' })).toEqual(['detail'])
+  })
+
+  it('searches the trigger words themselves, not the JSON that stores them', () => {
+    models.save(lora('detail'), { ...detail, triggerWords: ['add detail', 'say "hi"'] }, 5)
+    expect(names({ text: '[' })).toEqual([])
+    expect(names({ text: ',' })).toEqual([])
+    expect(names({ text: 'detail", "' })).toEqual([])
+    expect(names({ text: 'say "hi"' })).toEqual(['detail'])
+  })
+
   it('treats LIKE wildcards in the search as plain text', () => {
     expect(names({ text: '%' })).toEqual([])
     expect(names({ text: '_' })).toEqual([])

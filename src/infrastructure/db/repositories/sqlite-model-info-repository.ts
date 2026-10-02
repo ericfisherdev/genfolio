@@ -46,19 +46,20 @@ const ENTRIES = `
     LEFT JOIN model_info i ON i.kind = c.kind AND i.identity = c.identity
   )`
 
-// An absent filter is NULL (or 0), so the statement's text never depends on the query. SQLite's
-// lower() folds ASCII only, which is all a file name or a Civitai base model name needs.
+// An absent filter is NULL (or 0), so the statement's text never depends on the query. Text is
+// folded by fold(), not SQLite's lower(), which folds ASCII only and would never match `Über`
+// typed as `über`; the query is folded the same way in list().
 const MATCHING = `
   FROM entries
   WHERE (@kind IS NULL OR kind = @kind)
-    AND (@baseModel IS NULL OR lower(base_model) = lower(@baseModel))
+    AND (@baseModel IS NULL OR fold(base_model) = fold(@baseModel))
     AND (@withoutInfo = 0 OR info_id IS NULL)
     AND (@text IS NULL
-      OR instr(lower(name), @text) > 0
-      OR instr(lower(COALESCE(base_model, '')), @text) > 0
-      OR instr(lower(COALESCE(trigger_words_json, '')), @text) > 0
-      OR instr(lower(COALESCE(description, '')), @text) > 0
-      OR instr(lower(COALESCE(notes, '')), @text) > 0)`
+      OR instr(fold(name), @text) > 0
+      OR instr(fold(COALESCE(base_model, '')), @text) > 0
+      OR EXISTS (SELECT 1 FROM json_each(trigger_words_json) word WHERE instr(fold(word.value), @text) > 0)
+      OR instr(fold(COALESCE(description, '')), @text) > 0
+      OR instr(fold(COALESCE(notes, '')), @text) > 0)`
 
 const entryOf = (row: EntryRow): ModelEntry => ({
   kind: row.kind,
@@ -88,6 +89,9 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   private readonly deleteEntry: Database.Statement
 
   constructor(private readonly db: Database.Database) {
+    db.function('fold', { deterministic: true }, (text: unknown) =>
+      typeof text === 'string' ? text.toLowerCase() : text
+    )
     this.selectPage = db.prepare(
       `${ENTRIES} SELECT * ${MATCHING}
        ORDER BY name COLLATE NOCASE, kind, identity LIMIT @limit OFFSET @offset`
@@ -96,7 +100,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
     this.selectBaseModels = db
       .prepare(
         `SELECT MIN(base_model) FROM model_info WHERE base_model IS NOT NULL
-         GROUP BY lower(base_model) ORDER BY 1 COLLATE NOCASE`
+         GROUP BY fold(base_model) ORDER BY 1 COLLATE NOCASE`
       )
       .pluck()
     this.selectOne = db.prepare(`${ENTRIES} SELECT * FROM entries WHERE kind = ? AND identity = ?`)

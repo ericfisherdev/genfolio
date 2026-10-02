@@ -6,7 +6,8 @@ import {
   type ModelDetail,
   type ModelEntry,
   type ModelFields,
-  type ModelKey
+  type ModelKey,
+  type ModelList
 } from '@shared/models'
 import { userMessage } from '../format/user-message'
 import type { NoticeSink } from './notice-sink'
@@ -52,10 +53,16 @@ export class ModelsState {
   async load(): Promise<void> {
     const request = ++this.latestList
     await this.attempt('load the models', async () => {
-      const limit = Math.min(MAX_MODELS_PER_PAGE, Math.max(this.items.length, MODELS_PAGE_SIZE))
-      const page = await this.api.listModels(this.query(0, limit))
-      if (request !== this.latestList) return
-      this.items = page.items
+      const shown = Math.max(this.items.length, MODELS_PAGE_SIZE)
+      let items: ModelEntry[] = []
+      let page: ModelList
+      do {
+        const limit = Math.min(MAX_MODELS_PER_PAGE, shown - items.length)
+        page = await this.api.listModels(this.query(items.length, limit))
+        if (request !== this.latestList) return
+        items = [...items, ...page.items]
+      } while (items.length < shown && items.length < page.total && page.items.length > 0)
+      this.items = items
       this.total = page.total
       this.baseModels = page.baseModels
       this.loaded = true
