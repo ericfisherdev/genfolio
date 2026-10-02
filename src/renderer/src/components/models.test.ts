@@ -31,6 +31,7 @@ const detail = (fields: Partial<ModelDetail> = {}): ModelDetail => ({
   ...entry(),
   custom: EMPTY_MODEL_FIELDS,
   civitai: null,
+  addedByHand: false,
   ...fields
 })
 

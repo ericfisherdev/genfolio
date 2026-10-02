@@ -107,13 +107,23 @@ export class ModelCivitaiService {
     return this.linked(key)
   }
 
-  /** Fetches the linked version again. NotFound when the model has no link or Civitai dropped it. */
+  /**
+   * Fetches the linked version again. NotFound when the model has no link or Civitai dropped it;
+   * Unlinked when the model was unlinked (or linked elsewhere) while Civitai was answering, in
+   * which case nothing is written: a refresh never brings back a link the user removed.
+   * @throws CivitaiUnavailableError when Civitai can't answer
+   */
   async refresh(key: ModelKey): Promise<CivitaiResult> {
     if (!this.models.get(key)) return { outcome: CivitaiOutcome.Missing }
     const link = this.links.linkOf(key)
-    return link
-      ? this.link(key, link.modelId, link.versionId)
-      : { outcome: CivitaiOutcome.NotFound }
+    if (!link) return { outcome: CivitaiOutcome.NotFound }
+    const model = await this.catalog.model(link.modelId)
+    const version = model?.versions.find((candidate) => candidate.id === link.versionId)
+    if (!model || !version) return { outcome: CivitaiOutcome.NotFound }
+    if (!this.links.update(key, link.versionId, recordOf(model, version), this.now())) {
+      return { outcome: CivitaiOutcome.Unlinked }
+    }
+    return this.linked(key)
   }
 
   /** Forgets the link and what was fetched; what the user wrote stays. False when none. */

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import { describe, expect, it, vi } from 'vitest'
 import { CivitaiOutcome, type CivitaiCandidate } from '@shared/civitai'
 import type { GenfolioApi } from '@shared/genfolio-api'
@@ -37,14 +38,20 @@ const civitai: CivitaiInfo = {
   fetchedAt: Date.UTC(2026, 9, 1)
 }
 
-const unlinked: ModelDetail = { ...entry, custom: EMPTY_MODEL_FIELDS, civitai: null }
+const unlinked: ModelDetail = {
+  ...entry,
+  custom: EMPTY_MODEL_FIELDS,
+  civitai: null,
+  addedByHand: false
+}
 const linked: ModelDetail = {
   ...entry,
   hasInfo: true,
   baseModel: 'SDXL 1.0',
   triggerWords: ['add detail'],
   custom: EMPTY_MODEL_FIELDS,
-  civitai
+  civitai,
+  addedByHand: false
 }
 
 const candidate = (fields: Partial<CivitaiCandidate> = {}): CivitaiCandidate => ({
@@ -151,6 +158,9 @@ describe('linking a model to Civitai', () => {
       )
     )
     expect(within(section).getByRole('button', { name: 'Look up on Civitai' })).toBeTruthy()
+    // The panel opens the search only after the lookup has settled, so let that finish first.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await tick()
     expect(screen.queryByRole('dialog', { name: 'Search Civitai' })).toBeNull()
   })
 
@@ -243,5 +253,89 @@ describe('a model linked to Civitai', () => {
     const own = within(screen.getByRole('region', { name: 'Your info' }))
     expect(own.getByText('My base')).toBeTruthy()
     expect(own.getByRole('button', { name: 'Edit' })).toBeTruthy()
+  })
+
+  it('disables unlinking and changing while Civitai is being asked', async () => {
+    let finish: (value: {
+      outcome: typeof CivitaiOutcome.Linked
+      model: ModelDetail
+    }) => void = () => undefined
+    const section = await openModel(
+      linkedHarness({
+        refreshModelFromCivitai: () => new Promise((resolve) => (finish = resolve))
+      })
+    )
+    await fireEvent.click(within(section).getByRole('button', { name: 'Refresh' }))
+    await waitFor(() =>
+      expect(
+        (within(section).getByRole('button', { name: 'Unlink' }) as HTMLButtonElement).disabled
+      ).toBe(true)
+    )
+    expect(
+      (within(section).getByRole('button', { name: 'Change…' }) as HTMLButtonElement).disabled
+    ).toBe(true)
+    finish({ outcome: CivitaiOutcome.Linked, model: linked })
+    await waitFor(() =>
+      expect(
+        (within(section).getByRole('button', { name: 'Unlink' }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    )
+  })
+
+  it('shows the model as it now is when it was unlinked while refreshing', async () => {
+    let unlinkedNow = false
+    const section = await openModel(
+      harness({
+        getModel: async () => (unlinkedNow ? unlinked : linked),
+        refreshModelFromCivitai: async () => {
+          unlinkedNow = true
+          return { outcome: CivitaiOutcome.Unlinked as const }
+        }
+      })
+    )
+    await fireEvent.click(within(section).getByRole('button', { name: 'Refresh' }))
+    await within(section).findByRole('button', { name: 'Look up on Civitai' })
+  })
+})
+
+describe('a model added by hand', () => {
+  it('is removed with its Civitai link after confirming, and says so', async () => {
+    let removed = false
+    const clearModel = vi.fn(async () => {
+      removed = true
+      return true
+    })
+    const byHand: ModelDetail = { ...linked, imageCount: 0, addedByHand: true }
+    const harnessed = harness({
+      listModels: async () => ({
+        total: removed ? 0 : 1,
+        items: removed ? [] : [entry],
+        baseModels: []
+      }),
+      getModel: async () => (removed ? null : byHand),
+      clearModel
+    })
+    render(ModelsView, { context: harnessed.context })
+    await fireEvent.click(await screen.findByRole('button', { name: /detail/ }))
+    await fireEvent.click(await screen.findByRole('button', { name: 'Remove model' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove detail?' })
+    expect(dialog.textContent).toContain('Civitai link')
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await waitFor(() =>
+      expect(clearModel).toHaveBeenCalledWith({ kind: 'lora', identity: 'detail' })
+    )
+    await screen.findByText(/Choose a model|No models/)
+    expect(screen.queryByRole('article', { name: 'detail details' })).toBeNull()
+  })
+
+  it('offers Clear info, not Remove, for a model the library uses', async () => {
+    const section = await openModel(
+      harness({
+        getModel: async () => ({ ...linked, custom: { ...EMPTY_MODEL_FIELDS, notes: 'x' } })
+      })
+    )
+    expect(section).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Clear info' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Remove model' })).toBeNull()
   })
 })

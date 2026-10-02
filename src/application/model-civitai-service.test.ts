@@ -168,6 +168,32 @@ describe('ModelCivitaiService.refresh and unlink', () => {
     })
   })
 
+  it('does not bring back a link removed while Civitai was answering', async () => {
+    catalog.model.mockResolvedValue(civitaiModel(5, [version(8)]))
+    await service.link(key, 5, 8)
+    let answer: (model: CivitaiModel) => void = () => undefined
+    catalog.model.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    const refreshing = service.refresh(key)
+    expect(service.unlink(key)).toBe(true)
+    answer(civitaiModel(5, [version(8, { trainedWords: ['new'] })]))
+    await expect(refreshing).resolves.toEqual({ outcome: CivitaiOutcome.Unlinked })
+    expect(service.unlink(key)).toBe(false)
+    expect(db.prepare('SELECT COUNT(*) FROM model_civitai').pluck().get()).toBe(0)
+  })
+
+  it('does not overwrite a link changed to another version while Civitai was answering', async () => {
+    catalog.model.mockResolvedValue(civitaiModel(5, [version(8), version(9)]))
+    await service.link(key, 5, 8)
+    let answer: (model: CivitaiModel) => void = () => undefined
+    catalog.model.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)))
+    const refreshing = service.refresh(key)
+    catalog.model.mockResolvedValue(civitaiModel(5, [version(8), version(9)]))
+    await service.link(key, 5, 9)
+    answer(civitaiModel(5, [version(8, { trainedWords: ['stale'] }), version(9)]))
+    await expect(refreshing).resolves.toEqual({ outcome: CivitaiOutcome.Unlinked })
+    expect(db.prepare('SELECT civitai_version_id FROM model_civitai').pluck().get()).toBe(9)
+  })
+
   it('has nothing to refresh without a link', async () => {
     await expect(service.refresh(key)).resolves.toEqual({ outcome: CivitaiOutcome.NotFound })
     expect(catalog.model).not.toHaveBeenCalled()

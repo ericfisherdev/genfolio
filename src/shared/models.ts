@@ -61,7 +61,12 @@ export type ModelEntry = z.infer<typeof modelEntrySchema>
 
 /** A model with what is behind its entry: the user's own fields, and the Civitai link. */
 export const modelDetailSchema = modelEntrySchema
-  .extend({ custom: modelFieldsSchema, civitai: civitaiInfoSchema.nullable() })
+  .extend({
+    custom: modelFieldsSchema,
+    civitai: civitaiInfoSchema.nullable(),
+    /** Listed only because the user added it: no image names it, so clearing it removes it. */
+    addedByHand: z.boolean()
+  })
   .strict()
 
 export type ModelDetail = z.infer<typeof modelDetailSchema>

@@ -6,5 +6,7 @@ export enum CivitaiOutcome {
   /** Civitai has no match (no file hash matched, or the model or version is gone). */
   NotFound = 'not-found',
   /** The local model no longer exists. */
-  Missing = 'missing'
+  Missing = 'missing',
+  /** The model was unlinked or linked elsewhere while Civitai was being asked. */
+  Unlinked = 'unlinked'
 }

@@ -5,6 +5,7 @@ import type { ModelKey } from '@shared/models'
 
 export class SqliteModelCivitaiRepository implements ModelCivitaiRepository, ModelHashLookup {
   private readonly upsert: Database.Statement
+  private readonly updateLinked: Database.Statement
   private readonly selectLink: Database.Statement
   private readonly deleteLink: Database.Statement
   private readonly selectHashes: Database.Statement
@@ -30,6 +31,14 @@ export class SqliteModelCivitaiRepository implements ModelCivitaiRepository, Mod
         nsfw = excluded.nsfw, tags_json = excluded.tags_json, downloads = excluded.downloads,
         thumbs_up = excluded.thumbs_up, published_at = excluded.published_at,
         fetched_at = excluded.fetched_at`)
+    this.updateLinked = db.prepare(`
+      UPDATE model_civitai SET
+        model_name = @modelName, version_name = @versionName, base_model = @baseModel,
+        trigger_words_json = @triggerWords, description = @description,
+        version_description = @versionDescription, creator = @creator, nsfw = @nsfw,
+        tags_json = @tags, downloads = @downloads, thumbs_up = @thumbsUp,
+        published_at = @publishedAt, fetched_at = @now
+      WHERE kind = @kind AND identity = @identity AND civitai_version_id = @versionId`)
     this.selectLink = db.prepare(
       `SELECT civitai_model_id AS modelId, civitai_version_id AS versionId
        FROM model_civitai WHERE kind = ? AND identity = ?`
@@ -44,9 +53,23 @@ export class SqliteModelCivitaiRepository implements ModelCivitaiRepository, Mod
   }
 
   save({ kind, identity }: ModelKey, record: CivitaiRecord, now: number): void {
-    this.upsert.run({
-      kind,
-      identity,
+    this.upsert.run({ kind, identity, ...this.columnsOf(record), now })
+  }
+
+  update(
+    { kind, identity }: ModelKey,
+    versionId: number,
+    record: CivitaiRecord,
+    now: number
+  ): boolean {
+    return (
+      this.updateLinked.run({ kind, identity, ...this.columnsOf(record), versionId, now }).changes >
+      0
+    )
+  }
+
+  private columnsOf(record: CivitaiRecord): Record<string, unknown> {
+    return {
       modelId: record.modelId,
       versionId: record.versionId,
       modelName: record.modelName,
@@ -60,9 +83,8 @@ export class SqliteModelCivitaiRepository implements ModelCivitaiRepository, Mod
       tags: JSON.stringify(record.tags),
       downloads: record.downloads,
       thumbsUp: record.thumbsUp,
-      publishedAt: record.publishedAt,
-      now
-    })
+      publishedAt: record.publishedAt
+    }
   }
 
   linkOf({ kind, identity }: ModelKey): { modelId: number; versionId: number } | undefined {

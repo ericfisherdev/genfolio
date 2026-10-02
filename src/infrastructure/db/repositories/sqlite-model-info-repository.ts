@@ -16,6 +16,7 @@ interface EntryRow {
   identity: string
   name: string
   image_count: number
+  model_id: number | null
   info_id: number | null
   civitai_id: number | null
   base_model: string | null
@@ -149,7 +150,8 @@ const detailOf = (row: EntryRow): ModelDetail => ({
     description: row.custom_description,
     notes: row.notes
   },
-  civitai: civitaiOf(row)
+  civitai: civitaiOf(row),
+  addedByHand: row.model_id === null
 })
 
 export class SqliteModelInfoRepository implements ModelInfoRepository {
@@ -161,6 +163,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   private readonly insertFromLibrary: Database.Statement
   private readonly insertNew: Database.Statement
   private readonly deleteEntry: Database.Statement
+  private readonly deleteOrphanLink: Database.Statement
 
   constructor(private readonly db: Database.Database) {
     db.function('fold', { deterministic: true }, (text: unknown) =>
@@ -205,6 +208,12 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
        ON CONFLICT (kind, identity) DO NOTHING`
     )
     this.deleteEntry = db.prepare('DELETE FROM model_info WHERE kind = ? AND identity = ?')
+    // A model added by hand leaves the list with its entry, so its Civitai link goes too rather
+    // than lingering unseen to reattach to a later model of the same name.
+    this.deleteOrphanLink = db.prepare(
+      `DELETE FROM model_civitai WHERE kind = @kind AND identity = @identity
+       AND NOT EXISTS (SELECT 1 FROM models m WHERE m.kind = @kind AND m.identity = @identity)`
+    )
   }
 
   list(query: ModelListQuery): ModelList {
@@ -241,7 +250,11 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   }
 
   clear({ kind, identity }: ModelKey): boolean {
-    return this.deleteEntry.run(kind, identity).changes > 0
+    return this.db.transaction(() => {
+      const removed = this.deleteEntry.run(kind, identity).changes > 0
+      if (removed) this.deleteOrphanLink.run({ kind, identity })
+      return removed
+    })()
   }
 
   private columnsOf(fields: ModelFields): Record<string, unknown> {

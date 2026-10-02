@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ChangeOutcome } from '@shared/change-outcome'
+import { CivitaiOutcome } from '@shared/civitai'
 import { ModelKind } from '@shared/generation-kinds'
 import { EMPTY_MODEL_FIELDS, type ModelDetail, type ModelEntry } from '@shared/models'
 import { ModelsState } from './models.svelte'
@@ -28,7 +29,13 @@ function libraryApi(): ConstructorParameters<typeof ModelsState>[0] {
     getModel: vi.fn(),
     saveModel: vi.fn(async (key) => ({
       outcome: ChangeOutcome.Done as const,
-      model: { ...entry(0), ...key, custom: EMPTY_MODEL_FIELDS, civitai: null } as ModelDetail
+      model: {
+        ...entry(0),
+        ...key,
+        custom: EMPTY_MODEL_FIELDS,
+        civitai: null,
+        addedByHand: false
+      } as ModelDetail
     })),
     createModel: vi.fn(),
     clearModel: vi.fn(),
@@ -65,5 +72,30 @@ describe('ModelsState', () => {
     await state.loadMore()
     await state.filter({ text: 'm' })
     expect(state.items).toHaveLength(100)
+  })
+
+  it('leaves the model the user moved on to alone when a slow Civitai answer arrives', async () => {
+    const api = libraryApi()
+    const second = {
+      ...entry(1),
+      custom: EMPTY_MODEL_FIELDS,
+      civitai: null,
+      addedByHand: false
+    } as ModelDetail
+    const first = { ...second, identity: 'm0', name: 'm0' } as ModelDetail
+    let answer: (value: unknown) => void = () => undefined
+    api.lookupModelOnCivitai = vi.fn(() => new Promise((resolve) => (answer = resolve))) as never
+    api.getModel = vi.fn(async (key: { identity: string }) =>
+      key.identity === 'm0' ? first : second
+    ) as never
+    const state = new ModelsState(api, { notify: vi.fn() })
+    await state.select({ kind: ModelKind.Lora, identity: 'm0' })
+    const lookup = state.lookupOnCivitai({ kind: ModelKind.Lora, identity: 'm0' })
+    await state.select({ kind: ModelKind.Lora, identity: 'm1' })
+    answer({ outcome: CivitaiOutcome.Linked, model: first })
+    await lookup
+    expect(state.selected?.identity).toBe('m1')
+    expect(state.detail?.identity).toBe('m1')
+    expect(state.civitaiBusy).toBe(false)
   })
 })

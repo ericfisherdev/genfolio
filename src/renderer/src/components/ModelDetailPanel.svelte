@@ -115,8 +115,14 @@
           disabled={models.civitaiBusy}
           onclick={() => void models.refreshFromCivitai(key)}>Refresh</button
         >
-        <button type="button" onclick={() => (searching = true)}>Change…</button>
-        <button type="button" onclick={() => void models.unlinkFromCivitai(key)}>Unlink</button>
+        <button type="button" disabled={models.civitaiBusy} onclick={() => (searching = true)}>
+          Change…
+        </button>
+        <button
+          type="button"
+          disabled={models.civitaiBusy}
+          onclick={() => void models.unlinkFromCivitai(key)}>Unlink</button
+        >
       </div>
       {#if civitai.triggerWords.length > 0}
         <p class="label">Trigger words on Civitai</p>
@@ -165,8 +171,10 @@
         <button type="button" onclick={() => (editing = true)}>
           {hasOwnInfo ? 'Edit' : 'Add info'}
         </button>
-        {#if hasOwnInfo}
-          <button type="button" onclick={() => (confirmingClear = true)}>Clear info</button>
+        {#if hasOwnInfo || model.addedByHand}
+          <button type="button" onclick={() => (confirmingClear = true)}>
+            {model.addedByHand ? 'Remove model' : 'Clear info'}
+          </button>
         {/if}
       </div>
       {#if !hasOwnInfo}
@@ -207,9 +215,13 @@
 
 <ConfirmDialog
   open={confirmingClear}
-  title={`Clear what you recorded about ${model.name}?`}
-  message="Your base model, trigger words, strength, description and notes are forgotten. What Civitai said, images and files are not touched."
-  confirmLabel="Clear"
+  title={model.addedByHand
+    ? `Remove ${model.name}?`
+    : `Clear what you recorded about ${model.name}?`}
+  message={model.addedByHand
+    ? 'You added this model by hand, so it leaves the list, with what you recorded and its Civitai link. No files are touched.'
+    : 'Your base model, trigger words, strength, description and notes are forgotten. What Civitai said, images and files are not touched.'}
+  confirmLabel={model.addedByHand ? 'Remove' : 'Clear'}
   onconfirm={() => void clear()}
   oncancel={() => (confirmingClear = false)}
 />

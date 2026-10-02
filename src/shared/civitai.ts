@@ -50,7 +50,8 @@ export const civitaiLinkParamsSchema = z
 export const civitaiResultSchema = z.discriminatedUnion('outcome', [
   z.object({ outcome: z.literal(CivitaiOutcome.Linked), model: modelDetailSchema }).strict(),
   z.object({ outcome: z.literal(CivitaiOutcome.NotFound) }).strict(),
-  z.object({ outcome: z.literal(CivitaiOutcome.Missing) }).strict()
+  z.object({ outcome: z.literal(CivitaiOutcome.Missing) }).strict(),
+  z.object({ outcome: z.literal(CivitaiOutcome.Unlinked) }).strict()
 ])
 
 export type CivitaiResult = z.infer<typeof civitaiResultSchema>

@@ -79,6 +79,38 @@ describe('SqliteModelCivitaiRepository', () => {
     })
   })
 
+  it('updates what was fetched only while still linked to that version', () => {
+    civitai.save(key, record, 1)
+    expect(civitai.update(key, 135867, { ...record, baseModel: 'Pony' }, 2)).toBe(true)
+    expect(models.find(key)?.civitai).toMatchObject({ baseModel: 'Pony', fetchedAt: 2 })
+    expect(civitai.update(key, 999, { ...record, baseModel: 'Other' }, 3)).toBe(false)
+    civitai.remove(key)
+    expect(civitai.update(key, 135867, record, 4)).toBe(false)
+    expect(civitai.linkOf(key)).toBeUndefined()
+  })
+
+  it('removes a model added by hand together with its link, but a library model keeps its link', () => {
+    models.create({ kind: ModelKind.Lora, identity: 'ghost' }, 'Ghost', mine, 1)
+    civitai.save({ kind: ModelKind.Lora, identity: 'ghost' }, record, 2)
+    expect(models.find({ kind: ModelKind.Lora, identity: 'ghost' })).toMatchObject({
+      addedByHand: true,
+      civitai: { modelId: 122359 }
+    })
+    expect(models.clear({ kind: ModelKind.Lora, identity: 'ghost' })).toBe(true)
+    expect(models.find({ kind: ModelKind.Lora, identity: 'ghost' })).toBeUndefined()
+    expect(civitai.linkOf({ kind: ModelKind.Lora, identity: 'ghost' })).toBeUndefined()
+    expect(db.prepare('SELECT COUNT(*) FROM model_civitai').pluck().get()).toBe(0)
+
+    models.save(key, mine, 3)
+    civitai.save(key, record, 4)
+    expect(models.find(key)?.addedByHand).toBe(false)
+    expect(models.clear(key)).toBe(true)
+    expect(models.find(key)).toMatchObject({
+      civitai: { modelId: 122359 },
+      custom: { notes: null }
+    })
+  })
+
   it('keeps what the user wrote when the link is refreshed or removed', () => {
     models.save(key, mine, 1)
     civitai.save(key, record, 2)

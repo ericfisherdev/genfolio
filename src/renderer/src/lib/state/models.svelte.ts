@@ -227,6 +227,8 @@ export class ModelsState {
     if (outcome === CivitaiOutcome.NotFound) {
       this.notices.notify('Civitai no longer has the linked model version.')
     }
+    // Unlinked meanwhile: nothing was written, so show the model as it now is.
+    if (outcome === CivitaiOutcome.Unlinked) await this.select(key)
   }
 
   /** Forgets the link and what Civitai said; what the user wrote stays. */
@@ -256,8 +258,11 @@ export class ModelsState {
       const result = await request()
       outcome = result.outcome
       if (result.outcome === CivitaiOutcome.Linked) {
-        this.selected = { kind: result.model.kind, identity: result.model.identity }
-        this.detail = result.model
+        // The user may have opened another model while Civitai answered.
+        if (sameKey(this.selected, result.model)) {
+          this.latestDetail++
+          this.detail = result.model
+        }
       } else if (result.outcome === CivitaiOutcome.Missing) {
         this.notices.notify('That model is no longer listed.')
       }
