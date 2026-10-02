@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.4.0 — 2026-10-02
+
+Know your models, and get new ones from Civitai.
+
+### Settings
+
+- A Settings page (sidebar) with one download folder for checkpoints and one for LoRAs, chosen
+  with a folder dialog.
+- An optional Civitai API key for downloads that ask for a login. It is kept encrypted by the
+  system keyring and sent only to civitai.com; without a working keyring it is refused rather
+  than stored under a fixed password.
+
+### Models
+
+- A Models page listing the checkpoints and LoRAs your images use, and any you add by hand, with
+  what you record about each: base model, trigger words, strength, description and notes. Search by
+  name, base model, trigger words or notes; filter by type, base model, or "no info yet"; copy the
+  trigger words.
+- Link a model to its Civitai page: **Look up on Civitai** matches by the file hashes already seen
+  for the model (an exact match), or search Civitai by name and choose a version. It fills in base
+  model, trigger words, descriptions, creator and download counts, and you can open the page,
+  refresh, change or unlink. What Civitai says is kept apart from what you wrote: your base model
+  and strength win, and trigger words from both are listed, yours first.
+
+### Get models
+
+- A page to search Civitai by name, type (LoRA or checkpoint) and base model, and download a
+  version into the folder chosen in Settings, in a subfolder for its base model: an SDXL LoRA goes
+  to `<LoRAs folder>/sdxl`. SDXL variants share `sdxl`, SD 1.x is `sd15`, and other base models get a
+  lowercase folder of their own; an existing folder named alike (such as `SDXL`) is reused.
+- Downloads show progress, can be cancelled, and run two at a time. A file is checked against the
+  size and SHA-256 Civitai gives before it is put in place, an existing file is never overwritten,
+  and a failed or cancelled download leaves nothing behind. A finished download is added to Models,
+  linked to its Civitai version.
+- Searching and downloading contact civitai.com, and only when you ask.
+
+### Fixed
+
+- Opening Settings no longer freezes the app while the system keyring answers.
+- Get models cards no longer overflow, show one slash in paths, and list trigger words without
+  trailing commas.
+
 ## 0.3.0 — 2026-10-01
 
 Two filters for working through the library.

@@ -2,7 +2,7 @@
   "name": "genfolio",
   "productName": "Genfolio",
   "desktopName": "genfolio.desktop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Desktop gallery for organizing AI-generated images (A1111, Fooocus)",
   "license": "MIT",
   "main": "./out/main/index.js",
