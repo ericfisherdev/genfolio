@@ -15,6 +15,7 @@ describe('routes', () => {
     { kind: RouteKind.Slideshow },
     { kind: RouteKind.SimilarGroups },
     { kind: RouteKind.Settings },
+    { kind: RouteKind.Models },
     { kind: RouteKind.SimilarGroup, groupId: 4 },
     { kind: RouteKind.SimilarGroup, groupId: 4, filters: { favoritesOnly: true } },
     { kind: RouteKind.Slideshow, startId: 7 }

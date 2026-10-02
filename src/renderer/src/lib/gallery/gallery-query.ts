@@ -48,6 +48,7 @@ export function queryForRoute(
     case RouteKind.Slideshow:
     case RouteKind.SimilarGroups:
     case RouteKind.Settings:
+    case RouteKind.Models:
       return previous
   }
 }

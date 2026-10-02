@@ -1,5 +1,6 @@
 import type { ModelKind } from '@shared/generation-kinds'
 import type { AlbumKind } from '@shared/album-kinds'
+import type { ModelDetail, ModelFields, ModelKey, ModelList, ModelListQuery } from '@shared/models'
 import type { StoredSearchFilters } from '@shared/search'
 import type { SlideshowPreset, SlideshowSettings } from '@shared/slideshow'
 import type { StoredGeneration } from './generation'
@@ -269,6 +270,19 @@ export interface StoredHashes {
   readonly sha256: Uint8Array | null
   readonly dhash: bigint
   readonly phash: bigint
+}
+
+/** What the user records about checkpoints and LoRAs, listed with the models images use. */
+export interface ModelInfoRepository {
+  /** Models the library's images use and those added by hand, by name. */
+  list(query: ModelListQuery): ModelList
+  find(key: ModelKey): ModelDetail | undefined
+  /** Stores the fields; false when no model or entry has this key. */
+  save(key: ModelKey, fields: ModelFields, now: number): boolean
+  /** Records a model that has no entry yet; false when it already has one. */
+  create(key: ModelKey, name: string, fields: ModelFields, now: number): boolean
+  /** Forgets the entry (a library model stays listed); false when there was none. */
+  clear(key: ModelKey): boolean
 }
 
 /** Named application settings, stored as text. */

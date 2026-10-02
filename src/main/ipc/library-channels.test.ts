@@ -73,7 +73,13 @@ describe('registerLibraryChannels', () => {
       IpcChannel.CancelUpdateDownload,
       IpcChannel.GetModelFolders,
       IpcChannel.ChooseModelFolder,
-      IpcChannel.ClearModelFolder
+      IpcChannel.ClearModelFolder,
+      IpcChannel.ListModels,
+      IpcChannel.GetModel,
+      IpcChannel.SaveModel,
+      IpcChannel.CreateModel,
+      IpcChannel.ClearModel,
+      IpcChannel.CopyModelTriggerWords
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

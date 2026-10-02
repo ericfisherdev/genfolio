@@ -16,11 +16,13 @@ import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
 import { AlbumService } from '@application/album-service'
 import { ModelFolderSettings } from '@application/model-folder-settings'
+import { ModelInfoService } from '@application/model-info-service'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
 import { SqliteAppSettingsRepository } from '@infrastructure/db/repositories/sqlite-app-settings-repository'
+import { SqliteModelInfoRepository } from '@infrastructure/db/repositories/sqlite-model-info-repository'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
 import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqlite-generation-repository'
 import { SqliteImageVersionCheck } from '@infrastructure/db/repositories/sqlite-image-version-check'
@@ -129,6 +131,7 @@ export function createLibraryHandlers(
   const marks = new SqliteImageMarkRepository(db)
   const presets = new SqliteSlideshowPresetRepository(db)
   const modelFolders = new ModelFolderSettings(new SqliteAppSettingsRepository(db))
+  const modelInfo = new ModelInfoService(new SqliteModelInfoRepository(db), now)
   const tags = new TagService(new SqliteTagRepository(db), now)
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
@@ -245,6 +248,12 @@ export function createLibraryHandlers(
     },
     [ServiceMethod.ModelFolders]: async () => modelFolders.get(),
     [ServiceMethod.SetModelFolder]: async ({ kind, path }) => modelFolders.set(kind, path),
+    [ServiceMethod.ModelsList]: async (query) => modelInfo.list(query),
+    [ServiceMethod.ModelsGet]: async (key) => modelInfo.get(key),
+    [ServiceMethod.ModelsSave]: async ({ key, fields }) => modelInfo.save(key, fields),
+    [ServiceMethod.ModelsCreate]: async ({ kind, name, fields }) =>
+      modelInfo.create(kind, name, fields),
+    [ServiceMethod.ModelsClear]: async (key) => ({ cleared: modelInfo.clear(key) }),
     [ServiceMethod.PresetsList]: async () => presets.list(),
     [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
     [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),
