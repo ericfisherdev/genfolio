@@ -263,9 +263,12 @@ export interface GenfolioApi {
   listDownloads(): Promise<readonly DownloadSnapshot[]>
   /** Forgets the downloads that have stopped; their files stay. */
   clearFinishedDownloads(): Promise<void>
-  /** Whether a Civitai API key is saved (never the key) and whether one can be kept safely. */
+  /** Whether a Civitai API key is saved (never the key); never waits on the system keyring. */
   getCivitaiKeyStatus(): Promise<CivitaiKeyStatus>
-  /** Encrypts and saves the key for downloads that need a login; rejects without a system keyring. */
+  /**
+   * Encrypts and saves the key for downloads that need a login; rejects without a system keyring.
+   * Asking the keyring can take many seconds, but never blocks the app.
+   */
   setCivitaiKey(key: string): Promise<CivitaiKeyStatus>
   clearCivitaiKey(): Promise<CivitaiKeyStatus>
   /** Subscribes to downloads changing; returns the unsubscribe function. */

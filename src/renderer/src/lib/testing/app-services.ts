@@ -111,7 +111,7 @@ export function testServices(
     getModelFolders: async () => ({ checkpoint: null, lora: null }),
     listModels: async () => ({ total: 0, items: [], baseModels: [] }),
     listDownloads: async () => [],
-    getCivitaiKeyStatus: async () => ({ hasKey: false, canStore: true }),
+    getCivitaiKeyStatus: async () => ({ hasKey: false }),
     listSimilarGroups: async () => ({ total: 0, groups: [] }),
     getFacets: async () => ({
       checkpoints: [],
