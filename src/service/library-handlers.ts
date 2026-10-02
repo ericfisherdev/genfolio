@@ -15,10 +15,12 @@ import { LibraryRoots } from '@application/library-roots'
 import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
 import { AlbumService } from '@application/album-service'
+import { ModelFolderSettings } from '@application/model-folder-settings'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
 import type { ScanLogger } from '@domain/scan'
+import { SqliteAppSettingsRepository } from '@infrastructure/db/repositories/sqlite-app-settings-repository'
 import { SqliteDirectoryRepository } from '@infrastructure/db/repositories/sqlite-directory-repository'
 import { SqliteGenerationRepository } from '@infrastructure/db/repositories/sqlite-generation-repository'
 import { SqliteImageVersionCheck } from '@infrastructure/db/repositories/sqlite-image-version-check'
@@ -126,6 +128,7 @@ export function createLibraryHandlers(
   })
   const marks = new SqliteImageMarkRepository(db)
   const presets = new SqliteSlideshowPresetRepository(db)
+  const modelFolders = new ModelFolderSettings(new SqliteAppSettingsRepository(db))
   const tags = new TagService(new SqliteTagRepository(db), now)
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
@@ -240,6 +243,8 @@ export function createLibraryHandlers(
       similarity.setThreshold(threshold)
       return { threshold }
     },
+    [ServiceMethod.ModelFolders]: async () => modelFolders.get(),
+    [ServiceMethod.SetModelFolder]: async ({ kind, path }) => modelFolders.set(kind, path),
     [ServiceMethod.PresetsList]: async () => presets.list(),
     [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
     [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),

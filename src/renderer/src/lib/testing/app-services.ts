@@ -11,6 +11,7 @@ import { ImageDeletion } from '../state/image-deletion.svelte'
 import { SlideshowNavigator } from '../slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from '../slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from '../slideshow/slideshow-settings.svelte'
+import { ModelFoldersState } from '../state/model-folders.svelte'
 import { SimilarityState } from '../state/similarity.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
@@ -103,6 +104,7 @@ export function testServices(
     getDiagnostics: async () => ({ serviceRestarts: 0, serviceStopped: false }),
     listSlideshowPresets: async () => [],
     getSimilarityThreshold: async () => 10,
+    getModelFolders: async () => ({ checkpoint: null, lora: null }),
     listSimilarGroups: async () => ({ total: 0, groups: [] }),
     getFacets: async () => ({
       checkpoints: [],
@@ -150,6 +152,7 @@ export function testServices(
         return report !== undefined && !report.cancelled && report.deleted.length > 0
       }
     ),
+    modelFolders: new ModelFoldersState(api, libraryState),
     deletion,
     albums: new AlbumsState(api, libraryState, () =>
       refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))

@@ -12,7 +12,7 @@ import type { ServiceRequester } from '../service/library-service-client'
 import type { IpcHandlerRegistry } from './validating-ipc-registry'
 
 /** Asks the user for a folder; resolves `undefined` when they cancel. */
-export type FolderPicker = () => Promise<string | undefined>
+export type FolderPicker = (title: string) => Promise<string | undefined>
 
 const rootIdArgs = z.tuple([z.number().int().positive()])
 
@@ -32,7 +32,7 @@ export function registerLibraryChannels(
     IpcChannel.AddRootViaDialog,
     z.tuple([]),
     async (): Promise<AddRootViaDialogResult> => {
-      const path = await pickFolder()
+      const path = await pickFolder('Add folder to library')
       if (path === undefined) return { outcome: AddRootOutcome.Cancelled }
       return service.request(ServiceMethod.AddRoot, { path })
     }

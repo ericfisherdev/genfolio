@@ -9,6 +9,7 @@ import { ImageDeletion } from './lib/state/image-deletion.svelte'
 import { SlideshowNavigator } from './lib/slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from './lib/slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from './lib/slideshow/slideshow-settings.svelte'
+import { ModelFoldersState } from './lib/state/model-folders.svelte'
 import { SimilarityState } from './lib/state/similarity.svelte'
 import { FacetsState } from './lib/state/facets.svelte'
 import { ProblemReports } from './lib/state/problem-reports'
@@ -69,6 +70,7 @@ const services: AppServices = {
       return report !== undefined && !report.cancelled && report.deleted.length > 0
     }
   ),
+  modelFolders: new ModelFoldersState(api, library),
   deletion,
   albums: new AlbumsState(api, library, () =>
     refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))

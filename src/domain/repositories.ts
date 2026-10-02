@@ -271,6 +271,14 @@ export interface StoredHashes {
   readonly phash: bigint
 }
 
+/** Named application settings, stored as text. */
+export interface AppSettingsRepository {
+  /** The stored value, or undefined. */
+  get(key: string): string | undefined
+  set(key: string, value: string): void
+  remove(key: string): void
+}
+
 /** Similar pairs, groups and the grouping threshold. */
 export interface SimilarityRepository {
   /** Every image with perceptual hashes. */

@@ -9,6 +9,8 @@ import {
   MAX_RATING
 } from './gallery'
 import { CopyVariant, generationDetailsSchema } from './generation'
+import { ModelKind } from './generation-kinds'
+import { folderPathSchema, modelFoldersSchema } from './model-folders'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
@@ -61,7 +63,9 @@ export enum ServiceMethod {
   SimilarityThreshold = 'similarity.threshold',
   SetSimilarityThreshold = 'similarity.set-threshold',
   SimilarGroups = 'similarity.groups',
-  SimilarGroupMembers = 'similarity.group-members'
+  SimilarGroupMembers = 'similarity.group-members',
+  ModelFolders = 'settings.model-folders',
+  SetModelFolder = 'settings.set-model-folder'
 }
 
 const noParams = z.object({}).strict()
@@ -204,6 +208,12 @@ export const serviceContract = {
   [ServiceMethod.SimilarGroupMembers]: {
     params: z.object({ groupId: z.number().int().positive() }).strict(),
     result: z.array(z.number().int().positive()).readonly()
+  },
+  [ServiceMethod.ModelFolders]: { params: noParams, result: modelFoldersSchema },
+  [ServiceMethod.SetModelFolder]: {
+    /** null clears the folder of that kind. */
+    params: z.object({ kind: z.enum(ModelKind), path: folderPathSchema.nullable() }).strict(),
+    result: modelFoldersSchema
   },
   [ServiceMethod.GalleryImages]: {
     params: z

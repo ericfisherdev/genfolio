@@ -54,6 +54,9 @@ const api: GenfolioApi = {
   getGeneration: (imageId) => ipcRenderer.invoke(IpcChannel.GetGeneration, imageId),
   copyGeneration: (imageId, variant) =>
     ipcRenderer.invoke(IpcChannel.CopyGeneration, imageId, variant),
+  getModelFolders: () => ipcRenderer.invoke(IpcChannel.GetModelFolders),
+  chooseModelFolder: (kind) => ipcRenderer.invoke(IpcChannel.ChooseModelFolder, kind),
+  clearModelFolder: (kind) => ipcRenderer.invoke(IpcChannel.ClearModelFolder, kind),
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)

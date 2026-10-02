@@ -11,6 +11,7 @@
   import LibraryView from './LibraryView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
+  import SettingsView from './SettingsView.svelte'
   import SimilarGroupsView from './SimilarGroupsView.svelte'
   import SlideshowView from './SlideshowView.svelte'
   import TopBar from './TopBar.svelte'
@@ -86,6 +87,9 @@
   <main>
     {#if router.route.kind === RouteKind.Image}
       <DetailView />
+    {:else if router.route.kind === RouteKind.Settings}
+      <NoticeBar />
+      <SettingsView />
     {:else}
       <TopBar />
       {#if router.route.kind === RouteKind.SimilarGroup}

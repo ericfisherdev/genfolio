@@ -3,6 +3,8 @@ import type { DeleteMode, DeleteReport } from './deletion'
 import type { AppDiagnostics } from './diagnostics'
 import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
+import type { ModelKind } from './generation-kinds'
+import type { ModelFolders } from './model-folders'
 import type { SearchFacets, SearchFilters } from './search'
 import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
@@ -58,7 +60,10 @@ export enum IpcChannel {
   CopyImagePath = 'image:copy-path',
   GetGeneration = 'image:get-generation',
   CopyGeneration = 'image:copy-generation',
-  CancelUpdateDownload = 'app:cancel-update-download'
+  CancelUpdateDownload = 'app:cancel-update-download',
+  GetModelFolders = 'settings:model-folders',
+  ChooseModelFolder = 'settings:choose-model-folder',
+  ClearModelFolder = 'settings:clear-model-folder'
 }
 
 /** Main → renderer push channels. */
@@ -169,6 +174,15 @@ export interface GenfolioApi {
    * text); false when the image has no such text.
    */
   copyGeneration(imageId: number, variant: CopyVariant): Promise<boolean>
+  /** The folders downloaded models go to; each is null until chosen. */
+  getModelFolders(): Promise<ModelFolders>
+  /**
+   * Shows the folder picker in main (the renderer never supplies a path) and stores the
+   * choice for `kind`; resolves the folders, unchanged when the picker is cancelled.
+   */
+  chooseModelFolder(kind: ModelKind): Promise<ModelFolders>
+  /** Forgets the folder for `kind`; files on disk are never touched. */
+  clearModelFolder(kind: ModelKind): Promise<ModelFolders>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
   /** Subscribes to the steps of an in-app update (Help → Check for Updates…). */

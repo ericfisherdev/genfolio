@@ -26,6 +26,7 @@ import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
 import { registerTagChannels } from './ipc/tag-channels'
+import { registerSettingsChannels } from './ipc/settings-channels'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
@@ -175,6 +176,7 @@ function onReady(): void {
   registerAlbumChannels(ipc, libraryService)
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
+  registerSettingsChannels(ipc, libraryService, pickFolderWithDialog)
   registerAppChannels(ipc, {
     openLogs,
     logRendererError: (name) => mainLog.write(LogLevel.Error, `renderer: ${name}`),
