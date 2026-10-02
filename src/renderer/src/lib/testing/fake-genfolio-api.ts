@@ -8,6 +8,12 @@ const unexpected = (name: string) => (): never => {
 export function fakeGenfolioApi(overrides: Partial<GenfolioApi> = {}): GenfolioApi {
   return {
     getServiceHealth: unexpected('getServiceHealth'),
+    listModels: unexpected('listModels'),
+    getModel: unexpected('getModel'),
+    saveModel: unexpected('saveModel'),
+    createModel: unexpected('createModel'),
+    clearModel: unexpected('clearModel'),
+    copyModelTriggerWords: unexpected('copyModelTriggerWords'),
     getModelFolders: unexpected('getModelFolders'),
     chooseModelFolder: unexpected('chooseModelFolder'),
     clearModelFolder: unexpected('clearModelFolder'),

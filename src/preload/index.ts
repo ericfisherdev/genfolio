@@ -57,6 +57,13 @@ const api: GenfolioApi = {
   getModelFolders: () => ipcRenderer.invoke(IpcChannel.GetModelFolders),
   chooseModelFolder: (kind) => ipcRenderer.invoke(IpcChannel.ChooseModelFolder, kind),
   clearModelFolder: (kind) => ipcRenderer.invoke(IpcChannel.ClearModelFolder, kind),
+  listModels: (query) => ipcRenderer.invoke(IpcChannel.ListModels, query),
+  getModel: (key) => ipcRenderer.invoke(IpcChannel.GetModel, key),
+  saveModel: (key, fields) => ipcRenderer.invoke(IpcChannel.SaveModel, key, fields),
+  createModel: (kind, name, fields) =>
+    ipcRenderer.invoke(IpcChannel.CreateModel, kind, name, fields),
+  clearModel: (key) => ipcRenderer.invoke(IpcChannel.ClearModel, key),
+  copyModelTriggerWords: (key) => ipcRenderer.invoke(IpcChannel.CopyModelTriggerWords, key),
   onScanEvent: (listener) => {
     const forward = (_event: IpcRendererEvent, scanEvent: ScanEvent): void => listener(scanEvent)
     ipcRenderer.on(IpcEvent.Scan, forward)

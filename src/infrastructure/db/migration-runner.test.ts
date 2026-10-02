@@ -29,6 +29,7 @@ const LATEST_TABLES = [
   'library_roots',
   'metadata_raw',
   'model_hashes',
+  'model_info',
   'models',
   'prompt_fts',
   'prompt_fts_config',

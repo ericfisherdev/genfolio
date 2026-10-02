@@ -91,6 +91,15 @@
 
   <button
     type="button"
+    class="all models"
+    aria-current={router.route.kind === RouteKind.Models ? 'page' : undefined}
+    onclick={() => router.navigate({ kind: RouteKind.Models })}
+  >
+    <span>Models</span>
+  </button>
+
+  <button
+    type="button"
     class="all settings"
     aria-current={router.route.kind === RouteKind.Settings ? 'page' : undefined}
     onclick={() => router.navigate({ kind: RouteKind.Settings })}
@@ -179,7 +188,7 @@
     padding: 3px var(--space-2);
     color: var(--color-text-muted);
   }
-  .settings {
+  .models {
     margin-top: auto;
   }
   .diagnostics {

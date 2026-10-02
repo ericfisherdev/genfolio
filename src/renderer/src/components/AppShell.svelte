@@ -9,6 +9,7 @@
   import FilterBar from './FilterBar.svelte'
   import KeeperBar from './KeeperBar.svelte'
   import LibraryView from './LibraryView.svelte'
+  import ModelsView from './ModelsView.svelte'
   import NoticeBar from './NoticeBar.svelte'
   import Sidebar from './Sidebar.svelte'
   import SettingsView from './SettingsView.svelte'
@@ -87,6 +88,9 @@
   <main>
     {#if router.route.kind === RouteKind.Image}
       <DetailView />
+    {:else if router.route.kind === RouteKind.Models}
+      <NoticeBar />
+      <ModelsView />
     {:else if router.route.kind === RouteKind.Settings}
       <NoticeBar />
       <SettingsView />

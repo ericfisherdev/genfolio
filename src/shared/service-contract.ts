@@ -11,6 +11,15 @@ import {
 import { CopyVariant, generationDetailsSchema } from './generation'
 import { ModelKind } from './generation-kinds'
 import { folderPathSchema, modelFoldersSchema } from './model-folders'
+import {
+  modelChangeSchema,
+  modelDetailSchema,
+  modelFieldsSchema,
+  modelKeySchema,
+  modelListQuerySchema,
+  modelListSchema,
+  modelNameSchema
+} from './models'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
@@ -65,7 +74,12 @@ export enum ServiceMethod {
   SimilarGroups = 'similarity.groups',
   SimilarGroupMembers = 'similarity.group-members',
   ModelFolders = 'settings.model-folders',
-  SetModelFolder = 'settings.set-model-folder'
+  SetModelFolder = 'settings.set-model-folder',
+  ModelsList = 'models.list',
+  ModelsGet = 'models.get',
+  ModelsSave = 'models.save',
+  ModelsCreate = 'models.create',
+  ModelsClear = 'models.clear'
 }
 
 const noParams = z.object({}).strict()
@@ -214,6 +228,26 @@ export const serviceContract = {
     /** null clears the folder of that kind. */
     params: z.object({ kind: z.enum(ModelKind), path: folderPathSchema.nullable() }).strict(),
     result: modelFoldersSchema
+  },
+  [ServiceMethod.ModelsList]: { params: modelListQuerySchema, result: modelListSchema },
+  [ServiceMethod.ModelsGet]: {
+    params: modelKeySchema,
+    /** null when no image uses the model and it has no entry. */
+    result: modelDetailSchema.nullable()
+  },
+  [ServiceMethod.ModelsSave]: {
+    params: z.object({ key: modelKeySchema, fields: modelFieldsSchema }).strict(),
+    result: modelChangeSchema
+  },
+  [ServiceMethod.ModelsCreate]: {
+    params: z
+      .object({ kind: z.enum(ModelKind), name: modelNameSchema, fields: modelFieldsSchema })
+      .strict(),
+    result: modelChangeSchema
+  },
+  [ServiceMethod.ModelsClear]: {
+    params: modelKeySchema,
+    result: z.object({ cleared: z.boolean() })
   },
   [ServiceMethod.GalleryImages]: {
     params: z

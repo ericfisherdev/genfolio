@@ -5,6 +5,14 @@ import type { DirectoryNode, GalleryQuery, ImageCard } from './gallery'
 import type { GenerationDetails } from './generation'
 import type { ModelKind } from './generation-kinds'
 import type { ModelFolders } from './model-folders'
+import type {
+  ModelChange,
+  ModelDetail,
+  ModelFields,
+  ModelKey,
+  ModelList,
+  ModelListQuery
+} from './models'
 import type { SearchFacets, SearchFilters } from './search'
 import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
@@ -63,7 +71,13 @@ export enum IpcChannel {
   CancelUpdateDownload = 'app:cancel-update-download',
   GetModelFolders = 'settings:model-folders',
   ChooseModelFolder = 'settings:choose-model-folder',
-  ClearModelFolder = 'settings:clear-model-folder'
+  ClearModelFolder = 'settings:clear-model-folder',
+  ListModels = 'models:list',
+  GetModel = 'models:get',
+  SaveModel = 'models:save',
+  CreateModel = 'models:create',
+  ClearModel = 'models:clear',
+  CopyModelTriggerWords = 'models:copy-trigger-words'
 }
 
 /** Main → renderer push channels. */
@@ -183,6 +197,21 @@ export interface GenfolioApi {
   chooseModelFolder(kind: ModelKind): Promise<ModelFolders>
   /** Forgets the folder for `kind`; files on disk are never touched. */
   clearModelFolder(kind: ModelKind): Promise<ModelFolders>
+  /** A page of the checkpoints and LoRAs the library uses and those added by hand, by name. */
+  listModels(query: ModelListQuery): Promise<ModelList>
+  /** The model, or null when no image uses it and it has no entry. */
+  getModel(key: ModelKey): Promise<ModelDetail | null>
+  /** Records the fields; Missing when no image uses the model and it has no entry. */
+  saveModel(key: ModelKey, fields: ModelFields): Promise<ModelChange>
+  /** Adds a model by name (folders and extension are dropped); Duplicate when it has an entry. */
+  createModel(kind: ModelKind, name: string, fields: ModelFields): Promise<ModelChange>
+  /** Forgets what was recorded about the model; resolves false when there was nothing. */
+  clearModel(key: ModelKey): Promise<boolean>
+  /**
+   * Puts the model's trigger words on the clipboard in main, comma-separated; false when it has
+   * none.
+   */
+  copyModelTriggerWords(key: ModelKey): Promise<boolean>
   /** Subscribes to scan lifecycle events; returns the unsubscribe function. */
   onScanEvent(listener: (event: ScanEvent) => void): () => void
   /** Subscribes to the steps of an in-app update (Help → Check for Updates…). */
