@@ -18,9 +18,23 @@ describe('SettingsView', () => {
     })
     render(SettingsView, { context })
     await screen.findByText('/models/loras')
-    expect(screen.getByText('Not set')).toBeTruthy()
+    expect(await screen.findByText('Not set')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: 'Choose…' })).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Change…' })).toBeTruthy()
+  })
+
+  it('shows no folders as unset until they have loaded', async () => {
+    let resolve: (folders: { checkpoint: string | null; lora: string | null }) => void = () =>
+      undefined
+    const { context } = harness({
+      getModelFolders: () => new Promise((done) => (resolve = done))
+    })
+    render(SettingsView, { context })
+    expect(screen.queryByRole('button', { name: 'Choose…' })).toBeNull()
+    expect(screen.queryByText('Not set')).toBeNull()
+    resolve({ checkpoint: '/models/ckpt', lora: '/models/loras' })
+    await screen.findByText('/models/ckpt')
+    expect(screen.queryByText('Not set')).toBeNull()
   })
 
   it('chooses a folder in main and shows what it stored', async () => {

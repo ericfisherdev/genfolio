@@ -22,27 +22,31 @@
     Downloaded models are saved in a subfolder named for their base model: with the LoRAs folder set
     to <code>/models/loras</code>, an SDXL LoRA goes to <code>/models/loras/sdxl</code>.
   </p>
-  <ul aria-labelledby="model-folders-title">
-    {#each FOLDERS as { kind, label } (kind)}
-      {@const path = modelFolders.folders[kind]}
-      <li>
-        <span class="kind">{label}</span>
-        <span class="path" class:unset={path === null} title={path ?? undefined}>
-          {path ?? 'Not set'}
-        </span>
-        <button type="button" onclick={() => modelFolders.choose(kind)}>
-          {path === null ? 'Choose…' : 'Change…'}
-        </button>
-        {#if path !== null}
-          <button
-            type="button"
-            aria-label={`Clear the ${label} folder`}
-            onclick={() => modelFolders.clear(kind)}>Clear</button
-          >
-        {/if}
-      </li>
-    {/each}
-  </ul>
+  {#if modelFolders.loaded}
+    <ul aria-labelledby="model-folders-title">
+      {#each FOLDERS as { kind, label } (kind)}
+        {@const path = modelFolders.folders[kind]}
+        <li>
+          <span class="kind">{label}</span>
+          <span class="path" class:unset={path === null} title={path ?? undefined}>
+            {path ?? 'Not set'}
+          </span>
+          <button type="button" onclick={() => modelFolders.choose(kind)}>
+            {path === null ? 'Choose…' : 'Change…'}
+          </button>
+          {#if path !== null}
+            <button
+              type="button"
+              aria-label={`Clear the ${label} folder`}
+              onclick={() => modelFolders.clear(kind)}>Clear</button
+            >
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {:else}
+    <p class="help">Loading…</p>
+  {/if}
 </section>
 
 <style>
