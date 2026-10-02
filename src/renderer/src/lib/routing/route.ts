@@ -14,7 +14,9 @@ export enum RouteKind {
   /** Application settings, such as the model download folders. */
   Settings = 'settings',
   /** The checkpoints and LoRAs, with what is known about each. */
-  Models = 'models'
+  Models = 'models',
+  /** Finding and downloading models from Civitai. */
+  Civitai = 'civitai'
 }
 
 export type Route =
@@ -34,6 +36,7 @@ export type Route =
   | { readonly kind: RouteKind.SimilarGroups }
   | { readonly kind: RouteKind.Settings }
   | { readonly kind: RouteKind.Models }
+  | { readonly kind: RouteKind.Civitai }
   | { readonly kind: RouteKind.Image; readonly imageId: number }
   /** Plays the current results, from `startId` or their first image. */
   | { readonly kind: RouteKind.Slideshow; readonly startId?: number }
@@ -48,6 +51,7 @@ export type GalleryRoute = Exclude<
       | RouteKind.SimilarGroups
       | RouteKind.Settings
       | RouteKind.Models
+      | RouteKind.Civitai
   }
 >
 
@@ -57,7 +61,8 @@ export const isGalleryRoute = (route: Route): route is GalleryRoute =>
   route.kind !== RouteKind.Slideshow &&
   route.kind !== RouteKind.SimilarGroups &&
   route.kind !== RouteKind.Settings &&
-  route.kind !== RouteKind.Models
+  route.kind !== RouteKind.Models &&
+  route.kind !== RouteKind.Civitai
 
 export const ALL_PHOTOS: Route = { kind: RouteKind.All }
 
@@ -68,6 +73,7 @@ const IMAGE = /^#\/image\/([1-9]\d*)$/
 const SLIDESHOW = /^#\/slideshow$/
 const SETTINGS = /^#\/settings$/
 const MODELS = /^#\/models$/
+const CIVITAI = /^#\/civitai$/
 const SIMILAR_GROUPS = /^#\/similar$/
 const SIMILAR_GROUP = /^#\/similar\/([1-9]\d*)$/
 const POSITIVE = /^[1-9]\d*$/
@@ -89,6 +95,7 @@ export function parseRoute(hash: string): Route {
   const withFilters = filters ? { filters } : {}
   if (SETTINGS.test(path)) return { kind: RouteKind.Settings }
   if (MODELS.test(path)) return { kind: RouteKind.Models }
+  if (CIVITAI.test(path)) return { kind: RouteKind.Civitai }
   if (SIMILAR_GROUPS.test(path)) return { kind: RouteKind.SimilarGroups }
   const group = SIMILAR_GROUP.exec(path)
   if (group) return { kind: RouteKind.SimilarGroup, groupId: Number(group[1]), ...withFilters }
@@ -112,6 +119,7 @@ export function formatRoute(route: Route): string {
   if (route.kind === RouteKind.SimilarGroups) return '#/similar'
   if (route.kind === RouteKind.Settings) return '#/settings'
   if (route.kind === RouteKind.Models) return '#/models'
+  if (route.kind === RouteKind.Civitai) return '#/civitai'
   if (route.kind === RouteKind.Slideshow) {
     return route.startId === undefined ? '#/slideshow' : `#/slideshow?start=${route.startId}`
   }

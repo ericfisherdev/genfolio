@@ -16,6 +16,7 @@ import { GenerationDetailsReader } from '@application/generation-details-reader'
 import { ScanCoordinator } from '@application/scan-coordinator'
 import { AlbumService } from '@application/album-service'
 import { ModelFolderSettings } from '@application/model-folder-settings'
+import { CivitaiBrowseService } from '@application/civitai-browse-service'
 import { ModelCivitaiService } from '@application/model-civitai-service'
 import { ModelInfoService } from '@application/model-info-service'
 import type { CivitaiCatalog } from '@domain/civitai'
@@ -136,6 +137,7 @@ export function createLibraryHandlers(
   const presets = new SqliteSlideshowPresetRepository(db)
   const modelFolders = new ModelFolderSettings(new SqliteAppSettingsRepository(db))
   const modelInfo = new ModelInfoService(new SqliteModelInfoRepository(db), now)
+  const civitaiBrowse = new CivitaiBrowseService(civitai)
   const civitaiLinks = new SqliteModelCivitaiRepository(db)
   const modelCivitai = new ModelCivitaiService(civitai, civitaiLinks, civitaiLinks, modelInfo, now)
   const tags = new TagService(new SqliteTagRepository(db), now)
@@ -266,6 +268,9 @@ export function createLibraryHandlers(
       modelCivitai.link(key, modelId, versionId),
     [ServiceMethod.ModelsCivitaiRefresh]: (key) => modelCivitai.refresh(key),
     [ServiceMethod.ModelsCivitaiUnlink]: async (key) => ({ unlinked: modelCivitai.unlink(key) }),
+    [ServiceMethod.CivitaiBrowse]: (query) => civitaiBrowse.browse(query),
+    [ServiceMethod.CivitaiDownloadPlan]: ({ modelId, versionId }) =>
+      civitaiBrowse.planDownload(modelId, versionId),
     [ServiceMethod.PresetsList]: async () => presets.list(),
     [ServiceMethod.PresetsSave]: async ({ name, settings }) => presets.save(name, settings),
     [ServiceMethod.PresetsDelete]: async ({ id }) => ({ deleted: presets.delete(id) }),

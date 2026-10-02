@@ -11,6 +11,9 @@ import { ImageDeletion } from '../state/image-deletion.svelte'
 import { SlideshowNavigator } from '../slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from '../slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from '../slideshow/slideshow-settings.svelte'
+import { CivitaiBrowseState } from '../state/civitai-browse.svelte'
+import { CivitaiKeyState } from '../state/civitai-key.svelte'
+import { DownloadsState } from '../state/downloads.svelte'
 import { ModelFoldersState } from '../state/model-folders.svelte'
 import { ModelsState } from '../state/models.svelte'
 import { SimilarityState } from '../state/similarity.svelte'
@@ -107,6 +110,8 @@ export function testServices(
     getSimilarityThreshold: async () => 10,
     getModelFolders: async () => ({ checkpoint: null, lora: null }),
     listModels: async () => ({ total: 0, items: [], baseModels: [] }),
+    listDownloads: async () => [],
+    getCivitaiKeyStatus: async () => ({ hasKey: false, canStore: true }),
     listSimilarGroups: async () => ({ total: 0, groups: [] }),
     getFacets: async () => ({
       checkpoints: [],
@@ -156,6 +161,9 @@ export function testServices(
     ),
     modelFolders: new ModelFoldersState(api, libraryState),
     models: new ModelsState(api, libraryState),
+    civitaiBrowse: new CivitaiBrowseState(api, libraryState),
+    downloads: new DownloadsState(api, libraryState),
+    civitaiKey: new CivitaiKeyState(api, libraryState),
     deletion,
     albums: new AlbumsState(api, libraryState, () =>
       refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))

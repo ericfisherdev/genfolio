@@ -209,37 +209,40 @@ describe('ModelCivitaiService.refresh and unlink', () => {
 
 describe('ModelCivitaiService.search', () => {
   it('lists versions, those with a file named like the model first', async () => {
-    catalog.searchModels.mockResolvedValue([
-      civitaiModel(1, [
-        version(10, {
-          files: [
-            {
-              name: 'other.safetensors',
-              sizeKb: 1,
-              type: 'Model',
-              primary: true,
-              downloadUrl: null,
-              hashes: {}
-            }
-          ]
-        })
-      ]),
-      civitaiModel(2, [
-        version(20),
-        version(21, {
-          files: [
-            {
-              name: 'Detail.safetensors',
-              sizeKb: 1,
-              type: 'Model',
-              primary: true,
-              downloadUrl: null,
-              hashes: {}
-            }
-          ]
-        })
-      ])
-    ])
+    catalog.searchModels.mockResolvedValue({
+      nextCursor: null,
+      models: [
+        civitaiModel(1, [
+          version(10, {
+            files: [
+              {
+                name: 'other.safetensors',
+                sizeKb: 1,
+                type: 'Model',
+                primary: true,
+                downloadUrl: null,
+                hashes: {}
+              }
+            ]
+          })
+        ]),
+        civitaiModel(2, [
+          version(20),
+          version(21, {
+            files: [
+              {
+                name: 'Detail.safetensors',
+                sizeKb: 1,
+                type: 'Model',
+                primary: true,
+                downloadUrl: null,
+                hashes: {}
+              }
+            ]
+          })
+        ])
+      ]
+    })
     const found = await service.search({ kind: ModelKind.Lora, text: 'detail', identity: 'detail' })
     expect(found.map((candidate) => [candidate.versionId, candidate.matchesFileName])).toEqual([
       [21, true],
@@ -251,12 +254,17 @@ describe('ModelCivitaiService.search', () => {
       baseModel: 'SDXL 1.0',
       fileNames: ['Detail.safetensors']
     })
-    expect(catalog.searchModels).toHaveBeenCalledWith(ModelKind.Lora, 'detail', 12)
+    expect(catalog.searchModels).toHaveBeenCalledWith({
+      kind: ModelKind.Lora,
+      text: 'detail',
+      limit: 12
+    })
   })
 
   it('matches nothing by file name without an identity, and caps the list', async () => {
-    catalog.searchModels.mockResolvedValue(
-      Array.from({ length: 12 }, (_, n) =>
+    catalog.searchModels.mockResolvedValue({
+      nextCursor: null,
+      models: Array.from({ length: 12 }, (_, n) =>
         civitaiModel(n + 1, [
           version(n * 10 + 1),
           version(n * 10 + 2),
@@ -264,7 +272,7 @@ describe('ModelCivitaiService.search', () => {
           version(n * 10 + 4)
         ])
       )
-    )
+    })
     const found = await service.search({ kind: ModelKind.Lora, text: 'x' })
     expect(found).toHaveLength(40)
     expect(found.some((candidate) => candidate.matchesFileName)).toBe(false)

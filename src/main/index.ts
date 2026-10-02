@@ -2,10 +2,24 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { open, realpath, rm, stat } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
+import { randomUUID } from 'node:crypto'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  safeStorage,
+  session,
+  shell
+} from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { ImageDeleter } from '@application/image-deleter'
 import { ImageFileResolver } from '@application/image-file-resolver'
+import { ModelDownloader } from '@application/model-downloader'
+import { NodeDownloadFiles } from '@infrastructure/downloads/node-download-files'
+import { HttpDownloadSource } from '@infrastructure/downloads/http-download-source'
 import { LazyImageLocator } from '@infrastructure/db/lazy-image-locator'
 import { DatabaseMode, openLibraryDatabase } from '@infrastructure/db/open-database'
 import { ServiceMethod } from '@shared/service-contract'
@@ -28,6 +42,11 @@ import { registerAlbumChannels } from './ipc/album-channels'
 import { registerTagChannels } from './ipc/tag-channels'
 import { registerSettingsChannels } from './ipc/settings-channels'
 import { registerModelChannels } from './ipc/model-channels'
+import { registerDownloadChannels } from './ipc/download-channels'
+import { CivitaiApiKeyStore } from './civitai/api-key-store'
+import { electronSecretCipher } from './civitai/electron-secret-cipher'
+import { NodeSecretFile } from './civitai/node-secret-file'
+import { ServiceDownloadAdapters } from './civitai/service-adapters'
 import { registerLibraryChannels } from './ipc/library-channels'
 import { ValidatingIpcRegistry } from './ipc/validating-ipc-registry'
 import { guardNavigation } from './navigation-guard'
@@ -37,7 +56,7 @@ import {
   handleImageScheme,
   registerImageSchemeAsPrivileged
 } from './protocol/register-image-scheme'
-import { broadcastScanEvent, broadcastUpdateEvent } from './event-broadcast'
+import { broadcastDownloadEvent, broadcastScanEvent, broadcastUpdateEvent } from './event-broadcast'
 import { forkLibraryService } from './service/fork-library-service'
 import { LibraryServiceClient } from './service/library-service-client'
 import { LibraryServiceSupervisor } from './service/library-service-supervisor'
@@ -170,6 +189,22 @@ function onReady(): void {
       }
     }
   )
+  const civitaiKeys = new CivitaiApiKeyStore(
+    electronSecretCipher(safeStorage),
+    new NodeSecretFile(join(app.getPath('userData'), 'civitai-key.bin'))
+  )
+  const downloadAdapters = new ServiceDownloadAdapters(libraryService)
+  const downloader = new ModelDownloader({
+    planner: downloadAdapters,
+    folders: downloadAdapters,
+    files: new NodeDownloadFiles(),
+    source: new HttpDownloadSource(fetch, () => civitaiKeys.key()),
+    recorder: downloadAdapters,
+    publish: broadcastDownloadEvent,
+    newId: randomUUID,
+    now: () => Date.now(),
+    logError: (message) => mainLog.write(LogLevel.Error, message)
+  })
   const ipc = new ValidatingIpcRegistry(ipcMain, (url) => isAppUrl(url, rendererEntry))
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
   registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
@@ -178,6 +213,7 @@ function onReady(): void {
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
   registerSettingsChannels(ipc, libraryService, pickFolderWithDialog)
+  registerDownloadChannels(ipc, libraryService, downloader, civitaiKeys)
   registerModelChannels(
     ipc,
     libraryService,

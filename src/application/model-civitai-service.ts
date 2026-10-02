@@ -67,8 +67,8 @@ export class ModelCivitaiService {
    * @throws CivitaiUnavailableError when Civitai can't answer
    */
   async search({ kind, text, identity }: CivitaiSearchParams): Promise<CivitaiCandidate[]> {
-    const found = await this.catalog.searchModels(kind, text, SEARCH_MODELS)
-    const candidates = found.flatMap((model) =>
+    const { models } = await this.catalog.searchModels({ kind, text, limit: SEARCH_MODELS })
+    const candidates = models.flatMap((model) =>
       model.versions.map((version): CivitaiCandidate => {
         const fileNames = version.files.map((file) => file.name)
         return {

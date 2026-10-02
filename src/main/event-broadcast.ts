@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { IpcEvent } from '@shared/genfolio-api'
+import type { DownloadSnapshot } from '@shared/downloads'
 import type { ScanEvent } from '@shared/scan'
 import type { UpdateEvent } from '@shared/updates'
 
@@ -13,3 +14,6 @@ function broadcast(event: IpcEvent, payload: unknown): void {
 export const broadcastScanEvent = (event: ScanEvent): void => broadcast(IpcEvent.Scan, event)
 
 export const broadcastUpdateEvent = (event: UpdateEvent): void => broadcast(IpcEvent.Update, event)
+
+export const broadcastDownloadEvent = (snapshot: DownloadSnapshot): void =>
+  broadcast(IpcEvent.Download, snapshot)

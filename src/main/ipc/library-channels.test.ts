@@ -85,7 +85,15 @@ describe('registerLibraryChannels', () => {
       IpcChannel.LinkModelToCivitai,
       IpcChannel.RefreshModelFromCivitai,
       IpcChannel.UnlinkModelFromCivitai,
-      IpcChannel.OpenModelOnCivitai
+      IpcChannel.OpenModelOnCivitai,
+      IpcChannel.BrowseCivitai,
+      IpcChannel.StartDownload,
+      IpcChannel.CancelDownload,
+      IpcChannel.ListDownloads,
+      IpcChannel.ClearFinishedDownloads,
+      IpcChannel.CivitaiKeyStatus,
+      IpcChannel.SetCivitaiKey,
+      IpcChannel.ClearCivitaiKey
     ]
     expect([...setup(async () => undefined).handlers.keys()].sort()).toEqual(
       Object.values(IpcChannel)

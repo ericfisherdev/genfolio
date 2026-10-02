@@ -9,6 +9,12 @@ import {
   MAX_RATING
 } from './gallery'
 import {
+  civitaiBrowsePageSchema,
+  civitaiBrowseQuerySchema,
+  downloadPlanParamsSchema,
+  downloadPlanSchema
+} from './civitai-browse'
+import {
   civitaiCandidateSchema,
   civitaiLinkParamsSchema,
   civitaiResultSchema,
@@ -90,7 +96,9 @@ export enum ServiceMethod {
   ModelsCivitaiSearch = 'models.civitai-search',
   ModelsCivitaiLink = 'models.civitai-link',
   ModelsCivitaiRefresh = 'models.civitai-refresh',
-  ModelsCivitaiUnlink = 'models.civitai-unlink'
+  ModelsCivitaiUnlink = 'models.civitai-unlink',
+  CivitaiBrowse = 'civitai.browse',
+  CivitaiDownloadPlan = 'civitai.download-plan'
 }
 
 const noParams = z.object({}).strict()
@@ -273,6 +281,15 @@ export const serviceContract = {
   [ServiceMethod.ModelsCivitaiUnlink]: {
     params: modelKeySchema,
     result: z.object({ unlinked: z.boolean() })
+  },
+  [ServiceMethod.CivitaiBrowse]: {
+    params: civitaiBrowseQuerySchema,
+    result: civitaiBrowsePageSchema
+  },
+  [ServiceMethod.CivitaiDownloadPlan]: {
+    params: downloadPlanParamsSchema,
+    /** null when Civitai has no such version or it has no model file. */
+    result: downloadPlanSchema.nullable()
   },
   [ServiceMethod.GalleryImages]: {
     params: z

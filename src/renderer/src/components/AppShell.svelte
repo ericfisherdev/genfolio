@@ -4,6 +4,7 @@
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
   import BulkBar from './BulkBar.svelte'
+  import CivitaiBrowseView from './CivitaiBrowseView.svelte'
   import DeleteReportDialog from './DeleteReportDialog.svelte'
   import DetailView from './DetailView.svelte'
   import FilterBar from './FilterBar.svelte'
@@ -88,6 +89,9 @@
   <main>
     {#if router.route.kind === RouteKind.Image}
       <DetailView />
+    {:else if router.route.kind === RouteKind.Civitai}
+      <NoticeBar />
+      <CivitaiBrowseView />
     {:else if router.route.kind === RouteKind.Models}
       <NoticeBar />
       <ModelsView />

@@ -9,6 +9,9 @@ import { ImageDeletion } from './lib/state/image-deletion.svelte'
 import { SlideshowNavigator } from './lib/slideshow/slideshow-navigator'
 import { SlideshowPresetsState } from './lib/slideshow/slideshow-presets.svelte'
 import { SlideshowSettingsState } from './lib/slideshow/slideshow-settings.svelte'
+import { CivitaiBrowseState } from './lib/state/civitai-browse.svelte'
+import { CivitaiKeyState } from './lib/state/civitai-key.svelte'
+import { DownloadsState } from './lib/state/downloads.svelte'
 import { ModelFoldersState } from './lib/state/model-folders.svelte'
 import { ModelsState } from './lib/state/models.svelte'
 import { SimilarityState } from './lib/state/similarity.svelte'
@@ -73,6 +76,9 @@ const services: AppServices = {
   ),
   modelFolders: new ModelFoldersState(api, library),
   models: new ModelsState(api, library),
+  civitaiBrowse: new CivitaiBrowseState(api, library),
+  downloads: new DownloadsState(api, library),
+  civitaiKey: new CivitaiKeyState(api, library),
   deletion,
   albums: new AlbumsState(api, library, () =>
     refreshAfterAlbumChange(gallery, facets, layoutUpdateFor(router.route))
