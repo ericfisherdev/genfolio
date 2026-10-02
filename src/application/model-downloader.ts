@@ -57,6 +57,8 @@ interface Job {
 export class ModelDownloader {
   private readonly jobs = new Map<string, Job>()
   private readonly queue: string[] = []
+  /** Files a running download is writing, compared ignoring case (some disks do). */
+  private readonly targets = new Set<string>()
   private running = 0
 
   constructor(private readonly deps: ModelDownloaderDeps) {}
@@ -164,16 +166,39 @@ export class ModelDownloader {
         folder: basename(folder),
         totalBytes: plan.sizeKb === null ? null : Math.round(plan.sizeKb * 1024)
       })
+      await this.save(job, plan.downloadUrl, plan.sha256, folder, target)
+    } catch (error) {
+      await this.fail(job, error)
+    }
+  }
+
+  /**
+   * Puts the file in place, holding its name for as long as it is written: two versions can
+   * share a file name, and writing the same temporary file would mix them.
+   */
+  private async save(
+    job: Job,
+    url: string,
+    sha256: string | null,
+    folder: string,
+    target: string
+  ): Promise<void> {
+    const claim = target.toLowerCase()
+    if (this.targets.has(claim)) {
+      throw new DownloadError('Another download is writing a file with this name.')
+    }
+    this.targets.add(claim)
+    try {
       if (await this.deps.files.exists(target)) {
         await this.finishWith(job, DownloadStatus.AlreadyExists, target, 'Already in the folder.')
         return
       }
       if (!(await this.deps.files.exists(folder))) job.createdFolder = folder
       await this.deps.files.ensureFolder(folder)
-      await this.fetchInto(job, plan.downloadUrl, plan.sha256, target)
+      await this.fetchInto(job, url, sha256, target)
       await this.finishWith(job, DownloadStatus.Completed, target, null)
-    } catch (error) {
-      await this.fail(job, error)
+    } finally {
+      this.targets.delete(claim)
     }
   }
 

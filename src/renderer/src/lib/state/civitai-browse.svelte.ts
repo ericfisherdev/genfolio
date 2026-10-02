@@ -1,4 +1,4 @@
-import type { CivitaiBrowseItem } from '@shared/civitai-browse'
+import type { CivitaiBrowseItem, CivitaiBrowseQuery } from '@shared/civitai-browse'
 import type { GenfolioApi } from '@shared/genfolio-api'
 import { ModelKind } from '@shared/generation-kinds'
 import { userMessage } from '../format/user-message'
@@ -22,6 +22,8 @@ export class CivitaiBrowseState {
 
   /** Drops the answer of a request that a newer one has overtaken. */
   private latest = 0
+  /** The query the shown results came from; more pages continue it, not what is typed now. */
+  private shown: CivitaiBrowseQuery | null = null
 
   constructor(
     private readonly api: BrowseApi,
@@ -32,9 +34,11 @@ export class CivitaiBrowseState {
   async search(): Promise<void> {
     const request = ++this.latest
     this.loading = true
+    const query = this.query()
     await this.attempt('search Civitai', async () => {
-      const page = await this.api.browseCivitai(this.query())
+      const page = await this.api.browseCivitai(query)
       if (request !== this.latest) return
+      this.shown = query
       this.items = page.items
       this.nextCursor = page.nextCursor
       this.searched = true
@@ -43,11 +47,12 @@ export class CivitaiBrowseState {
   }
 
   async loadMore(): Promise<void> {
-    if (this.nextCursor === null || this.loading) return
+    const { nextCursor, shown } = this
+    if (nextCursor === null || shown === null || this.loading) return
     const request = ++this.latest
     this.loading = true
     await this.attempt('load more from Civitai', async () => {
-      const page = await this.api.browseCivitai(this.query(this.nextCursor ?? undefined))
+      const page = await this.api.browseCivitai({ ...shown, cursor: nextCursor })
       if (request !== this.latest) return
       this.items = [...this.items, ...page.items]
       this.nextCursor = page.nextCursor
@@ -63,12 +68,11 @@ export class CivitaiBrowseState {
     await this.search()
   }
 
-  private query(cursor?: string): Parameters<BrowseApi['browseCivitai']>[0] {
+  private query(): CivitaiBrowseQuery {
     return {
       kind: this.kind,
       ...(this.text.trim() ? { text: this.text.trim() } : {}),
-      ...(this.baseModel.trim() ? { baseModel: this.baseModel.trim() } : {}),
-      ...(cursor ? { cursor } : {})
+      ...(this.baseModel.trim() ? { baseModel: this.baseModel.trim() } : {})
     }
   }
 

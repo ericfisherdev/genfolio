@@ -148,6 +148,39 @@ describe('CivitaiBrowseView', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
+  it('pages with the query the results came from, not what has been typed since', async () => {
+    const browseCivitai = vi.fn(async (query: { cursor?: string | undefined }) =>
+      page(
+        [
+          item({
+            modelId: query.cursor ? 6 : 5,
+            name: query.cursor ? 'Second' : 'Detail Tweaker XL'
+          })
+        ],
+        query.cursor ? null : '20'
+      )
+    )
+    const h = harness({ browseCivitai })
+    await openCard(h)
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name' }), {
+      target: { value: 'detail' }
+    })
+    await fireEvent.submit(screen.getByRole('search', { name: 'Search Civitai' }))
+    await waitFor(() =>
+      expect(browseCivitai).toHaveBeenLastCalledWith({ kind: 'lora', text: 'detail' })
+    )
+    await screen.findByRole('button', { name: 'Show more' })
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name' }), {
+      target: { value: 'anime' }
+    })
+    await fireEvent.input(screen.getByRole('combobox', { name: 'Base model' }), {
+      target: { value: 'Pony' }
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Show more' }))
+    await screen.findByRole('article', { name: 'Second' })
+    expect(browseCivitai).toHaveBeenLastCalledWith({ kind: 'lora', text: 'detail', cursor: '20' })
+  })
+
   it('says so when nothing is found', async () => {
     const h = harness({ browseCivitai: async () => page([]) })
     render(CivitaiBrowseView, { context: h.context })

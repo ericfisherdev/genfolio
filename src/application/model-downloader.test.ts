@@ -402,6 +402,51 @@ describe('ModelDownloader', () => {
     expect(s.planner).toHaveBeenCalledTimes(1)
   })
 
+  it('lets only one of two versions that share a file name write it', async () => {
+    const gates: (() => void)[] = []
+    const s = setup({
+      open: () =>
+        new Promise<DownloadBody>((resolve) => {
+          gates.push(() => resolve(body([new Uint8Array(15)], 15)))
+        })
+    })
+    s.downloader.start(request)
+    s.downloader.start({ ...request, versionId: 10 })
+    await vi.waitFor(() => expect(gates).toHaveLength(1))
+    const second = await settled(s, 'd2')
+    expect(second).toMatchObject({
+      status: DownloadStatus.Failed,
+      message: 'Another download is writing a file with this name.'
+    })
+    gates[0]?.()
+    expect((await settled(s, 'd1')).status).toBe(DownloadStatus.Completed)
+    expect(s.files.files.size).toBe(1)
+    expect(gates).toHaveLength(1)
+  })
+
+  it('holds the name case-insensitively, and frees it when the download ends', async () => {
+    let upper = false
+    const s = setup({
+      planner: async () =>
+        plan({ fileName: upper ? 'ADD-DETAIL-XL.safetensors' : 'add-detail-xl.safetensors' }),
+      open: (_url, signal) =>
+        new Promise<DownloadBody>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('aborted')))
+        })
+    })
+    s.downloader.start(request)
+    await vi.waitFor(() => expect(s.open).toHaveBeenCalledTimes(1))
+    upper = true
+    s.downloader.start({ ...request, versionId: 10 })
+    expect((await settled(s, 'd2')).message).toBe(
+      'Another download is writing a file with this name.'
+    )
+    s.downloader.cancel('d1')
+    await settled(s, 'd1')
+    s.downloader.start({ ...request, versionId: 11 })
+    await vi.waitFor(() => expect(s.open).toHaveBeenCalledTimes(2))
+  })
+
   it('refuses a plan whose file name would leave the folder', async () => {
     const s = setup({ planner: async () => plan({ fileName: '../../evil.safetensors' }) })
     s.downloader.start(request)

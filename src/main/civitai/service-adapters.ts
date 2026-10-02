@@ -36,6 +36,11 @@ export class ServiceDownloadAdapters
       fields: EMPTY_MODEL_FIELDS
     })
     if (created.outcome === ChangeOutcome.Missing) throw new Error('the model could not be added')
+    // Another file with this name may already be linked to its own version; that link stays.
+    const current = created.outcome === ChangeOutcome.Duplicate ? created.existing.civitai : null
+    if (current && (current.modelId !== modelId || current.versionId !== versionId)) {
+      throw new Error('the model is already linked to another Civitai version')
+    }
     const linked = await this.service.request(ServiceMethod.ModelsCivitaiLink, {
       key: { kind, identity: modelIdentity(fileName) },
       modelId,

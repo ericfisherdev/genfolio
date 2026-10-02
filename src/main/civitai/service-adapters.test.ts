@@ -57,6 +57,31 @@ describe('ServiceDownloadAdapters', () => {
     expect(request).toHaveBeenCalledTimes(2)
   })
 
+  it('leaves a model linked to another Civitai version alone', async () => {
+    const { adapters: a, request } = adapters((method) =>
+      method === ServiceMethod.ModelsCreate
+        ? { outcome: 'duplicate', existing: { civitai: { modelId: 5, versionId: 8 } } }
+        : { outcome: 'linked' }
+    )
+    await expect(a.record(ModelKind.Lora, 'detail.safetensors', 5, 9)).rejects.toThrow(
+      /already linked to another/
+    )
+    await expect(a.record(ModelKind.Lora, 'detail.safetensors', 6, 8)).rejects.toThrow(
+      /already linked to another/
+    )
+    expect(request).not.toHaveBeenCalledWith(ServiceMethod.ModelsCivitaiLink, expect.anything())
+  })
+
+  it('refreshes a model already linked to this same version', async () => {
+    const { adapters: a, request } = adapters((method) =>
+      method === ServiceMethod.ModelsCreate
+        ? { outcome: 'duplicate', existing: { civitai: { modelId: 5, versionId: 9 } } }
+        : { outcome: 'linked' }
+    )
+    await a.record(ModelKind.Lora, 'detail.safetensors', 5, 9)
+    expect(request).toHaveBeenCalledWith(ServiceMethod.ModelsCivitaiLink, expect.anything())
+  })
+
   it('fails when the model cannot be added or linked', async () => {
     const missing = adapters(() => ({ outcome: 'missing' }))
     await expect(missing.adapters.record(ModelKind.Lora, 'a.safetensors', 1, 2)).rejects.toThrow(
