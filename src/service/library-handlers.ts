@@ -55,6 +55,7 @@ import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
+import { imageWorkConcurrency, threadPoolSizeFromEnv } from '@shared/libuv-thread-pool'
 import { ScanEventType, type ScanEvent } from '@shared/scan'
 import { ServiceMethod } from '@shared/service-contract'
 import { HealthReporter } from './health/health-reporter'
@@ -64,12 +65,10 @@ import { SqliteProbe } from './health/sqlite-probe'
 import type { ServiceHandlers } from './rpc-dispatcher'
 import { createGenerationParser, createScanRoot } from './scan-root-factory'
 
-/** In-memory budget for grid copies of large images (never written to disk). */
+/** In-memory budget for grid renditions (never written to disk). */
 const DISPLAY_COPY_CACHE_BYTES = 200 * 1024 * 1024
-/** Matches the default libuv thread pool that runs @napi-rs/image work. */
-const DISPLAY_COPY_CONCURRENCY = 4
-/** Hashing shares that pool in the background, so it leaves room for grid copies. */
-const HASH_CONCURRENCY = 2
+/** Image decodes and resizes run on the libuv pool, sized when this process was forked. */
+const imageWork = imageWorkConcurrency(threadPoolSizeFromEnv(process.env))
 
 /** Builds every service handler over an open, migrated library database. */
 export function createLibraryHandlers(
@@ -108,7 +107,7 @@ export function createLibraryHandlers(
       imageFiles,
       new NapiImageHasher(),
       { run: (work) => db.transaction(work)() },
-      { batchSize: 200, concurrency: HASH_CONCURRENCY }
+      { batchSize: 200, concurrency: imageWork.hashing }
     ),
     emit,
     (ids) => void similarity.index(ids).catch(logFailure('finding look-alikes')),
@@ -169,7 +168,7 @@ export function createLibraryHandlers(
     imageFiles,
     new NapiImageResizer(),
     new ByteLruCache<string>(DISPLAY_COPY_CACHE_BYTES),
-    new ConcurrencyLimiter(DISPLAY_COPY_CONCURRENCY)
+    new ConcurrencyLimiter(imageWork.displayCopies)
   )
   const health = new HealthReporter([
     new RuntimeProbe(process.versions),
