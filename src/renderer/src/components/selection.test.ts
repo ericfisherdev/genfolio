@@ -13,7 +13,7 @@ import BulkBar from './BulkBar.svelte'
 import DeleteReportDialog from './DeleteReportDialog.svelte'
 import GalleryCard from './GalleryCard.svelte'
 
-const layout = new Int32Array([7, 1, 1, 8, 1, 1, 9, 1, 1])
+const layout = new Int32Array([7, 1, 1, 1, 8, 1, 1, 1, 9, 1, 1, 1])
 
 const cardFor = (id: number): ImageCard => ({
   id,

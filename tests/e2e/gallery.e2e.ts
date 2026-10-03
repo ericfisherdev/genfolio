@@ -2,6 +2,7 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
 import { expect, test, type Page } from '@playwright/test'
+import { GRID_RENDITION_WIDTHS } from '../../src/shared/display-rendition'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { copiedText, recordClipboard } from './support/clipboard'
 import { launchApp, type LaunchedApp } from './support/launch'
@@ -46,7 +47,7 @@ test.afterEach(async () => {
   }
 })
 
-test('shows every image as a card; large images arrive as 600 px copies', async () => {
+test('shows every image as a card, each as a grid rendition of one width', async () => {
   const large = await Transformer.fromRgbaPixels(
     new Uint8Array(3000 * 2000 * 4).fill(90),
     3000,
@@ -57,8 +58,9 @@ test('shows every image as a card; large images arrive as 600 px copies', async 
 
   await expect(page.getByRole('listitem')).toHaveCount(7)
   const widths = await loadedWidths(page)
-  expect(widths.filter((width) => width === 1024)).toHaveLength(6)
-  expect(widths.filter((width) => width === 600)).toHaveLength(1)
+  expect(widths).toHaveLength(7)
+  expect(new Set(widths).size).toBe(1)
+  expect(GRID_RENDITION_WIDTHS).toContain(widths[0])
 })
 
 test('the card menu copies the path and reveals the file', async () => {

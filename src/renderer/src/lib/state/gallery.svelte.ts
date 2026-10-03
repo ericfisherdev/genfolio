@@ -7,6 +7,9 @@ import { userMessage } from '../format/user-message'
 
 type MarkFields = Partial<Pick<ImageCard, 'favorite' | 'rating'>>
 
+/** Cards kept after they leave the screen; beyond this the oldest off-screen ones go. */
+export const MAX_CACHED_CARDS = 2000
+
 /** One optimistic change to cached cards, which can be undone if the write fails. */
 export interface CardPatch {
   /**
@@ -17,10 +20,10 @@ export interface CardPatch {
 }
 
 /**
- * The current result set: its layout (ids and sizes, loaded whole) and the cards fetched so
- * far for the images that have been visible. Stale responses from older queries are ignored.
- * No method rejects: a failed layout becomes `loadError`; failed card fetches are retried on
- * the next request.
+ * The current result set: its layout (ids, sizes and versions, loaded whole) and the cards
+ * fetched so far for the images that have been visible. Stale responses from older queries
+ * are ignored. No method rejects: a failed layout becomes `loadError`; failed card fetches
+ * are retried on the next request.
  */
 export class GalleryState {
   layout: Int32Array = $state.raw(new Int32Array(0))
@@ -30,9 +33,14 @@ export class GalleryState {
   loadError: string | undefined = $state(undefined)
   /** Marks changed the results while they were being stepped through; reload when shown. */
   layoutStale = $state(false)
+  /**
+   * Bumped by {@link refresh}: every card fetched before it may be out of date, so the grid
+   * asks again for the ones it shows (old cards stay on screen until fresh ones arrive).
+   */
+  cardEpoch = $state(0)
   readonly count = $derived(this.layout.length / LAYOUT_STRIDE)
   private readonly cards = new SvelteMap<number, ImageCard>()
-  /** Ids already asked for (plain bookkeeping, deliberately not reactive). */
+  /** Ids fetched or in flight since the last refresh (plain bookkeeping, deliberately not reactive). */
   private requested: Record<number, true> = {}
   private generation = 0
   /** Bumped by reload(); card fetches started before it are discarded. */
@@ -71,13 +79,14 @@ export class GalleryState {
   }
 
   /**
-   * Reloads the layout and fetches fresh copies of the cards already loaded, keeping the old
-   * ones on screen until they arrive (after scans, deletions or regrouping changed the
-   * library). Cards of images that are gone are dropped; a failed fetch keeps the old cards.
+   * Reloads the layout and marks every cached card stale (after scans, deletions or
+   * regrouping changed the library). Only the cards on screen are fetched again, by the grid
+   * through {@link ensureCards}; the rest are refetched if they come back on screen.
    */
   async refresh(): Promise<void> {
-    const loaded = [...this.cards.keys()]
-    await Promise.all([this.query ? this.load(this.query) : undefined, this.refetch(loaded)])
+    this.requested = {}
+    this.cardEpoch++
+    if (this.query) await this.load(this.query)
   }
 
   /** Remembers the scroll offset of the current query, to restore when it is shown again. */
@@ -96,6 +105,11 @@ export class GalleryState {
   sizeAt(index: number): { width: number; height: number } {
     const base = index * LAYOUT_STRIDE
     return { width: this.layout[base + 1] ?? 1, height: this.layout[base + 2] ?? 1 }
+  }
+
+  /** The file's version, for image URLs the browser may cache until the file changes. */
+  versionAt(index: number): number {
+    return this.layout[index * LAYOUT_STRIDE + 3] ?? 0
   }
 
   indexOf(imageId: number): number {
@@ -147,33 +161,14 @@ export class GalleryState {
   }
 
   /**
-   * Fetches cards not yet loaded or requested, at most 500 per request. A failed batch is
-   * released so its ids are asked for again; results that arrive after a reload are dropped.
+   * Fetches the cards on screen that are not fresh or in flight, at most 500 per request;
+   * a stale card stays until its fresh one arrives, and the card of a gone image is dropped.
+   * A failed batch is released so its ids are asked for again; results that arrive after a
+   * reload are dropped.
    */
-  private async refetch(ids: readonly number[]): Promise<void> {
-    const generation = this.cardGeneration
-    for (let start = 0; start < ids.length; start += MAX_IMAGES_PER_REQUEST) {
-      const batch = ids.slice(start, start + MAX_IMAGES_PER_REQUEST)
-      let fresh: readonly ImageCard[]
-      try {
-        fresh = await this.api.getImages(batch)
-      } catch {
-        continue
-      }
-      if (generation !== this.cardGeneration) return
-      // Plain bookkeeping, deliberately not reactive.
-      const kept: Record<number, true> = {}
-      for (const card of fresh) {
-        this.cards.set(card.id, card)
-        kept[card.id] = true
-      }
-      for (const id of batch) if (!kept[id]) this.cards.delete(id)
-    }
-  }
-
   async ensureCards(ids: readonly number[]): Promise<void> {
     const generation = this.cardGeneration
-    const missing = ids.filter((id) => !this.cards.has(id) && !this.requested[id])
+    const missing = ids.filter((id) => !this.requested[id])
     for (const id of missing) this.requested[id] = true
     for (let start = 0; start < missing.length; start += MAX_IMAGES_PER_REQUEST) {
       const batch = missing.slice(start, start + MAX_IMAGES_PER_REQUEST)
@@ -185,7 +180,28 @@ export class GalleryState {
         continue
       }
       if (generation !== this.cardGeneration) return
-      for (const card of cards) this.cards.set(card.id, card)
+      // Plain bookkeeping, deliberately not reactive.
+      const kept: Record<number, true> = {}
+      for (const card of cards) {
+        this.cards.set(card.id, card)
+        kept[card.id] = true
+      }
+      for (const id of batch) if (!kept[id]) this.cards.delete(id)
+    }
+    this.evictBeyondBudget(ids)
+  }
+
+  /** Drops the longest-held cards that are not on screen until the budget holds. */
+  private evictBeyondBudget(onScreen: readonly number[]): void {
+    if (this.cards.size <= MAX_CACHED_CARDS) return
+    // Plain bookkeeping, deliberately not reactive.
+    const keep: Record<number, true> = {}
+    for (const id of onScreen) keep[id] = true
+    for (const id of this.cards.keys()) {
+      if (this.cards.size <= MAX_CACHED_CARDS) break
+      if (keep[id]) continue
+      this.cards.delete(id)
+      delete this.requested[id]
     }
   }
 }

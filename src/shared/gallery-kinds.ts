@@ -19,8 +19,8 @@ export enum GalleryScopeKind {
   Similar = 'similar'
 }
 
-/** Values per image in a layout array: `[id, width, height]`. */
-export const LAYOUT_STRIDE = 3
+/** Values per image in a layout array: `[id, width, height, version]`. */
+export const LAYOUT_STRIDE = 4
 
 /** Stars an image can have; 0 is unrated. */
 export const MAX_RATING = 5

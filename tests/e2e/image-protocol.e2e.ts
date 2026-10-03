@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
 import { expect, test, type Page } from '@playwright/test'
+import { LAYOUT_STRIDE } from '../../src/shared/gallery-kinds'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
 
@@ -39,16 +40,19 @@ function loadImage(url: string): Promise<LoadResult> {
 
 /** Image id by file name, from the renderer API. */
 async function idOf(fileName: string): Promise<number> {
-  return page.evaluate(async (name) => {
-    const layout = await window.genfolio.getImageLayout({
-      scope: { kind: 'all' },
-      sort: 'file-name'
-    } as Parameters<typeof window.genfolio.getImageLayout>[0])
-    const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
-    const card = (await window.genfolio.getImages(ids)).find((c) => c.fileName === name)
-    if (!card) throw new Error(`${name} not indexed`)
-    return card.id
-  }, fileName)
+  return page.evaluate(
+    async ({ name, stride }) => {
+      const layout = await window.genfolio.getImageLayout({
+        scope: { kind: 'all' },
+        sort: 'file-name'
+      } as Parameters<typeof window.genfolio.getImageLayout>[0])
+      const ids = Array.from(layout.filter((_, index) => index % stride === 0))
+      const card = (await window.genfolio.getImages(ids)).find((c) => c.fileName === name)
+      if (!card) throw new Error(`${name} not indexed`)
+      return card.id
+    },
+    { name: fileName, stride: LAYOUT_STRIDE }
+  )
 }
 
 function webpFilesUnder(dir: string): string[] {
@@ -81,7 +85,7 @@ test.afterEach(async () => {
   }
 })
 
-test('serves originals, and a 600 px in-memory copy for large images in grid mode', async () => {
+test('serves originals, and in-memory renditions at the asked width in grid mode', async () => {
   const fixture = readdirSync(join(library, '2026-09-27')).find((name) => name.endsWith('.png'))
   const smallId = await idOf(fixture as string)
   const largeId = await idOf('large.png')
@@ -90,11 +94,15 @@ test('serves originals, and a 600 px in-memory copy for large images in grid mod
   expect(await loadImage(`genfolio://img/${smallId}`)).toEqual({ loaded: true, width: 1024 })
   expect(await loadImage(`genfolio://img/${smallId}?display=grid`)).toEqual({
     loaded: true,
-    width: 1024
+    width: 400
   })
-  expect(await loadImage(`genfolio://img/${largeId}?display=grid`)).toEqual({
+  expect(await loadImage(`genfolio://img/${largeId}?display=grid&w=800`)).toEqual({
     loaded: true,
-    width: 600
+    width: 800
+  })
+  expect(await loadImage(`genfolio://img/${largeId}?display=grid&w=500`)).toEqual({
+    loaded: false,
+    width: 0
   })
   expect(await loadImage(`genfolio://img/${largeId}`)).toEqual({ loaded: true, width: 4096 })
   expect([...webpFilesUnder(launched!.userData), ...webpFilesUnder(library)]).toEqual(webpBefore)

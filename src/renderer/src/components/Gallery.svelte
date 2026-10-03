@@ -2,6 +2,7 @@
   import { createVirtualizer } from '@tanstack/svelte-virtual'
   import { tick, untrack } from 'svelte'
   import { AlbumKind } from '@shared/albums'
+  import { gridRenditionWidth } from '@shared/display-rendition'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
   import { getAppServices } from '../lib/app-context'
   import { cardHeight, GRID_GAP, gridGeometry } from '../lib/gallery/grid-geometry'
@@ -34,6 +35,8 @@
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
   const geometry = $derived(gridGeometry(width))
+  // Read with the geometry: a window moved to another screen is resized, so this follows.
+  const renditionWidth = $derived(gridRenditionWidth(geometry.columnWidth, window.devicePixelRatio))
 
   const virtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: 0,
@@ -102,8 +105,9 @@
 
   const items = $derived($virtualizer.getVirtualItems())
 
-  // Fetch card details for what is on screen (plus overscan).
+  // Fetch card details for what is on screen (plus overscan), and again after a refresh.
   $effect(() => {
+    void gallery.cardEpoch
     const ids = items.map((item) => gallery.idAt(item.index))
     untrack(() => void gallery.ensureCards(ids))
   })
@@ -219,6 +223,8 @@
           >
             <GalleryCard
               {imageId}
+              version={gallery.versionAt(item.index)}
+              {renditionWidth}
               card={gallery.card(imageId)}
               onopen={() => open(imageId)}
               onreveal={() => library.fileAction('show the file', () => api.revealImage(imageId))}

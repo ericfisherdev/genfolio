@@ -111,8 +111,15 @@ function openMainWindow(): void {
   })
 }
 
+/**
+ * Chromium's disk cache holds the versioned image responses; capped so it can't grow with
+ * the library (renditions are small, and the service keeps its own in-memory cache).
+ */
+const DISK_CACHE_BYTES = 100 * 1024 * 1024
+
 function startApp(): void {
   registerImageSchemeAsPrivileged()
+  app.commandLine.appendSwitch('disk-cache-size', String(DISK_CACHE_BYTES))
   app.on('web-contents-created', (_, contents) => guardNavigation(contents, rendererEntry))
   app.whenReady().then(onReady)
   app.on('window-all-closed', () => {
@@ -230,10 +237,14 @@ function onReady(): void {
     cancelUpdateDownload: () => updates.cancelDownload()
   })
   denyAllPermissions(session.defaultSession)
-  const imageFiles = new ImageFileResolver(
-    new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
-    { open: (path) => open(path, 'r'), realpath, stat }
+  const imageLocator = new LazyImageLocator(() =>
+    openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)
   )
+  const imageFiles = new ImageFileResolver(imageLocator, {
+    open: (path) => open(path, 'r'),
+    realpath,
+    stat
+  })
   registerDeletionChannels(
     ipc,
     new ImageDeleter(
@@ -258,6 +269,7 @@ function onReady(): void {
   )
   handleImageScheme(
     createImageRequestHandler({
+      imageDimensions: (id) => imageLocator.locate(id),
       openImage: (id) => imageFiles.open(id),
       streamFile: streamOpenFile,
       renderDisplayCopy: (imageId, maxWidth) =>

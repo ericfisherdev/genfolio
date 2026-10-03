@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { DirectoryId, ImageFile, LibraryRoot, RootId } from '@domain/library'
-import { GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
+import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { ImageFormat } from '@shared/image-format'
 import { SqliteDirectoryRepository } from './repositories/sqlite-directory-repository'
 import { SqliteImageRepository } from './repositories/sqlite-image-repository'
@@ -39,7 +39,7 @@ function add(relDir: string, fileName: string, createdAt: number, addedAt: numbe
 /** File names in layout order, resolved through the cards. */
 function namesFor(query: GalleryQuery): string[] {
   const layout = reader.layout(query)
-  const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
+  const ids = Array.from(layout.filter((_, index) => index % LAYOUT_STRIDE === 0))
   const names = new Map(reader.images(ids).map((card) => [card.id, card.fileName]))
   return ids.map((id) => names.get(id) as string)
 }
@@ -63,12 +63,40 @@ beforeEach(() => {
 })
 
 describe('SqliteGalleryReader.layout', () => {
-  it('returns [id, width, height] triples', () => {
+  it('returns [id, width, height, version] quads', () => {
     const layout = reader.layout(all(SortOrder.Oldest))
     expect(layout).toBeInstanceOf(Int32Array)
-    expect(layout.length).toBe(5 * 3)
+    expect(layout.length).toBe(5 * LAYOUT_STRIDE)
     const [card] = reader.images([layout[0] as number])
     expect([layout[1], layout[2]]).toEqual([card?.width, card?.height])
+  })
+
+  it('versions an image by its file: the same until the file changes, and always an Int32', () => {
+    const versionOf = (fileName: string): number | undefined => {
+      const layout = reader.layout(all(SortOrder.Oldest))
+      const id = reader
+        .images(Array.from(layout.filter((_, index) => index % LAYOUT_STRIDE === 0)))
+        .find((card) => card.fileName === fileName)?.id
+      const index = layout.indexOf(id ?? -1)
+      return index < 0 ? undefined : layout[index + 3]
+    }
+    const before = versionOf('top.png')
+    const directoryId = directories.ensure(root.id, '')
+    const file: ImageFile = {
+      directoryId,
+      fileName: 'top.png',
+      format: ImageFormat.Png,
+      sizeBytes: 100,
+      mtimeMs: 300,
+      width: 807,
+      height: 1200,
+      createdAt: 300
+    }
+    images.upsertMany([file], 11)
+    expect(before).toBe(300)
+    expect(versionOf('top.png')).toBe(300)
+    images.upsertMany([{ ...file, mtimeMs: 2 ** 40 + 301 }], 12)
+    expect(versionOf('top.png')).toBe(301)
   })
 
   it.each([
@@ -197,7 +225,7 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('SqliteGalleryReader perfo
       const layout = reader.layout(all(sort))
       const elapsed = performance.now() - started
       console.info(`[perf] layout ${sort}: ${elapsed.toFixed(1)} ms`)
-      expect(layout.length).toBe((110_000 + 5) * 3)
+      expect(layout.length).toBe((110_000 + 5) * LAYOUT_STRIDE)
       expect(elapsed).toBeLessThan(150)
     }
   }, 60_000)

@@ -1,6 +1,7 @@
 import { copyFileSync, mkdirSync, readdirSync, renameSync, rmSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
+import { LAYOUT_STRIDE } from '../../src/shared/gallery-kinds'
 import { cardNames, cards } from './support/cards'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { launchApp, type LaunchedApp } from './support/launch'
@@ -66,16 +67,16 @@ test('a file written while the app runs appears with its prompt, and deletes and
   await expect(cards(page)).toHaveCount(7, { timeout: 6_000 })
   const appearedMs = Date.now() - written
   console.info(`[perf] a live write appeared after ${appearedMs} ms`)
-  const prompt = await page.evaluate(async () => {
+  const prompt = await page.evaluate(async (stride) => {
     const layout = await window.genfolio.getImageLayout({
       scope: { kind: 'all' },
       sort: 'newest'
     } as never)
-    const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
+    const ids = Array.from(layout.filter((_, index) => index % stride === 0))
     const cards = await window.genfolio.getImages(ids)
     const card = cards.find((each) => each.fileName === 'live-written.png')
     return card ? (await window.genfolio.getGeneration(card.id))?.prompt : undefined
-  })
+  }, LAYOUT_STRIDE)
   expect(prompt).toBeTruthy()
 
   unlinkSync(join(day, deleted))

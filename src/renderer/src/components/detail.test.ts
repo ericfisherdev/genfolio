@@ -35,7 +35,7 @@ const FIND_DETAILS = {
   sources: []
 } satisfies GenerationDetails
 
-const layout = new Int32Array([7, 832, 1216, 8, 1024, 1024, 9, 1024, 1024])
+const layout = new Int32Array([7, 832, 1216, 1, 8, 1024, 1024, 1, 9, 1024, 1024, 1])
 
 const cardFor = (id: number): ImageCard => ({
   id,
@@ -225,7 +225,7 @@ describe('marks on the detail page of a favourites view', () => {
     let favourites = layout
     const getImageLayout = vi.fn(async () => favourites)
     const setFavorite = vi.fn(async () => {
-      favourites = new Int32Array([7, 832, 1216, 9, 1024, 1024])
+      favourites = new Int32Array([7, 832, 1216, 1, 9, 1024, 1024, 1])
       return 1
     })
     const harness = testServices(sampleLibrary(), {

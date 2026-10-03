@@ -220,7 +220,7 @@ describe('LibraryView', () => {
   })
 
   it('reloads stale results when the gallery mounts again after the roots changed', async () => {
-    let layout = new Int32Array([7, 100, 100, 8, 100, 100])
+    let layout = new Int32Array([7, 100, 100, 1, 8, 100, 100, 1])
     const getImageLayout = vi.fn(async () => layout)
     const listRoots = vi.fn(async () => sampleLibrary().roots)
     const harness = testServices(sampleLibrary(), { listRoots, getImageLayout })
@@ -234,11 +234,11 @@ describe('LibraryView', () => {
       expect(screen.getByRole('heading', { name: 'Your library is empty' })).toBeTruthy()
     )
 
-    layout = new Int32Array([9, 100, 100])
+    layout = new Int32Array([9, 100, 100, 1])
     listRoots.mockResolvedValue(sampleLibrary().roots)
     await harness.services.library.refresh()
     await waitFor(() =>
-      expect(harness.services.gallery.layout).toEqual(new Int32Array([9, 100, 100]))
+      expect(harness.services.gallery.layout).toEqual(new Int32Array([9, 100, 100, 1]))
     )
   })
 })

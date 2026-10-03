@@ -1,6 +1,7 @@
 import { readdirSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { LAYOUT_STRIDE } from '../../src/shared/gallery-kinds'
 import { addAndAwaitScan, makeLibrary, stubFolderPicker } from './support/library'
 import { copiedText, recordClipboard } from './support/clipboard'
 import { launchApp, type LaunchedApp } from './support/launch'
@@ -37,16 +38,19 @@ async function openLibrary(): Promise<Page> {
 
 /** The id of the fixture image with this file name. */
 function imageIdOf(page: Page, fileName: string): Promise<number> {
-  return page.evaluate(async (name) => {
-    const layout = await window.genfolio.getImageLayout({
-      scope: { kind: 'all' },
-      sort: 'newest'
-    } as Parameters<typeof window.genfolio.getImageLayout>[0])
-    const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
-    const card = (await window.genfolio.getImages(ids)).find((c) => c.fileName === name)
-    if (!card) throw new Error(`${name} not in the gallery`)
-    return card.id
-  }, fileName)
+  return page.evaluate(
+    async ({ name, stride }) => {
+      const layout = await window.genfolio.getImageLayout({
+        scope: { kind: 'all' },
+        sort: 'newest'
+      } as Parameters<typeof window.genfolio.getImageLayout>[0])
+      const ids = Array.from(layout.filter((_, index) => index % stride === 0))
+      const card = (await window.genfolio.getImages(ids)).find((c) => c.fileName === name)
+      if (!card) throw new Error(`${name} not in the gallery`)
+      return card.id
+    },
+    { name: fileName, stride: LAYOUT_STRIDE }
+  )
 }
 
 const readClipboard = (): Promise<string> => copiedText(current().app)

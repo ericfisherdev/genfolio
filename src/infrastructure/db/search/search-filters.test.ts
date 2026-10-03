@@ -1,7 +1,13 @@
 import type Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DirectoryId, ImageId } from '@domain/library'
-import { galleryQuerySchema, GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
+import {
+  galleryQuerySchema,
+  GalleryScopeKind,
+  LAYOUT_STRIDE,
+  SortOrder,
+  type GalleryQuery
+} from '@shared/gallery'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteAlbumRepository } from '../repositories/sqlite-album-repository'
@@ -33,7 +39,7 @@ function search(filters: SearchFilters, query: Partial<GalleryQuery> = {}): numb
   })
   const byId = new Map([...ids].map(([n, id]) => [id as number, n]))
   const found: number[] = []
-  for (let index = 0; index < layout.length; index += 3)
+  for (let index = 0; index < layout.length; index += LAYOUT_STRIDE)
     found.push(byId.get(layout[index] ?? 0) ?? 0)
   return found
 }
