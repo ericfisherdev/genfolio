@@ -9,6 +9,7 @@ import { ImageFileResolver } from '@application/image-file-resolver'
 import { ImageForgetter } from '@application/image-forgetter'
 import { HashIndexer } from '@application/hash-indexer'
 import { HashingQueue } from '@application/hashing-queue'
+import { LibraryStartup } from '@application/library-startup'
 import { LiveUpdates } from '@application/live-updates'
 import { SimilarityService } from '@application/similarity-service'
 import { LibraryRoots } from '@application/library-roots'
@@ -187,11 +188,7 @@ export function createLibraryHandlers(
 
   // Groups an earlier session left out of date (a scan stopped half-way, or the app quit).
   regroupIfStale()
-  // Images left unhashed by an earlier session (or by an older HASH_VERSION).
   void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
-  hashing.request()
-  // Changes made while the app was closed: every root is scanned (unchanged files are cheap).
-  void roots.reconcileAll().catch(logFailure('reconciling the library'))
   const live = new LiveUpdates(
     new ChokidarFileWatcher(),
     {
@@ -206,7 +203,15 @@ export function createLibraryHandlers(
       clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout)
     }
   )
-  void live.sync(roots.all()).catch(logFailure('watching the library'))
+  // Watch every root, then scan every root (changes made while the app was closed), then hash
+  // the images an earlier session left unhashed (or an older HASH_VERSION): one traversal at a time.
+  void new LibraryStartup({
+    live,
+    roots,
+    hashing,
+    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref()),
+    onFailure: (what, error) => logFailure(what)(error)
+  }).run()
 
   return {
     [ServiceMethod.Health]: () => health.report(),

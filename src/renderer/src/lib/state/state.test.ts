@@ -186,6 +186,62 @@ describe('LibraryState failures', () => {
     expect(services.library.notice).toBe('Could not add the folder: timed out')
   })
 
+  describe('refreshing only the roots that changed', () => {
+    const twoRoots = (): ReturnType<typeof sampleLibrary> => {
+      const library = sampleLibrary()
+      return {
+        roots: [
+          ...library.roots,
+          { id: 2, path: '/home/me/other', addedAt: 0, imageCount: 1, scanning: false }
+        ],
+        trees: { ...library.trees, 2: { ...(library.trees[1] as object), id: 20 } as never }
+      }
+    }
+
+    it("fetches the changed root's tree again and keeps the others", async () => {
+      const getDirectoryTree = vi.fn(async (rootId: number) => twoRoots().trees[rootId] ?? null)
+      const { services } = testServices(twoRoots(), { getDirectoryTree })
+      await services.library.refresh()
+      expect(getDirectoryTree).toHaveBeenCalledTimes(2)
+      getDirectoryTree.mockClear()
+
+      await services.library.refresh(new Set([2]))
+
+      expect(getDirectoryTree.mock.calls).toEqual([[2]])
+      expect(services.library.trees[1]?.id).toBe(10)
+      expect(services.library.trees[2]?.id).toBe(20)
+    })
+
+    it('loads the tree of a root it has not seen, even when another root changed', async () => {
+      const getDirectoryTree = vi.fn(async (rootId: number) => twoRoots().trees[rootId] ?? null)
+      const { services } = testServices(twoRoots(), { getDirectoryTree })
+
+      await services.library.refresh(new Set([1]))
+
+      expect(getDirectoryTree.mock.calls.map(([id]) => id).sort()).toEqual([1, 2])
+    })
+
+    it('still fetches a root a superseded refresh asked for', async () => {
+      const getDirectoryTree = vi.fn(async (rootId: number) => twoRoots().trees[rootId] ?? null)
+      let releaseHeld: (roots: ReturnType<typeof twoRoots>['roots']) => void = () => undefined
+      const listRoots = vi
+        .fn()
+        .mockImplementationOnce(async () => twoRoots().roots)
+        .mockImplementationOnce(() => new Promise((resolve) => (releaseHeld = resolve)))
+        .mockImplementation(async () => twoRoots().roots)
+      const { services } = testServices(twoRoots(), { getDirectoryTree, listRoots })
+      await services.library.refresh()
+      getDirectoryTree.mockClear()
+
+      const held = services.library.refresh(new Set([1]))
+      await services.library.refresh(new Set([2]))
+      releaseHeld(twoRoots().roots)
+      await held
+
+      expect(getDirectoryTree.mock.calls.map(([id]) => id).sort()).toEqual([1, 2])
+    })
+  })
+
   it('ignores a refresh that finishes after a newer one', async () => {
     let releaseSlow: (roots: never[]) => void = () => undefined
     const listRoots = vi

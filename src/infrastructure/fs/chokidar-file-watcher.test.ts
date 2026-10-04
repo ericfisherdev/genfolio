@@ -27,7 +27,7 @@ async function watching(changes: string[]): Promise<void> {
     (change) => changes.push(change.relDir),
     () => undefined
   )
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  await subscription.ready
 }
 
 describe('ChokidarFileWatcher', () => {
@@ -41,6 +41,33 @@ describe('ChokidarFileWatcher', () => {
     writeFileSync(join(dir, 'top.jpg'), 'jpg')
     await expect.poll(() => [...new Set(changes)].sort(), { timeout: 5000 }).toEqual(['', 'day'])
     expect(changes.filter((relDir) => relDir === 'day')).toHaveLength(2)
+  })
+
+  it('is ready only once the tree has been read, and reports files written after that', async () => {
+    const changes: string[] = []
+    subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
+      dir,
+      (change) => changes.push(change.relDir),
+      () => undefined
+    )
+    await subscription.ready
+    writeFileSync(join(dir, 'day', 'late.png'), 'png')
+    await expect.poll(() => changes, { timeout: 5000 }).toContain('day')
+  })
+
+  it('is ready, not stuck, when the watch fails', async () => {
+    const failures: unknown[] = []
+    subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
+      join(dir, 'missing', 'deeper'),
+      () => undefined,
+      (error) => failures.push(error)
+    )
+    await expect(
+      Promise.race([
+        subscription.ready.then(() => 'ready'),
+        new Promise((resolve) => setTimeout(() => resolve('stuck'), 3000))
+      ])
+    ).resolves.toBe('ready')
   })
 
   it('reports a removed folder and its parent', async () => {

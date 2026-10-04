@@ -23,18 +23,42 @@ export class LibraryState implements NoticeSink {
 
   readonly totalImages = $derived(this.roots.reduce((sum, root) => sum + root.imageCount, 0))
   private generation = 0
+  /** Roots whose folder tree must be fetched again, because a refresh that asked was superseded. */
+  private staleTrees: readonly number[] = []
+  private allTreesStale = false
 
   constructor(private readonly api: GenfolioApi) {}
 
-  /** Loads roots and trees; a refresh that finishes after a newer one is ignored. */
-  async refresh(): Promise<void> {
+  /**
+   * Loads roots and trees; a refresh that finishes after a newer one is ignored.
+   * `changed`: only these roots' folder trees are fetched again (a scan of one root changes
+   * only its tree); every other tree already loaded is kept. Without it every tree is.
+   */
+  async refresh(changed?: ReadonlySet<number>): Promise<void> {
     const generation = ++this.generation
+    if (changed)
+      this.staleTrees = [
+        ...this.staleTrees,
+        ...[...changed].filter((id) => !this.staleTrees.includes(id))
+      ]
+    else this.allTreesStale = true
     try {
       const roots = await this.api.listRoots()
-      const trees = await Promise.all(roots.map((root) => this.api.getDirectoryTree(root.id)))
+      const refetched = roots.filter(
+        (root) =>
+          this.allTreesStale || this.staleTrees.includes(root.id) || !(root.id in this.trees)
+      )
+      const fetched = await Promise.all(refetched.map((root) => this.api.getDirectoryTree(root.id)))
       if (generation !== this.generation) return
+      const fresh: Record<number, DirectoryNode | null> = Object.fromEntries(
+        refetched.map((root, index) => [root.id, fetched[index] ?? null])
+      )
       this.roots = roots
-      this.trees = Object.fromEntries(roots.map((root, index) => [root.id, trees[index] ?? null]))
+      this.trees = Object.fromEntries(
+        roots.map((root) => [root.id, fresh[root.id] ?? this.trees[root.id] ?? null])
+      )
+      this.allTreesStale = false
+      this.staleTrees = []
       this.loaded = true
       this.loadError = undefined
     } catch (error) {

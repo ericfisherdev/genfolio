@@ -109,11 +109,16 @@ export class LibraryRoots {
     })
   }
 
-  /** Brings every root up to date with the disk (at startup: changes made while closed). */
-  reconcileAll(): Promise<void> {
-    return this.exclusive(async () => {
+  /**
+   * Brings every root up to date with the disk (at startup: changes made while closed).
+   * Resolves once the scans have ended. Other mutations don't wait for them: they cancel or
+   * queue behind the scans as usual.
+   */
+  async reconcileAll(): Promise<void> {
+    await this.exclusive(async () => {
       for (const root of this.deps.roots.list()) this.deps.scans.start(root)
     })
+    await this.deps.scans.whenIdle()
   }
 
   /** Scans these folders of a root after live changes; a root that is gone is ignored. */

@@ -61,6 +61,14 @@ export class LiveUpdates {
     for (const root of roots) if (!this.watched.has(root.id)) this.watch(root)
   }
 
+  /**
+   * Resolves once every root watched now has been walked and reports changes (or failed to
+   * watch). Starting scans after this means no change can fall between a scan and a watch.
+   */
+  async ready(): Promise<void> {
+    await Promise.all([...this.watched.values()].map((entry) => entry.subscription?.ready))
+  }
+
   async stop(): Promise<void> {
     for (const rootId of [...this.watched.keys()]) await this.unwatch(rootId)
   }

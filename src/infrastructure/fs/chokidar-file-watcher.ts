@@ -41,7 +41,10 @@ export class ChokidarFileWatcher implements FileWatcher {
     const fileChanged = (filePath: string): void => {
       if (isWatchedFile(filePath)) onChange({ relDir: folderOf(filePath) })
     }
+    let markReady: () => void = () => undefined
+    const ready = new Promise<void>((resolve) => (markReady = resolve))
     watcher
+      .on('ready', markReady)
       .on('add', fileChanged)
       .on('change', fileChanged)
       .on('unlink', fileChanged)
@@ -53,8 +56,9 @@ export class ChokidarFileWatcher implements FileWatcher {
       })
       .on('error', (error: unknown) => {
         void watcher.close()
+        markReady()
         onFailure(error)
       })
-    return { close: () => watcher.close() }
+    return { ready, close: () => watcher.close() }
   }
 }
