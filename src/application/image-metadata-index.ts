@@ -1,3 +1,4 @@
+import type { DirectoryId } from '@domain/library'
 import type { GenerationSourceParser } from '@domain/generation'
 import type { GenerationMerger } from '@domain/generation-merger'
 import type { MetadataRecord } from '@domain/metadata-record'
@@ -6,6 +7,7 @@ import type {
   ImageVersion,
   MetadataRecordRepository
 } from '@domain/repositories'
+import type { MetadataOrigin } from '@shared/metadata-kinds'
 
 /** Stores an image's raw metadata records and the generation merged from them. */
 export class ImageMetadataIndex {
@@ -29,6 +31,18 @@ export class ImageMetadataIndex {
   /** The records stored for an image, as last indexed. */
   storedRecords(version: ImageVersion): MetadataRecord[] {
     return this.records.list(version.id)
+  }
+
+  /**
+   * The value of each image's stored record with this origin and key in the directory, by
+   * file name; images without one are left out.
+   */
+  storedValuesInDirectory(
+    directoryId: DirectoryId,
+    origin: MetadataOrigin,
+    key: string
+  ): Map<string, string> {
+    return this.records.valuesInDirectory(directoryId, origin, key)
   }
 
   /** Deletes checkpoints and LoRAs no generation uses any more. */

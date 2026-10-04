@@ -18,6 +18,11 @@ interface HashRow {
 const KEEPER_ORDER =
   'images.width * images.height DESC, images.size_bytes DESC, images.created_at ASC, images.id ASC'
 
+interface GroupedRow {
+  id: number
+  similar_group_id: number
+}
+
 interface GroupRow {
   group_id: number
   count: number
@@ -37,7 +42,8 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
   private readonly deletePairsOf: Database.Statement<[string, string]>
   private readonly insertPair: Database.Statement<[number, number, number]>
   private readonly selectPairs: Database.Statement<[number], SimilarPair>
-  private readonly clearGroups: Database.Statement
+  private readonly selectGrouped: Database.Statement<[], GroupedRow>
+  private readonly clearGroup: Database.Statement<[number]>
   private readonly setGroup: Database.Statement<[number, number]>
   private readonly selectGroups: Database.Statement<[number, number, number], GroupRow>
   private readonly countGroups: Database.Statement<[], { count: number }>
@@ -66,9 +72,10 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
     this.selectPairs = db.prepare(
       'SELECT a_id AS a, b_id AS b, distance FROM similar_pairs WHERE distance <= ?'
     )
-    this.clearGroups = db.prepare(
-      'UPDATE images SET similar_group_id = NULL WHERE similar_group_id IS NOT NULL'
+    this.selectGrouped = db.prepare(
+      'SELECT id, similar_group_id FROM images WHERE similar_group_id IS NOT NULL'
     )
+    this.clearGroup = db.prepare('UPDATE images SET similar_group_id = NULL WHERE id = ?')
     this.setGroup = db.prepare('UPDATE images SET similar_group_id = ? WHERE id = ?')
     // A page of groups, largest first, then each group's first members in keeper order.
     this.selectGroups = db.prepare(`
@@ -104,11 +111,12 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
     return this.selectHashesOf.all(JSON.stringify(ids)).map(hashesOf)
   }
 
-  replacePairs(ids: readonly ImageId[], pairs: readonly SimilarPair[]): void {
-    this.db.transaction(() => {
+  replacePairs(ids: readonly ImageId[], pairs: readonly SimilarPair[]): boolean {
+    return this.db.transaction(() => {
       const list = JSON.stringify(ids)
-      this.deletePairsOf.run(list, list)
+      const removed = this.deletePairsOf.run(list, list).changes
       for (const pair of pairs) this.insertPair.run(pair.a, pair.b, pair.distance)
+      return removed > 0 || pairs.length > 0
     })()
   }
 
@@ -118,8 +126,14 @@ export class SqliteSimilarityRepository implements SimilarityRepository {
 
   writeGroups(groups: ReadonlyMap<number, number>): void {
     this.db.transaction(() => {
-      this.clearGroups.run()
-      for (const [imageId, groupId] of groups) this.setGroup.run(groupId, imageId)
+      const current = new Map<number, number>()
+      for (const row of this.selectGrouped.all()) {
+        current.set(row.id, row.similar_group_id)
+        if (!groups.has(row.id)) this.clearGroup.run(row.id)
+      }
+      for (const [imageId, groupId] of groups) {
+        if (current.get(imageId) !== groupId) this.setGroup.run(groupId, imageId)
+      }
     })()
   }
 

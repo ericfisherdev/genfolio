@@ -81,3 +81,32 @@ describe('migration 007: similarity', () => {
     expect(pairs()).toEqual([{ a_id: 1, b_id: 2 }])
   })
 })
+
+describe('migration 010: similar groups stale flag', () => {
+  const stale = (): unknown =>
+    db.prepare("SELECT value FROM app_settings WHERE key = 'similarity.groupsStale'").pluck().get()
+
+  it('starts stale so groups from before it are rebuilt once', () => {
+    new MigrationRunner(db, migrations).migrate()
+    expect(stale()).toBe('1')
+  })
+
+  it('flags a grouped image that changed or was deleted, not an ungrouped one', () => {
+    new MigrationRunner(db, migrations).migrate()
+    seed()
+    hashed()
+    db.exec("UPDATE app_settings SET value = '0' WHERE key = 'similarity.groupsStale'")
+    db.exec('UPDATE images SET similar_group_id = NULL WHERE id = 3')
+
+    db.exec('UPDATE images SET hash_version = 0 WHERE id = 3')
+    db.exec('DELETE FROM images WHERE id = 3')
+    expect(stale()).toBe('0')
+
+    db.exec('UPDATE images SET hash_version = 0 WHERE id = 1')
+    expect(stale()).toBe('1')
+
+    db.exec("UPDATE app_settings SET value = '0' WHERE key = 'similarity.groupsStale'")
+    db.exec('DELETE FROM images WHERE id = 2')
+    expect(stale()).toBe('1')
+  })
+})

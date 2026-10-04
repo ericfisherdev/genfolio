@@ -26,6 +26,15 @@ const versionOf = (row: VersionRow): ImageVersion => ({
   mtimeMs: row.mtime_ms
 })
 
+const statOf = (row: StatRow): StoredFileStat => ({
+  id: row.id as ImageId,
+  relDir: row.rel_path,
+  fileName: row.file_name,
+  sizeBytes: row.size_bytes,
+  mtimeMs: row.mtime_ms,
+  metadataVersion: row.metadata_version
+})
+
 /** The upserted file has the stored size and mtime, so what was derived from it still holds. */
 const SAME_FILE = 'images.size_bytes = excluded.size_bytes AND images.mtime_ms = excluded.mtime_ms'
 
@@ -33,6 +42,7 @@ export class SqliteImageRepository implements ImageRepository {
   private readonly upsert: Database.Statement<UpsertParams, VersionRow>
   private readonly countInRoot: Database.Statement<[number], { count: number }>
   private readonly statsInRoot: Database.Statement<[number], StatRow>
+  private readonly statsInDirs: Database.Statement<[number, string], StatRow>
   private readonly versionsInDir: Database.Statement<[number], VersionRow & { file_name: string }>
   private readonly deleteUnchanged: Database.Statement<[number, number, number]>
   private readonly deleteListed: Database.Statement<[string]>
@@ -65,12 +75,15 @@ export class SqliteImageRepository implements ImageRepository {
       JOIN directories ON directories.id = images.directory_id
       WHERE directories.root_id = ?
     `)
-    this.statsInRoot = db.prepare(`
+    const statColumns = `
       SELECT images.id, directories.rel_path, images.file_name, images.size_bytes,
         images.mtime_ms, images.metadata_version
-      FROM images JOIN directories ON directories.id = images.directory_id
+      FROM images JOIN directories ON directories.id = images.directory_id`
+    this.statsInRoot = db.prepare(`${statColumns} WHERE directories.root_id = ?`)
+    this.statsInDirs = db.prepare(`
+      ${statColumns}
       WHERE directories.root_id = ?
-    `)
+        AND directories.rel_path IN (SELECT value FROM json_each(?))`)
     this.versionsInDir = db.prepare(
       'SELECT id, file_name, size_bytes, mtime_ms FROM images WHERE directory_id = ?'
     )
@@ -114,14 +127,11 @@ export class SqliteImageRepository implements ImageRepository {
   }
 
   fileStatsByRoot(rootId: RootId): StoredFileStat[] {
-    return this.statsInRoot.all(rootId).map((row) => ({
-      id: row.id as ImageId,
-      relDir: row.rel_path,
-      fileName: row.file_name,
-      sizeBytes: row.size_bytes,
-      mtimeMs: row.mtime_ms,
-      metadataVersion: row.metadata_version
-    }))
+    return this.statsInRoot.all(rootId).map(statOf)
+  }
+
+  fileStatsByDirectories(rootId: RootId, relDirs: readonly string[]): StoredFileStat[] {
+    return this.statsInDirs.all(rootId, JSON.stringify(relDirs)).map(statOf)
   }
 
   deleteMany(stats: readonly StoredFileStat[]): void {

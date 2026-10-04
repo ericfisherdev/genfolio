@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { StoredGeneration } from '@domain/generation'
 import type { DirectoryId, ImageId } from '@domain/library'
+import type { MetadataRecord } from '@domain/metadata-record'
 import type { ImageVersion } from '@domain/repositories'
 import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { ImageFormat } from '@shared/image-format'
@@ -220,6 +221,35 @@ describe('SqliteMetadataRecordRepository', () => {
     ]
     records.replace(image, next)
     expect(records.list(image.id)).toEqual(next)
+  })
+
+  it('reads one origin and key of every image in a directory by file name', () => {
+    const a = addImage('a.png')
+    const b = addImage('b.png')
+    const bare = addImage('c.png')
+    const log = (value: string): MetadataRecord => ({
+      origin: MetadataOrigin.FooocusLog,
+      key: 'log.html',
+      value
+    })
+    const exif: MetadataRecord = {
+      origin: MetadataOrigin.ExifUserComment,
+      key: 'UserComment',
+      value: '{}'
+    }
+    records.replace(a, [exif, log('A')])
+    records.replace(b, [log('B')])
+    records.replace(bare, [exif])
+
+    expect(records.valuesInDirectory(directory, MetadataOrigin.FooocusLog, 'log.html')).toEqual(
+      new Map([
+        ['a.png', 'A'],
+        ['b.png', 'B']
+      ])
+    )
+    expect(records.valuesInDirectory(directory, MetadataOrigin.FooocusLog, 'other')).toEqual(
+      new Map()
+    )
   })
 })
 
