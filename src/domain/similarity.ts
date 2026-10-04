@@ -1,3 +1,9 @@
+/**
+ * The `app_settings` key holding `'1'` while some image's group is out of date: a grouped
+ * image changed or was deleted since the last regroup. Written by triggers, cleared by regroup.
+ */
+export const SIMILAR_GROUPS_STALE_KEY = 'similarity.groupsStale'
+
 /** Two images whose hashes are `distance` bits apart (a < b). */
 export interface SimilarPair {
   readonly a: number

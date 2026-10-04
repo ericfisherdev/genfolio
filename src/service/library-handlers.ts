@@ -113,12 +113,21 @@ export function createLibraryHandlers(
     (ids) => void similarity.index(ids).catch(logFailure('finding look-alikes')),
     logFailure('hashing')
   )
+  const regroupIfStale = (): void => {
+    try {
+      similarity.regroupIfStale()
+    } catch (error) {
+      logFailure('regrouping look-alikes')(error)
+    }
+  }
   // Every finished scan may have added or changed images to hash.
   const emitAndHash = (event: ScanEvent): void => {
     emit(event)
+    // A failed scan may have stored some batches, and with them changed or removed images.
+    if (event.type === ScanEventType.Failed) regroupIfStale()
     if (event.type !== ScanEventType.Finished) return
     // Removed and changed images leave their groups; new and changed ones are hashed, then compared.
-    similarity.scanFinished(event.report)
+    regroupIfStale()
     void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
     hashing.request()
   }
@@ -176,6 +185,8 @@ export function createLibraryHandlers(
     new ImageCodecProbe(Transformer)
   ])
 
+  // Groups an earlier session left out of date (a scan stopped half-way, or the app quit).
+  regroupIfStale()
   // Images left unhashed by an earlier session (or by an older HASH_VERSION).
   void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
   hashing.request()
@@ -202,13 +213,15 @@ export function createLibraryHandlers(
     [ServiceMethod.ListRoots]: async () => roots.list(),
     [ServiceMethod.AddRoot]: async ({ path }) => {
       const result = await roots.add(path)
+      // Adding a root cancels the scans of the roots it absorbs, which may have stored batches.
+      regroupIfStale()
       await live.sync(roots.all())
       return result
     },
     [ServiceMethod.RemoveRoot]: async ({ rootId }) => {
       const removed = await roots.remove(rootId as RootId)
       // The root's images left their groups with it.
-      if (removed) similarity.regroup()
+      similarity.regroupIfStale()
       await live.sync(roots.all())
       return { removed }
     },
@@ -245,7 +258,7 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.ImagesForget]: async ({ ids }) => {
       const forgotten = await forgetter.forget(ids as ImageId[])
-      if (forgotten > 0) similarity.regroup()
+      similarity.regroupIfStale()
       return { forgotten }
     },
     [ServiceMethod.SimilarGroupMembers]: async ({ groupId }) => similarity.members(groupId),

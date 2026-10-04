@@ -2,8 +2,7 @@ import { HashTable } from '@domain/hash-table'
 import type { ImageId } from '@domain/library'
 import { HASH_VERSION } from '@domain/perceptual-hash'
 import type { SimilarityRepository } from '@domain/repositories'
-import { groupSimilar, type SimilarPair } from '@domain/similarity'
-import type { ScanReport } from '@shared/scan'
+import { groupSimilar, SIMILAR_GROUPS_STALE_KEY, type SimilarPair } from '@domain/similarity'
 import { GROUP_PREVIEW_SIZE, type SimilarGroupsPage } from '@shared/similarity'
 import { DEFAULT_SIMILARITY_THRESHOLD, MAX_SIMILARITY_DISTANCE } from '@shared/similarity-kinds'
 
@@ -70,16 +69,23 @@ export class SimilarityService {
   }
 
   /**
-   * Call after a scan. Images it removed or changed took their pairs with them, so groups may
-   * have shrunk; a scan that only added images (not hashed yet, so unpaired) leaves them as is.
+   * Regroups when a grouped image changed or was deleted since the last regroup, however that
+   * happened: the database remembers it, so a scan that stopped half-way or a restart is covered.
+   * Images that were never grouped, and added ones (not hashed yet, so unpaired), cost nothing.
    */
-  scanFinished(report: Pick<ScanReport, 'removed' | 'updated'>): void {
-    if (report.removed > 0 || report.updated > 0) this.regroup()
+  regroupIfStale(): void {
+    if (this.groupsAreStale()) this.regroup()
   }
 
+  /** Rebuilds every group from the stored pairs at the current threshold. */
   regroup(): void {
     const threshold = this.threshold()
     this.repository.writeGroups(groupSimilar(this.repository.pairsWithin(threshold), threshold))
+    this.repository.saveSetting(SIMILAR_GROUPS_STALE_KEY, '0')
+  }
+
+  private groupsAreStale(): boolean {
+    return this.repository.setting(SIMILAR_GROUPS_STALE_KEY) === '1'
   }
 
   private serially(task: () => Promise<void>): Promise<void> {
@@ -107,6 +113,7 @@ export class SimilarityService {
       }
       await this.yieldToEvents()
     }
-    if (this.repository.replacePairs(ids, pairs)) this.regroup()
+    const pairsChanged = this.repository.replacePairs(ids, pairs)
+    if (pairsChanged || this.groupsAreStale()) this.regroup()
   }
 }
