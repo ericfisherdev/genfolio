@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -56,18 +56,28 @@ describe('ChokidarFileWatcher', () => {
   })
 
   it('is ready, not stuck, when the watch fails', async () => {
+    // A missing path is not a failure for chokidar (it reports ready); an unreadable folder is
+    // (EACCES), and its handler closes the watcher, so `ready` only resolves through the handler.
     const failures: unknown[] = []
-    subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
-      join(dir, 'missing', 'deeper'),
-      () => undefined,
-      (error) => failures.push(error)
-    )
-    await expect(
-      Promise.race([
-        subscription.ready.then(() => 'ready'),
-        new Promise((resolve) => setTimeout(() => resolve('stuck'), 3000))
-      ])
-    ).resolves.toBe('ready')
+    const locked = join(dir, 'locked')
+    mkdirSync(locked)
+    chmodSync(locked, 0o000)
+    try {
+      subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
+        locked,
+        () => undefined,
+        (error) => failures.push(error)
+      )
+      await expect(
+        Promise.race([
+          subscription.ready.then(() => 'ready'),
+          new Promise((resolve) => setTimeout(() => resolve('stuck'), 3000))
+        ])
+      ).resolves.toBe('ready')
+      expect(failures).toHaveLength(1)
+    } finally {
+      chmodSync(locked, 0o755)
+    }
   })
 
   it('reports a removed folder and its parent', async () => {

@@ -203,8 +203,9 @@ export function createLibraryHandlers(
       clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout)
     }
   )
-  // Watch every root, then scan every root (changes made while the app was closed), then hash
-  // the images an earlier session left unhashed (or an older HASH_VERSION): one traversal at a time.
+  // Watch every root, then scan every root (changes made while the app was closed), so the
+  // folders are walked one traversal at a time. Hashing starts with the first finished scan;
+  // the request after the scans covers images an earlier session left unhashed when none did.
   void new LibraryStartup({
     live,
     roots,

@@ -27,10 +27,12 @@ export const DEFAULT_STARTUP_OPTIONS: LibraryStartupOptions = { watchReadyWaitMs
 /**
  * Brings the library in step with the disk when the service starts, one traversal of the
  * folders after another instead of all at once: the watchers walk every root first (so the
- * scan walks folders the system has just read), then every root is scanned, then images
- * left unhashed are hashed. The scan starts only after the watchers are up, so a file
- * written meanwhile is seen by one of them; the wait is capped so a huge tree can't hold the
- * scan back for long. A failing step is reported and the rest still run.
+ * scan walks folders the system has just read), then every root is scanned. The scan starts
+ * only after the watchers are up, so a file written meanwhile is seen by one of them; the
+ * wait is capped so a huge tree can't hold the scan back for long. Every finished scan already
+ * requests hashing, so with several roots hashing can overlap the scans still running; the
+ * request after the scans covers images an earlier session left unhashed when no scan
+ * finished. A failing step is reported and the rest still run.
  */
 export class LibraryStartup {
   constructor(
