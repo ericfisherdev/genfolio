@@ -26,8 +26,8 @@ A faster gallery and a lighter live refresh while a generator is writing to your
   Fooocus `log.html` is no longer read and parsed again for every new image, and the stored log
   records of a folder are fetched in one query.
 - At startup the folders are walked one pass at a time: file watching first, then the scan.
-  Looking for look-alikes and hashing run on the thread pool beside the image decode, so the
-  library service answers requests meanwhile.
+  Hashing takes each file's SHA-256 on the thread pool beside the image decode, so the library
+  service stays free to answer requests.
 
 ### Look-alikes
 
