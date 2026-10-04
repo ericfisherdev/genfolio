@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createVirtualizer } from '@tanstack/svelte-virtual'
   import { tick, untrack } from 'svelte'
+  import { devicePixelRatio } from 'svelte/reactivity/window'
   import { AlbumKind } from '@shared/albums'
   import { gridRenditionWidth } from '@shared/display-rendition'
   import { GalleryScopeKind } from '@shared/gallery-kinds'
@@ -35,8 +36,10 @@
   let scroller: HTMLDivElement | undefined = $state()
   let width = $state(0)
   const geometry = $derived(gridGeometry(width))
-  // Read with the geometry: a window moved to another screen is resized, so this follows.
-  const renditionWidth = $derived(gridRenditionWidth(geometry.columnWidth, window.devicePixelRatio))
+  // Follows the column width and the screen's pixel ratio (zoom, or a move to another screen).
+  const renditionWidth = $derived(
+    gridRenditionWidth(geometry.columnWidth, devicePixelRatio.current ?? 1)
+  )
 
   const virtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: 0,

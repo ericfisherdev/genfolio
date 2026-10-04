@@ -18,6 +18,22 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   }
 }
 
+// jsdom has no matchMedia; Svelte's reactive window values (devicePixelRatio) listen on one.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  const noop = (): void => undefined
+  window.matchMedia = (media: string): MediaQueryList =>
+    ({
+      media,
+      matches: false,
+      onchange: null,
+      addEventListener: noop,
+      removeEventListener: noop,
+      addListener: noop,
+      removeListener: noop,
+      dispatchEvent: () => false
+    }) as MediaQueryList
+}
+
 // jsdom images never decode; Chromium's decode() resolves once pixels are ready.
 if (typeof HTMLImageElement !== 'undefined' && !HTMLImageElement.prototype.decode) {
   HTMLImageElement.prototype.decode = () => Promise.resolve()
