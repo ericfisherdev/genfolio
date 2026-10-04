@@ -3,7 +3,7 @@ import { ImageReadError } from '@domain/image-header'
 import type { ImageInspection, ImageInspector } from '@domain/image-inspection'
 import type { MetadataReadOptions } from '@domain/metadata-record'
 import { fileSource } from '../metadata/byte-source'
-import { recordsFromSource } from '../metadata/metadata-record-reader'
+import { recordsFromSource } from '../metadata/source-records'
 import { readSidecar } from '../metadata/sidecar-reader'
 import type { ImageSizeHeaderReader } from './image-size-header-reader'
 

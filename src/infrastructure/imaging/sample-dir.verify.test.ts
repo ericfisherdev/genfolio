@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Transformer } from '@napi-rs/image'
 import { describe, expect, it } from 'vitest'
+import { memorySource } from '../metadata/byte-source'
 import { ImageSizeHeaderReader } from './image-size-header-reader'
 
 // Local-only check against a folder of real images. Skipped unless GENFOLIO_SAMPLE_DIR is set,
@@ -21,9 +22,10 @@ describe.skipIf(!sampleDir)('ImageSizeHeaderReader against GENFOLIO_SAMPLE_DIR',
     const mismatches: string[] = []
     const images = imagesUnder(sampleDir as string)
     for (const path of images) {
-      const header = await reader.read(path)
+      const bytes = await readFile(path)
+      const header = await reader.fromSource(memorySource(bytes), path)
       // rotate() without an argument applies EXIF orientation, giving display dimensions like ImageHeader
-      const decoded = await new Transformer(await readFile(path)).rotate().metadata()
+      const decoded = await new Transformer(bytes).rotate().metadata()
       if (header.width !== decoded.width || header.height !== decoded.height) mismatches.push(path)
     }
     expect(images.length).toBeGreaterThan(0)

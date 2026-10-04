@@ -1,13 +1,7 @@
-import { open } from 'node:fs/promises'
 import { imageSize } from 'image-size'
-import {
-  ImageReadError,
-  UnsupportedImageError,
-  type ImageHeader,
-  type ImageHeaderReader
-} from '@domain/image-header'
+import { ImageReadError, UnsupportedImageError, type ImageHeader } from '@domain/image-header'
 import { ImageFormat } from '@shared/image-format'
-import { fileSource, type ByteSource } from '../metadata/byte-source'
+import type { ByteSource } from '../metadata/byte-source'
 
 /** Large enough for PNG/WebP/AVIF/GIF headers and most JPEG EXIF blocks. */
 export const HEADER_READ_BYTES = 64 * 1024
@@ -28,25 +22,11 @@ const isQuarterTurn = (orientation: number | undefined): boolean =>
 const startsLikeJpeg = (bytes: Uint8Array): boolean => bytes[0] === 0xff && bytes[1] === 0xd8
 
 /**
- * Reads the first {@link HEADER_READ_BYTES} bytes and parses them with `image-size`,
+ * Reads the first {@link HEADER_READ_BYTES} bytes of an image and parses them with `image-size`,
  * falling back to the whole file only for a JPEG whose frame header lies past the head
  * (SOF after large EXIF). Any other unparseable file is unsupported without a full read.
  */
-export class ImageSizeHeaderReader implements ImageHeaderReader {
-  async read(path: string): Promise<ImageHeader> {
-    try {
-      const file = await open(path, 'r')
-      try {
-        return await this.fromSource(await fileSource(file), path)
-      } finally {
-        await file.close()
-      }
-    } catch (cause) {
-      if (cause instanceof UnsupportedImageError || cause instanceof ImageReadError) throw cause
-      throw new ImageReadError(path, { cause })
-    }
-  }
-
+export class ImageSizeHeaderReader {
   /**
    * The header of an image already open as `source` (`path` only names it in errors), so a
    * caller that reads more from the same file doesn't open it again. Rejects with

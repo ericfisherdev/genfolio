@@ -1,13 +1,17 @@
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ImageReadError, UnsupportedImageError } from '@domain/image-header'
 import { ImageFormat } from '@shared/image-format'
+import { memorySource } from '../metadata/byte-source'
 import { HEADER_READ_BYTES, ImageSizeHeaderReader } from './image-size-header-reader'
 import { encodeSolid, gifHeader, withExifOrientation } from './testing/synthetic-images'
 
-const reader = new ImageSizeHeaderReader()
+const headers = new ImageSizeHeaderReader()
+const reader = {
+  read: async (path: string) => headers.fromSource(memorySource(readFileSync(path)), path)
+}
 let dir: string
 
 const write = (name: string, bytes: Uint8Array): string => {
@@ -75,8 +79,14 @@ describe('ImageSizeHeaderReader', () => {
     expect(readAll).not.toHaveBeenCalled()
   })
 
-  it('rejects a missing file with ImageReadError', async () => {
-    await expect(reader.read(join(dir, 'missing.png'))).rejects.toBeInstanceOf(ImageReadError)
+  it('rejects a source that cannot be read with ImageReadError', async () => {
+    const failing = {
+      size: 10,
+      read: async () => {
+        throw new Error('I/O error')
+      }
+    }
+    await expect(headers.fromSource(failing, 'x.png')).rejects.toBeInstanceOf(ImageReadError)
   })
 
   it('reads every committed Fooocus fixture as 1024×1024', async () => {

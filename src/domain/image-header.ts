@@ -25,8 +25,3 @@ export class ImageReadError extends Error {
     this.name = 'ImageReadError'
   }
 }
-
-export interface ImageHeaderReader {
-  /** Rejects with {@link UnsupportedImageError} or {@link ImageReadError}. */
-  read(path: string): Promise<ImageHeader>
-}

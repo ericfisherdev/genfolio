@@ -1,11 +1,12 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ImageReadError, UnsupportedImageError } from '@domain/image-header'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
-import { MetadataRecordReader } from '../metadata/metadata-record-reader'
+import { memorySource } from '../metadata/byte-source'
+import { recordsFromSource } from '../metadata/source-records'
 import { FileImageInspector } from './file-image-inspector'
 import { ImageSizeHeaderReader } from './image-size-header-reader'
 
@@ -26,15 +27,15 @@ const imageNames = readdirSync(FIXTURES).filter((name) => /\.(png|webp|jpe?g)$/.
 
 describe('FileImageInspector', () => {
   it.each(imageNames)(
-    'reads the header and records of %s as the separate readers do',
+    'reads the header and records of %s as a whole-file read does',
     async (name) => {
+      // The oracle reads the file from memory, so it shares no windowed-read code.
       const path = join(FIXTURES, name)
-      const header = await headers.read(path)
+      const bytes = memorySource(readFileSync(path))
+      const header = await headers.fromSource(bytes, path)
       const inspection = await inspector.inspect(path, { sidecar: false })
       expect(inspection.header).toEqual(header)
-      expect(inspection.records).toEqual(
-        await new MetadataRecordReader().read(path, header.format, { sidecar: false })
-      )
+      expect(inspection.records).toEqual(await recordsFromSource(bytes, header.format))
     }
   )
 
