@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.4.1 — 2026-10-03
+
+A faster gallery and a lighter live refresh while a generator is writing to your library.
+
+### Gallery
+
+- Every card is a small WebP (400, 600 or 800 px wide, chosen from the column width and the
+  screen's pixel ratio) instead of the full original, so scrolling a library of 1024-px images
+  moves tens of KB per card instead of up to a megabyte or more, and an image narrower than the target is
+  never upscaled. The copies live in memory only, and nothing derived from your images is
+  written to disk. The detail view still shows the original.
+- Several requests for one card share a single read and resize, and originals are read only once
+  a resize slot is free.
+- When a scan finishes, only the cards on screen are loaded again, the cache of cards is
+  bounded, and scans that end close together reload the library once; only the scanned
+  folder's tree is fetched again.
+
+### Scanning
+
+- Each image is opened once for its size and its metadata, a folder's files are checked 32 at a
+  time, and metadata and the generation are stored without checking every row twice. A scan of a
+  large folder of small files takes about 40% less time in a synthetic test.
+- A refresh of one folder reads only that folder's rows, not the whole root. An unchanged
+  Fooocus `log.html` is no longer read and parsed again for every new image, and the stored log
+  records of a folder are fetched in one query.
+- At startup the folders are walked one pass at a time: file watching first, then the scan.
+  Hashing takes each file's SHA-256 on the thread pool beside the image decode, so the library
+  service stays free to answer requests.
+
+### Look-alikes
+
+- Groups are rebuilt only when something changed, and only the images whose group changed are
+  written. A group left stale by a scan that stopped half-way, or by deleting an image, is now
+  repaired the next time the app runs or a scan ends; on the first start of this version
+  every group is rebuilt once.
+
 ## 0.4.0 — 2026-10-02
 
 Know your models, and get new ones from Civitai.
