@@ -42,6 +42,8 @@ export class GalleryState {
   private readonly cards = new SvelteMap<number, ImageCard>()
   /** Ids fetched or in flight since the last refresh (plain bookkeeping, deliberately not reactive). */
   private requested: Record<number, true> = {}
+  /** What the latest ensureCards call asked for: the ids on screen now. */
+  private onScreen: readonly number[] = []
   private generation = 0
   /** Bumped by reload(); card fetches started before it are discarded. */
   private cardGeneration = 0
@@ -163,6 +165,7 @@ export class GalleryState {
    */
   async ensureCards(ids: readonly number[]): Promise<void> {
     const generation = this.cardGeneration
+    this.onScreen = ids
     const missing = ids.filter((id) => !this.requested[id])
     for (const id of missing) this.requested[id] = true
     for (let start = 0; start < missing.length; start += MAX_IMAGES_PER_REQUEST) {
@@ -183,15 +186,18 @@ export class GalleryState {
       }
       for (const id of batch) if (!kept[id]) this.cards.delete(id)
     }
-    this.evictBeyondBudget(ids)
+    this.evictBeyondBudget()
   }
 
-  /** Drops the longest-held cards that are not on screen until the budget holds. */
-  private evictBeyondBudget(onScreen: readonly number[]): void {
+  /**
+   * Drops the longest-held cards that are not on screen until the budget holds. Uses the
+   * latest request's ids, not this call's: the user may have scrolled while it fetched.
+   */
+  private evictBeyondBudget(): void {
     if (this.cards.size <= MAX_CACHED_CARDS) return
     // Plain bookkeeping, deliberately not reactive.
     const keep: Record<number, true> = {}
-    for (const id of onScreen) keep[id] = true
+    for (const id of this.onScreen) keep[id] = true
     for (const id of this.cards.keys()) {
       if (this.cards.size <= MAX_CACHED_CARDS) break
       if (keep[id]) continue

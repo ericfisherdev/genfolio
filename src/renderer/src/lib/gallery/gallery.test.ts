@@ -113,6 +113,27 @@ describe('GalleryState', () => {
     expect(getImages).toHaveBeenLastCalledWith([2])
   })
 
+  it('evicts against what is on screen now, not where a slow fetch started', async () => {
+    let release: () => void = () => undefined
+    // Fetches past the budget are held until released; the rest answer at once.
+    const getImages = vi.fn(async (ids: readonly number[]) => {
+      if ((ids[0] ?? 0) > MAX_CACHED_CARDS)
+        await new Promise<void>((resolve) => (release = resolve))
+      return ids.map((id) => ({ id }) as never)
+    })
+    const gallery = new GalleryState({ getImageLayout: async () => layout, getImages })
+    const ids = (from: number, count: number): number[] =>
+      Array.from({ length: count }, (_, i) => from + i)
+    await gallery.ensureCards(ids(1, MAX_CACHED_CARDS))
+    const slow = gallery.ensureCards(ids(MAX_CACHED_CARDS + 1, 10))
+    // Back to the top: these are cached already, so nothing is fetched.
+    await gallery.ensureCards(ids(1, 10))
+    release()
+    await slow
+    for (const id of ids(1, 10)) expect(gallery.card(id)).toEqual({ id })
+    expect(gallery.card(11)).toBeUndefined()
+  })
+
   it('remembers scroll per query', async () => {
     const gallery = new GalleryState({
       getImageLayout: async () => layout,
