@@ -14,9 +14,9 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { SqliteTransactionRunner } from '@infrastructure/db/sqlite-transaction-runner'
 import { NodeFileWalker } from '@infrastructure/fs/node-file-walker'
 import { NodeLogFileSource } from '@infrastructure/fs/node-log-file-source'
+import { FileImageInspector } from '@infrastructure/imaging/file-image-inspector'
 import { ImageSizeHeaderReader } from '@infrastructure/imaging/image-size-header-reader'
 import { FooocusLogParser } from '@infrastructure/metadata/fooocus-log-parser'
-import { MetadataRecordReader } from '@infrastructure/metadata/metadata-record-reader'
 import { A1111InfotextParser } from '@infrastructure/metadata/parsers/a1111-infotext-parser'
 import { FooocusJsonParser } from '@infrastructure/metadata/parsers/fooocus-json-parser'
 import { GenerationRecordParser } from '@infrastructure/metadata/parsers/generation-record-parser'
@@ -71,10 +71,9 @@ export function createScanRoot(
   return new ScanRoot(
     {
       walker: new NodeFileWalker(logger, fileRef),
-      headerReader: new ImageSizeHeaderReader(),
+      inspector: new FileImageInspector(new ImageSizeHeaderReader()),
       directories,
       images,
-      metadataReader: new MetadataRecordReader(),
       metadata,
       logs,
       transactions,

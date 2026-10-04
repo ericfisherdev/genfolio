@@ -1,14 +1,11 @@
-import { constants } from 'node:fs'
-import { open, type FileHandle } from 'node:fs/promises'
+import { open } from 'node:fs/promises'
 import type { MetadataReader, MetadataReadOptions, MetadataRecord } from '@domain/metadata-record'
 import { ImageFormat } from '@shared/image-format'
-import { MetadataOrigin } from '@shared/metadata-kinds'
 import { fileSource, type ByteSource } from './byte-source'
 import { jpegExif, webpExif } from './exif-locator'
 import { readExifText } from './exif-reader'
 import { readPngText } from './png-text-reader'
-
-const MAX_SIDECAR_BYTES = 1024 * 1024
+import { readSidecar } from './sidecar-reader'
 
 /** Every metadata record in an image's bytes, by container format. Never throws. */
 export async function recordsFromSource(
@@ -42,7 +39,7 @@ export class MetadataRecordReader implements MetadataReader {
     options: MetadataReadOptions = { sidecar: true }
   ): Promise<MetadataRecord[]> {
     const records = await this.embedded(path, format)
-    const sidecar = options.sidecar ? await this.sidecar(path) : undefined
+    const sidecar = options.sidecar ? await readSidecar(path) : undefined
     return sidecar ? [...records, sidecar] : records
   }
 
@@ -57,34 +54,6 @@ export class MetadataRecordReader implements MetadataReader {
       return await recordsFromSource(await fileSource(handle), format)
     } finally {
       await handle.close()
-    }
-  }
-
-  /**
-   * The sidecar, read through one handle so the size check holds at read time: never more
-   * than MAX_SIDECAR_BYTES + 1 bytes, and only from a regular file. O_NONBLOCK keeps open
-   * from waiting on a FIFO (it changes nothing for regular files).
-   */
-  private async sidecar(imagePath: string): Promise<MetadataRecord | undefined> {
-    const path = imagePath.replace(/\.[^./\\]+$/, '.txt')
-    if (path === imagePath) return undefined
-    let handle: FileHandle | undefined
-    try {
-      handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK)
-      const stats = await handle.stat()
-      if (!stats.isFile() || stats.size > MAX_SIDECAR_BYTES) return undefined
-      const buffer = Buffer.alloc(MAX_SIDECAR_BYTES + 1)
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-      if (bytesRead > MAX_SIDECAR_BYTES) return undefined
-      return {
-        origin: MetadataOrigin.SidecarTxt,
-        key: 'parameters',
-        value: buffer.toString('utf8', 0, bytesRead)
-      }
-    } catch {
-      return undefined
-    } finally {
-      await handle?.close()
     }
   }
 }

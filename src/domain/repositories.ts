@@ -90,6 +90,11 @@ export interface GenerationRepository {
    * changed it since the metadata was read.
    */
   replace(version: ImageVersion, generation: StoredGeneration | null): boolean
+  /**
+   * Like {@link replace} for an image row the caller wrote earlier in the current transaction,
+   * so nothing can have changed it since and no check is made. Call inside a transaction.
+   */
+  replaceFresh(imageId: ImageId, generation: StoredGeneration | null): void
   find(imageId: ImageId): StoredGeneration | undefined
   /** Deletes models no generation uses any more. Returns how many. */
   pruneUnusedModels(): number
@@ -101,6 +106,11 @@ export interface MetadataRecordRepository {
    * row still has `version`'s size and mtime; returns false, writing nothing, otherwise.
    */
   replace(version: ImageVersion, records: readonly MetadataRecord[]): boolean
+  /**
+   * Like {@link replace} for an image row the caller wrote earlier in the current transaction,
+   * so nothing can have changed it since and no check is made. Call inside a transaction.
+   */
+  replaceFresh(imageId: ImageId, records: readonly MetadataRecord[]): void
   /** The image's records in the order they were stored. */
   list(imageId: ImageId): MetadataRecord[]
   /**

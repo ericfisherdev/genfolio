@@ -135,6 +135,7 @@ export class FooocusLogIndexer {
     }
   }
 
+  /** Inside the caller's transaction, which also read the versions, so they still hold. */
   private apply(directoryId: DirectoryId, entries: ReadonlyMap<string, FooocusLogEntry>): void {
     const storedLogs = this.deps.metadata.storedValuesInDirectory(
       directoryId,

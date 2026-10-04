@@ -40,12 +40,20 @@ export class SqliteMetadataRecordRepository implements MetadataRecordRepository 
   replace(version: ImageVersion, records: readonly MetadataRecord[]): boolean {
     return this.db.transaction(() => {
       if (!this.versions.holds(version)) return false
-      this.deleteAll.run(version.id)
-      for (const record of records) {
-        this.insert.run(version.id, record.origin, record.key, record.value)
-      }
+      this.write(version.id, records)
       return true
     })()
+  }
+
+  replaceFresh(imageId: ImageId, records: readonly MetadataRecord[]): void {
+    this.write(imageId, records)
+  }
+
+  private write(imageId: ImageId, records: readonly MetadataRecord[]): void {
+    this.deleteAll.run(imageId)
+    for (const record of records) {
+      this.insert.run(imageId, record.origin, record.key, record.value)
+    }
   }
 
   list(imageId: ImageId): MetadataRecord[] {

@@ -23,6 +23,22 @@ export function memorySource(bytes: Uint8Array): ByteSource {
  */
 const HEAD_BYTES = 64 * 1024
 
+/**
+ * Past the head, a read pulls in this much at once. A PNG's text can follow its image data
+ * (Pillow writes ~64 KB IDAT chunks), so walking chunk headers would otherwise cost one
+ * syscall per chunk; a window serves the next few chunk headers from memory.
+ */
+const WINDOW_BYTES = 256 * 1024
+
+interface Window {
+  readonly start: number
+  readonly bytes: Uint8Array
+}
+
+/**
+ * A source over an open file. Small reads are served from one window of the file that is
+ * replaced when a read falls outside it; reads larger than a window go straight to the file.
+ */
 export async function fileSource(handle: FileHandle): Promise<ByteSource> {
   const { size } = await handle.stat()
   const readAt = async (offset: number, length: number): Promise<Uint8Array> => {
@@ -30,14 +46,20 @@ export async function fileSource(handle: FileHandle): Promise<ByteSource> {
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, offset)
     return buffer.subarray(0, bytesRead)
   }
-  let head: Promise<Uint8Array> | undefined
+  let window: Window = { start: 0, bytes: new Uint8Array(0) }
+  const covers = (offset: number, end: number): boolean =>
+    window.start <= offset && end <= window.start + window.bytes.length
   return {
     size,
     read: async (offset, length) => {
-      if (offset + length > HEAD_BYTES) return readAt(offset, length)
-      head ??= readAt(0, HEAD_BYTES)
-      const bytes = await head
-      return bytes.subarray(offset, Math.min(bytes.length, offset + length))
+      const end = Math.min(size, offset + length)
+      if (offset >= end) return new Uint8Array(0)
+      if (!covers(offset, end)) {
+        if (length > WINDOW_BYTES) return readAt(offset, length)
+        const fetch = Math.max(length, offset === 0 ? HEAD_BYTES : WINDOW_BYTES)
+        window = { start: offset, bytes: await readAt(offset, fetch) }
+      }
+      return window.bytes.subarray(offset - window.start, end - window.start)
     }
   }
 }

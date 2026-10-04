@@ -211,6 +211,18 @@ describe('cascades', () => {
   })
 })
 
+describe('SqliteGenerationRepository.replaceFresh', () => {
+  it('replaces a generation of a row written in this transaction without a version check', () => {
+    const image = addImage('a.png')
+    generations.replaceFresh(image.id, FULL)
+    generations.replaceFresh(image.id, { ...FULL, prompt: 'second' })
+    expect(generations.find(image.id)?.prompt).toBe('second')
+    expect(db.prepare('SELECT COUNT(*) FROM generations').pluck().get()).toBe(1)
+    generations.replaceFresh(image.id, null)
+    expect(generations.find(image.id)).toBeUndefined()
+  })
+})
+
 describe('SqliteMetadataRecordRepository', () => {
   it('replaces and lists records in stored order', () => {
     const image = addImage('a.png')
@@ -221,6 +233,18 @@ describe('SqliteMetadataRecordRepository', () => {
     ]
     records.replace(image, next)
     expect(records.list(image.id)).toEqual(next)
+  })
+
+  it('replaces records of a row written in this transaction without a version check', () => {
+    const image = addImage('a.png')
+    const log = (value: string): MetadataRecord => ({
+      origin: MetadataOrigin.FooocusLog,
+      key: 'log.html',
+      value
+    })
+    records.replaceFresh(image.id, [log('one'), log('two')])
+    records.replaceFresh(image.id, [log('three')])
+    expect(records.list(image.id)).toEqual([log('three')])
   })
 
   it('reads one origin and key of every image in a directory by file name', () => {

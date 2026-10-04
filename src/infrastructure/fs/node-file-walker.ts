@@ -26,6 +26,9 @@ function textFileStems(entries: readonly Dirent[]): Set<string> {
   )
 }
 
+/** Files of one folder stat'ed at once; a folder of thousands is not one round trip each. */
+const STAT_CONCURRENCY = 32
+
 /**
  * Iterative depth-first walk. Skips hidden entries and every symlink (no loops, nothing
  * outside the root). An unreadable root rejects; an unreadable subdirectory or file is
@@ -49,17 +52,34 @@ export class NodeFileWalker implements FileWalker {
       const relDir = pending.pop() as string
       const entries = await this.entriesOf(rootPath, relDir, onSkippedDir)
       const textStems = textFileStems(entries)
+      const imageNames: string[] = []
       for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue
-        const relPath = relDir === '' ? entry.name : `${relDir}/${entry.name}`
         if (entry.isDirectory()) {
-          if (!scope) pending.push(relPath)
+          if (!scope) pending.push(relDir === '' ? entry.name : `${relDir}/${entry.name}`)
         } else if (entry.isFile() && IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
-          const hasTextSidecar = textStems.has(parse(entry.name).name)
-          const found = await this.describe(rootPath, relDir, entry.name, hasTextSidecar)
-          if (found) yield found
+          imageNames.push(entry.name)
         }
       }
+      yield* this.describeAll(rootPath, relDir, imageNames, textStems, signal)
+    }
+  }
+
+  /** Stats the folder's images with bounded concurrency and yields them in listing order. */
+  private async *describeAll(
+    rootPath: string,
+    relDir: string,
+    fileNames: readonly string[],
+    textStems: ReadonlySet<string>,
+    signal: AbortSignal
+  ): AsyncIterable<FoundFile> {
+    for (let start = 0; start < fileNames.length; start += STAT_CONCURRENCY) {
+      signal.throwIfAborted()
+      const chunk = fileNames.slice(start, start + STAT_CONCURRENCY)
+      const found = await Promise.all(
+        chunk.map((name) => this.describe(rootPath, relDir, name, textStems.has(parse(name).name)))
+      )
+      for (const file of found) if (file) yield file
     }
   }
 
