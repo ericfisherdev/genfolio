@@ -230,10 +230,14 @@ function onReady(): void {
     cancelUpdateDownload: () => updates.cancelDownload()
   })
   denyAllPermissions(session.defaultSession)
-  const imageFiles = new ImageFileResolver(
-    new LazyImageLocator(() => openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)),
-    { open: (path) => open(path, 'r'), realpath, stat }
+  const imageLocator = new LazyImageLocator(() =>
+    openLibraryDatabase(libraryDatabasePath(), DatabaseMode.ReadOnly)
   )
+  const imageFiles = new ImageFileResolver(imageLocator, {
+    open: (path) => open(path, 'r'),
+    realpath,
+    stat
+  })
   registerDeletionChannels(
     ipc,
     new ImageDeleter(
@@ -258,6 +262,7 @@ function onReady(): void {
   )
   handleImageScheme(
     createImageRequestHandler({
+      imageDimensions: (id) => imageLocator.locate(id),
       openImage: (id) => imageFiles.open(id),
       streamFile: streamOpenFile,
       renderDisplayCopy: (imageId, maxWidth) =>

@@ -1,12 +1,18 @@
 <script lang="ts">
   import type { ImageCard } from '@shared/gallery'
-  import { ImageDisplay, imageUrl } from '@shared/display-rendition'
+  import {
+    DEFAULT_GRID_RENDITION_WIDTH,
+    ImageDisplay,
+    imageUrl,
+    type GridRenditionWidth
+  } from '@shared/display-rendition'
   import { CopyVariant } from '@shared/generation-kinds'
   import ActionMenu, { type MenuAction } from './ActionMenu.svelte'
   import RatingStars from './RatingStars.svelte'
 
   interface Props {
     imageId: number
+    renditionWidth?: GridRenditionWidth
     card: ImageCard | undefined
     onopen: () => void
     onreveal: () => void
@@ -30,6 +36,7 @@
 
   let {
     imageId,
+    renditionWidth = DEFAULT_GRID_RENDITION_WIDTH,
     card,
     onopen,
     onreveal,
@@ -51,11 +58,12 @@
     else onopen()
   }
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
+  const src = $derived(imageUrl(imageId, ImageDisplay.Grid, renditionWidth))
 </script>
 
 <article class="card" class:selected aria-label={name}>
   <button type="button" class="open" aria-label={`Open ${name}`} {onclick}>
-    <img src={imageUrl(imageId, ImageDisplay.Grid)} alt="" decoding="async" draggable="false" />
+    <img {src} alt="" decoding="async" draggable="false" />
   </button>
   <label class="select" class:visible={selecting}>
     <input

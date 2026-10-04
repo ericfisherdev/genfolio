@@ -1,15 +1,24 @@
-import { ImageDisplay } from '@shared/display-rendition'
+import {
+  DEFAULT_GRID_RENDITION_WIDTH,
+  ImageDisplay,
+  isGridRenditionWidth,
+  type GridRenditionWidth
+} from '@shared/display-rendition'
 
-export interface ImageRequest {
-  readonly imageId: number
-  readonly display: ImageDisplay
-}
+export type ImageRequest =
+  | { readonly imageId: number; readonly display: ImageDisplay.Original }
+  | {
+      readonly imageId: number
+      readonly display: ImageDisplay.Grid
+      readonly width: GridRenditionWidth
+    }
 
 const IMAGE_PATH = /^\/([1-9]\d{0,15})$/
 
 /**
- * Parses `genfolio://img/<id>` and `genfolio://img/<id>?display=grid`. Anything else,
- * including extra path segments or encoded traversal, is `undefined` (served as 404).
+ * Parses `genfolio://img/<id>` and `genfolio://img/<id>?display=grid&w=<width>`. Anything
+ * else, including extra path segments, encoded traversal, a width outside the fixed set or a
+ * `w` without the grid, is `undefined` (served as 404).
  */
 export function parseImageRequest(url: string): ImageRequest | undefined {
   let parsed: URL
@@ -20,10 +29,14 @@ export function parseImageRequest(url: string): ImageRequest | undefined {
   }
   const match = IMAGE_PATH.exec(parsed.pathname)
   if (parsed.host !== 'img' || !match) return undefined
+  const imageId = Number(match[1])
   const display = parsed.searchParams.get('display')
-  if (display !== null && display !== ImageDisplay.Grid) return undefined
-  return {
-    imageId: Number(match[1]),
-    display: display === ImageDisplay.Grid ? ImageDisplay.Grid : ImageDisplay.Original
+  const widthParam = parsed.searchParams.get('w')
+  if (display === null) {
+    return widthParam === null ? { imageId, display: ImageDisplay.Original } : undefined
   }
+  if (display !== ImageDisplay.Grid) return undefined
+  const width = widthParam === null ? DEFAULT_GRID_RENDITION_WIDTH : Number(widthParam)
+  if (!isGridRenditionWidth(width)) return undefined
+  return { imageId, display: ImageDisplay.Grid, width }
 }

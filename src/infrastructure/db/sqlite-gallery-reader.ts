@@ -107,9 +107,7 @@ export class SqliteGalleryReader implements GalleryReader {
       ORDER BY ${order.sql}`
     const rows = this.layoutStatement(sql).all(...selection.params, ...order.params)
     const layout = new Int32Array(rows.length * LAYOUT_STRIDE)
-    rows.forEach(([id, width, height], index) => {
-      layout.set([id, width, height], index * LAYOUT_STRIDE)
-    })
+    rows.forEach((row, index) => layout.set(row, index * LAYOUT_STRIDE))
     return layout
   }
 

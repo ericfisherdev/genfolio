@@ -96,6 +96,18 @@ describe('DetailView', () => {
     expect(getGeneration).toHaveBeenLastCalledWith(8)
   })
 
+  it('fetches the open image’s card again when a refresh marks cards stale', async () => {
+    let sizeBytes = 1_234_567
+    const { services } = await openDetail(8, {
+      getImages: async (ids) => ids.map((id) => ({ ...cardFor(id), sizeBytes }))
+    })
+    const panel = await screen.findByRole('complementary', { name: 'File details' })
+    await waitFor(() => expect(panel.textContent).toContain('1.2 MB'))
+    sizeBytes = 4_200_000
+    await services.gallery.refresh()
+    await waitFor(() => expect(panel.textContent).toMatch(/4\.[02] MB/))
+  })
+
   it('ignores find actions while the next image is still loading', async () => {
     const details = { seed: '111' } as GenerationDetails
     const getGeneration = vi.fn((id: number) =>

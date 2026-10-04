@@ -50,10 +50,13 @@
     }
   })
 
-  // Re-runs when a reload clears the card cache, so the panel never stays on "Loading".
+  // Re-runs when a reload clears the card cache (so the panel never stays on "Loading") and
+  // when a refresh marks cards stale; ensureCards skips the id while it is fresh.
   $effect(() => {
     const id = imageId
-    if (id > 0 && card === undefined) untrack(() => void gallery.ensureCards([id]))
+    void card
+    void gallery.cardEpoch
+    if (id > 0) untrack(() => void gallery.ensureCards([id]))
   })
 
   $effect(() => {

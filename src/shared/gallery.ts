@@ -42,7 +42,10 @@ export type GalleryQuery = z.infer<typeof galleryQuerySchema>
  */
 export const imageLayoutSchema = z
   .instanceof(Int32Array)
-  .refine((layout) => layout.length % LAYOUT_STRIDE === 0, 'length must be a multiple of 3')
+  .refine(
+    (layout) => layout.length % LAYOUT_STRIDE === 0,
+    `length must be a multiple of ${LAYOUT_STRIDE}`
+  )
 
 export const imageCardSchema = z
   .object({

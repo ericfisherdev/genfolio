@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { DirectoryId, ImageFile, LibraryRoot, RootId } from '@domain/library'
-import { GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
+import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder, type GalleryQuery } from '@shared/gallery'
 import { ImageFormat } from '@shared/image-format'
 import { SqliteDirectoryRepository } from './repositories/sqlite-directory-repository'
 import { SqliteImageRepository } from './repositories/sqlite-image-repository'
@@ -39,7 +39,7 @@ function add(relDir: string, fileName: string, createdAt: number, addedAt: numbe
 /** File names in layout order, resolved through the cards. */
 function namesFor(query: GalleryQuery): string[] {
   const layout = reader.layout(query)
-  const ids = Array.from(layout.filter((_, index) => index % 3 === 0))
+  const ids = Array.from(layout.filter((_, index) => index % LAYOUT_STRIDE === 0))
   const names = new Map(reader.images(ids).map((card) => [card.id, card.fileName]))
   return ids.map((id) => names.get(id) as string)
 }
@@ -66,7 +66,7 @@ describe('SqliteGalleryReader.layout', () => {
   it('returns [id, width, height] triples', () => {
     const layout = reader.layout(all(SortOrder.Oldest))
     expect(layout).toBeInstanceOf(Int32Array)
-    expect(layout.length).toBe(5 * 3)
+    expect(layout.length).toBe(5 * LAYOUT_STRIDE)
     const [card] = reader.images([layout[0] as number])
     expect([layout[1], layout[2]]).toEqual([card?.width, card?.height])
   })
@@ -197,7 +197,7 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('SqliteGalleryReader perfo
       const layout = reader.layout(all(sort))
       const elapsed = performance.now() - started
       console.info(`[perf] layout ${sort}: ${elapsed.toFixed(1)} ms`)
-      expect(layout.length).toBe((110_000 + 5) * 3)
+      expect(layout.length).toBe((110_000 + 5) * LAYOUT_STRIDE)
       expect(elapsed).toBeLessThan(150)
     }
   }, 60_000)
