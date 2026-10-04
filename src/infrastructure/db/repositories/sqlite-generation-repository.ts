@@ -103,10 +103,18 @@ export class SqliteGenerationRepository implements GenerationRepository {
   replace(version: ImageVersion, generation: StoredGeneration | null): boolean {
     return this.db.transaction(() => {
       if (!this.versions.holds(version)) return false
-      this.deleteGeneration.run(version.id)
-      if (generation) this.insert(version.id, generation)
+      this.write(version.id, generation)
       return true
     })()
+  }
+
+  replaceFresh(imageId: ImageId, generation: StoredGeneration | null): void {
+    this.write(imageId, generation)
+  }
+
+  private write(imageId: ImageId, generation: StoredGeneration | null): void {
+    this.deleteGeneration.run(imageId)
+    if (generation) this.insert(imageId, generation)
   }
 
   find(imageId: ImageId): StoredGeneration | undefined {

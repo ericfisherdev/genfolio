@@ -1,12 +1,7 @@
-import { open, readFile } from 'node:fs/promises'
 import { imageSize } from 'image-size'
-import {
-  ImageReadError,
-  UnsupportedImageError,
-  type ImageHeader,
-  type ImageHeaderReader
-} from '@domain/image-header'
+import { ImageReadError, UnsupportedImageError, type ImageHeader } from '@domain/image-header'
 import { ImageFormat } from '@shared/image-format'
+import type { ByteSource } from '../metadata/byte-source'
 
 /** Large enough for PNG/WebP/AVIF/GIF headers and most JPEG EXIF blocks. */
 export const HEADER_READ_BYTES = 64 * 1024
@@ -26,22 +21,27 @@ const isQuarterTurn = (orientation: number | undefined): boolean =>
 /** Only JPEG can place its frame header (SOF) arbitrarily far in, after APPn segments. */
 const startsLikeJpeg = (bytes: Uint8Array): boolean => bytes[0] === 0xff && bytes[1] === 0xd8
 
-interface HeadRead {
-  readonly bytes: Uint8Array
-  readonly isWholeFile: boolean
-}
-
 /**
- * Reads the first {@link HEADER_READ_BYTES} bytes and parses them with `image-size`,
+ * Reads the first {@link HEADER_READ_BYTES} bytes of an image and parses them with `image-size`,
  * falling back to the whole file only for a JPEG whose frame header lies past the head
  * (SOF after large EXIF). Any other unparseable file is unsupported without a full read.
  */
-export class ImageSizeHeaderReader implements ImageHeaderReader {
-  async read(path: string): Promise<ImageHeader> {
-    const head = await this.readHead(path)
-    const canFallBack = !head.isWholeFile && startsLikeJpeg(head.bytes)
+export class ImageSizeHeaderReader {
+  /**
+   * The header of an image already open as `source` (`path` only names it in errors), so a
+   * caller that reads more from the same file doesn't open it again. Rejects with
+   * {@link UnsupportedImageError} or {@link ImageReadError}.
+   */
+  async fromSource(source: ByteSource, path: string): Promise<ImageHeader> {
+    let head: Uint8Array
+    try {
+      head = await source.read(0, HEADER_READ_BYTES)
+    } catch (cause) {
+      throw new ImageReadError(path, { cause })
+    }
+    const canFallBack = head.length < source.size && startsLikeJpeg(head)
     const parsed =
-      this.parse(head.bytes) ?? (canFallBack ? this.parse(await this.readAll(path)) : undefined)
+      this.parse(head) ?? (canFallBack ? this.parse(await this.readAll(source, path)) : undefined)
     if (!parsed) throw new UnsupportedImageError(path)
     return parsed
   }
@@ -60,24 +60,9 @@ export class ImageSizeHeaderReader implements ImageHeaderReader {
       : { format, width: size.width, height: size.height }
   }
 
-  private async readHead(path: string): Promise<HeadRead> {
+  private async readAll(source: ByteSource, path: string): Promise<Uint8Array> {
     try {
-      const file = await open(path, 'r')
-      try {
-        const buffer = Buffer.alloc(HEADER_READ_BYTES)
-        const { bytesRead } = await file.read(buffer, 0, HEADER_READ_BYTES, 0)
-        return { bytes: buffer.subarray(0, bytesRead), isWholeFile: bytesRead < HEADER_READ_BYTES }
-      } finally {
-        await file.close()
-      }
-    } catch (cause) {
-      throw new ImageReadError(path, { cause })
-    }
-  }
-
-  private async readAll(path: string): Promise<Uint8Array> {
-    try {
-      return await readFile(path)
+      return await source.read(0, source.size)
     } catch (cause) {
       throw new ImageReadError(path, { cause })
     }

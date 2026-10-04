@@ -2,9 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { GenerationFormat, GeneratorKind } from '@shared/generation-kinds'
-import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
-import { MetadataRecordReader } from '../metadata-record-reader'
+import { recordsOfFile } from '../testing/read-records'
 import { A1111InfotextParser } from './a1111-infotext-parser'
 import { FooocusJsonParser } from './fooocus-json-parser'
 import { GenerationRecordParser } from './generation-record-parser'
@@ -12,12 +11,6 @@ import { UnFooocusedParser } from './unfooocused-parser'
 
 const FIXTURES = resolve(__dirname, '../../../../tests/fixtures/fooocus')
 const IMAGES = readdirSync(FIXTURES).filter((name) => /\.(png|webp|jpeg)$/.test(name))
-const formatOf = (name: string): ImageFormat =>
-  name.endsWith('.png')
-    ? ImageFormat.Png
-    : name.endsWith('.webp')
-      ? ImageFormat.Webp
-      : ImageFormat.Jpeg
 
 const a1111 = new A1111InfotextParser()
 const fooocusJson = new FooocusJsonParser()
@@ -26,7 +19,7 @@ const recordParser = new GenerationRecordParser([fooocusJson, unFooocused, a1111
 
 describe('committed Fooocus fixtures', () => {
   it.each(IMAGES)('%s matches its golden file', async (name) => {
-    const records = await new MetadataRecordReader().read(join(FIXTURES, name), formatOf(name))
+    const records = await recordsOfFile(join(FIXTURES, name))
     const golden = readFileSync(join(FIXTURES, 'expected', name.replace(/\.\w+$/, '.json')), 'utf8')
     expect(recordParser.parse(records)).toEqual(JSON.parse(golden))
   })
@@ -244,11 +237,7 @@ describe('robustness', () => {
     let seed = 11
     const random = (): number => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
     const alphabet = ['"', ',', ':', '\n', '\\', '{', '}', '[', ']', '<', '>', "'", 'x', '0', ' ']
-    const texts = (
-      await Promise.all(
-        IMAGES.map((name) => new MetadataRecordReader().read(join(FIXTURES, name), formatOf(name)))
-      )
-    )
+    const texts = (await Promise.all(IMAGES.map((name) => recordsOfFile(join(FIXTURES, name)))))
       .flat()
       .map((record) => record.value)
     for (const text of texts) {

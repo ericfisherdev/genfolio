@@ -23,7 +23,7 @@ import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model
 import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
 import { NodeLogFileSource } from '@infrastructure/fs/node-log-file-source'
 import { FooocusLogParser } from '@infrastructure/metadata/fooocus-log-parser'
-import { MetadataRecordReader } from '@infrastructure/metadata/metadata-record-reader'
+import { FileImageInspector } from '@infrastructure/imaging/file-image-inspector'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { createScanRoot } from '../service/scan-root-factory'
@@ -119,9 +119,17 @@ describe('ScanRoot metadata indexing', () => {
     expect(generationOf(FOOOCUS_WEBP)?.origin).toBe(MetadataOrigin.ExifUserComment)
   })
 
+  it('stores a batch without re-checking each image row it just wrote', async () => {
+    const holds = vi.spyOn(SqliteImageVersionCheck.prototype, 'holds')
+    expect(await scan()).toMatchObject({ added: 6, failed: 0 })
+    expect(holds).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT COUNT(*) FROM generations').pluck().get()).toBe(6)
+    expect(db.prepare('SELECT COUNT(*) FROM metadata_raw').pluck().get()).toBeGreaterThan(6)
+  })
+
   it('does no metadata work when nothing changed', async () => {
     await scan()
-    const read = vi.spyOn(MetadataRecordReader.prototype, 'read')
+    const read = vi.spyOn(FileImageInspector.prototype, 'inspect')
     const parse = vi.spyOn(FooocusLogParser.prototype, 'parse')
     expect(await scan()).toMatchObject({ added: 0, updated: 0, unchanged: 6 })
     expect(read).not.toHaveBeenCalled()

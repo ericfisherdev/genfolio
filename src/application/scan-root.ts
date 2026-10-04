@@ -1,12 +1,8 @@
 import { join } from 'node:path'
 import { parseFooocusTimestamp } from '@domain/fooocus-filename'
-import type { ImageHeader, ImageHeaderReader } from '@domain/image-header'
+import type { ImageInspection, ImageInspector } from '@domain/image-inspection'
 import type { DirectoryId, ImageFile, LibraryRoot, RootId } from '@domain/library'
-import {
-  METADATA_INDEX_VERSION,
-  type MetadataReader,
-  type MetadataRecord
-} from '@domain/metadata-record'
+import { METADATA_INDEX_VERSION, type MetadataRecord } from '@domain/metadata-record'
 import type { DirectoryRepository, ImageRepository, StoredFileStat } from '@domain/repositories'
 import {
   ScanPhase,
@@ -25,10 +21,9 @@ import { ProgressThrottle } from './progress-throttle'
 
 export interface ScanRootDependencies {
   readonly walker: FileWalker
-  readonly headerReader: ImageHeaderReader
+  readonly inspector: ImageInspector
   readonly directories: DirectoryRepository
   readonly images: ImageRepository
-  readonly metadataReader: MetadataReader
   readonly metadata: ImageMetadataIndex
   readonly logs: FooocusLogIndexer
   readonly transactions: TransactionRunner
@@ -265,17 +260,15 @@ export class ScanRoot {
     directoryOf: (relDir: string) => DirectoryId
   ): Promise<DescribedImage | undefined> {
     const path = join(root.path, file.relDir, file.fileName)
-    let header: ImageHeader
+    let inspection: ImageInspection
     try {
-      header = await this.deps.headerReader.read(path)
+      inspection = await this.deps.inspector.inspect(path, { sidecar: file.hasTextSidecar })
     } catch (error) {
       const reason = error instanceof Error ? error.name : 'unknown error'
       this.deps.logger.warn(`Skipping image (${reason})`, this.deps.fileRef(path))
       return undefined
     }
-    const records = await this.deps.metadataReader.read(path, header.format, {
-      sidecar: file.hasTextSidecar
-    })
+    const { header, records } = inspection
     const image: ImageFile = {
       directoryId: directoryOf(file.relDir),
       fileName: file.fileName,

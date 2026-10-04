@@ -1,9 +1,15 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { opendir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FoundFile } from '@domain/scan'
 import { NodeFileWalker } from './node-file-walker'
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, stat: vi.fn(actual.stat) }
+})
 
 let root: string
 
@@ -46,6 +52,35 @@ describe('NodeFileWalker', () => {
     ])
     expect(found[1]?.sizeBytes).toBe(3)
     expect(Number.isInteger(found[1]?.mtimeMs)).toBe(true)
+  })
+
+  it("stats a folder's files concurrently but never more than 32 at once, yielding them in listing order", async () => {
+    for (let i = 0; i < 100; i++) touch(`${String(i).padStart(3, '0')}.png`)
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    let inFlight = 0
+    let peak = 0
+    vi.mocked(stat).mockImplementation((async (...args: Parameters<typeof actual.stat>) => {
+      inFlight++
+      peak = Math.max(peak, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 1))
+      try {
+        return await actual.stat(...args)
+      } finally {
+        inFlight--
+      }
+    }) as typeof actual.stat)
+
+    const names: string[] = []
+    for await (const file of walker().walk(root, new AbortController().signal)) {
+      names.push(file.fileName)
+    }
+
+    expect(names).toHaveLength(100)
+    expect(peak).toBeGreaterThan(1)
+    expect(peak).toBeLessThanOrEqual(32)
+    const listed: string[] = []
+    for await (const entry of await opendir(root)) listed.push(entry.name)
+    expect(names).toEqual(listed)
   })
 
   it('skips hidden entries, symlinks and non-image files', async () => {

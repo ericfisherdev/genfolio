@@ -19,13 +19,13 @@ export class ImageMetadataIndex {
   ) {}
 
   /**
-   * Replaces the image's records and generation. Returns false, writing nothing, when the
-   * image is gone or changed since `version` was read. Call inside a transaction so both
-   * writes land together.
+   * Replaces the records and generation of an image row written, or read, earlier in the
+   * current transaction, where nothing can have changed it since. Call inside that
+   * transaction so both writes land together.
    */
-  index(version: ImageVersion, records: readonly MetadataRecord[]): boolean {
-    if (!this.records.replace(version, records)) return false
-    return this.generations.replace(version, this.merger.merge(this.parser.parse(records)))
+  index(version: ImageVersion, records: readonly MetadataRecord[]): void {
+    this.records.replaceFresh(version.id, records)
+    this.generations.replaceFresh(version.id, this.merger.merge(this.parser.parse(records)))
   }
 
   /** The records stored for an image, as last indexed. */

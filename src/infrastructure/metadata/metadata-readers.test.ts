@@ -8,7 +8,8 @@ import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { memorySource } from './byte-source'
 import { readExifText } from './exif-reader'
-import { MetadataRecordReader, recordsFromSource } from './metadata-record-reader'
+import { recordsOfFile } from './testing/read-records'
+import { recordsFromSource } from './source-records'
 import { readPngText } from './png-text-reader'
 import {
   aliasedTiff,
@@ -32,7 +33,7 @@ const formatOf = (name: string): ImageFormat =>
       : ImageFormat.Jpeg
 
 async function fixtureRecords(name: string): Promise<[string, string, number][]> {
-  const records = await new MetadataRecordReader().read(join(FIXTURES, name), formatOf(name))
+  const records = await recordsOfFile(join(FIXTURES, name))
   return records.map((record) => [record.origin, record.key, record.value.length])
 }
 
@@ -82,16 +83,9 @@ describe('committed Fooocus fixtures', () => {
   })
 
   it('keeps the non-ASCII prompt intact in PNG text and shows Fooocus EXIF mangling as-is', async () => {
-    const reader = new MetadataRecordReader()
-    const pngRecords = await reader.read(
-      join(FIXTURES, '2026-09-27_20-38-19_1754.png'),
-      ImageFormat.Png
-    )
+    const pngRecords = await recordsOfFile(join(FIXTURES, '2026-09-27_20-38-19_1754.png'))
     expect(pngRecords[0]?.value).toContain('café')
-    const webp = await reader.read(
-      join(FIXTURES, '2026-09-27_20-43-28_2563.webp'),
-      ImageFormat.Webp
-    )
+    const webp = await recordsOfFile(join(FIXTURES, '2026-09-27_20-43-28_2563.webp'))
     expect(webp.find((r) => r.key === 'UserComment')?.value).toContain('caf? table')
   })
 })
@@ -238,7 +232,7 @@ describe('sidecar text', () => {
   it('adds an A1111 <image>.txt next to the image', async () => {
     writeFileSync(join(dir, 'a.png'), png([]))
     writeFileSync(join(dir, 'a.txt'), 'sidecar prompt\nSteps: 20')
-    const records = await new MetadataRecordReader().read(join(dir, 'a.png'), ImageFormat.Png)
+    const records = await recordsOfFile(join(dir, 'a.png'))
     expect(records).toEqual([
       { origin: MetadataOrigin.SidecarTxt, key: 'parameters', value: 'sidecar prompt\nSteps: 20' }
     ])
@@ -247,16 +241,16 @@ describe('sidecar text', () => {
   it('ignores a directory or FIFO named like a sidecar without blocking', async () => {
     writeFileSync(join(dir, 'c.png'), png([]))
     mkdirSync(join(dir, 'c.txt'))
-    expect(await new MetadataRecordReader().read(join(dir, 'c.png'), ImageFormat.Png)).toEqual([])
+    expect(await recordsOfFile(join(dir, 'c.png'))).toEqual([])
     writeFileSync(join(dir, 'd.png'), png([]))
     execFileSync('mkfifo', [join(dir, 'd.txt')])
-    expect(await new MetadataRecordReader().read(join(dir, 'd.png'), ImageFormat.Png)).toEqual([])
+    expect(await recordsOfFile(join(dir, 'd.png'))).toEqual([])
   }, 5000)
 
   it('skips a sidecar over 1 MB', async () => {
     writeFileSync(join(dir, 'b.png'), png([]))
     writeFileSync(join(dir, 'b.txt'), 'x'.repeat(1024 * 1024 + 1))
-    expect(await new MetadataRecordReader().read(join(dir, 'b.png'), ImageFormat.Png)).toEqual([])
+    expect(await recordsOfFile(join(dir, 'b.png'))).toEqual([])
   })
 })
 
