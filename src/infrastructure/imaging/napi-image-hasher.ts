@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { subtle } from 'node:crypto'
 import { ResizeFilterType, ResizeFit, Transformer } from '@napi-rs/image'
 import { dHash, HASH_SOURCE_SIZE, pHash } from '@domain/perceptual-hash'
 import type { ImageHasher, ImageHashes } from '@domain/image-hashes'
@@ -7,24 +7,34 @@ const PIXELS = HASH_SOURCE_SIZE * HASH_SOURCE_SIZE
 
 /**
  * Hashes image bytes: SHA-256 of the file, and dHash and pHash of one decode, oriented,
- * greyscale and resized to 64×64 in memory (nothing is written to disk).
+ * greyscale and resized to 64×64 in memory (nothing is written to disk). Both the digest and
+ * the decode run off the JavaScript thread, side by side, so a hashing pass doesn't hold up
+ * the library service's other requests.
  */
 export class NapiImageHasher implements ImageHasher {
   async hash(bytes: Uint8Array): Promise<ImageHashes> {
-    const sha256 = createHash('sha256').update(bytes).digest()
-    const raw = await new Transformer(bytes)
-      .rotate()
-      .grayscale()
-      .resize({
-        width: HASH_SOURCE_SIZE,
-        height: HASH_SOURCE_SIZE,
-        filter: ResizeFilterType.Triangle,
-        fit: ResizeFit.Fill
-      })
-      .rawPixels()
+    const [sha256, raw] = await Promise.all([sha256Of(bytes), decodeToGreyscale(bytes)])
     const luma = toLuma8(raw)
     return { sha256, dhash: dHash(luma), phash: pHash(luma) }
   }
+}
+
+/** WebCrypto digests run on the thread pool, unlike `createHash().update()`. */
+async function sha256Of(bytes: Uint8Array): Promise<Buffer> {
+  return Buffer.from(await subtle.digest('SHA-256', bytes))
+}
+
+function decodeToGreyscale(bytes: Uint8Array): Promise<Buffer> {
+  return new Transformer(bytes)
+    .rotate()
+    .grayscale()
+    .resize({
+      width: HASH_SOURCE_SIZE,
+      height: HASH_SOURCE_SIZE,
+      filter: ResizeFilterType.Triangle,
+      fit: ResizeFit.Fill
+    })
+    .rawPixels()
 }
 
 /**

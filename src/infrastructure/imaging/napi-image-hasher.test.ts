@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { ResizeFilterType, Transformer } from '@napi-rs/image'
@@ -40,6 +41,14 @@ describe('NapiImageHasher', () => {
         const [first, second] = [hashes[a], hashes[b]]
         if (first && second) expect(distance(first, second)).toBeGreaterThan(10)
       }
+    }
+  })
+
+  it('takes the SHA-256 of the file bytes, as a 32-byte Buffer a database can store', async () => {
+    for (const bytes of fixtures) {
+      const { sha256 } = await hasher.hash(bytes)
+      expect(Buffer.isBuffer(sha256)).toBe(true)
+      expect(sha256).toEqual(createHash('sha256').update(bytes).digest())
     }
   })
 
