@@ -12,8 +12,6 @@
 
   interface Props {
     imageId: number
-    /** The file's version from the layout; with it the browser caches the image until the file changes. */
-    version?: number
     renditionWidth?: GridRenditionWidth
     card: ImageCard | undefined
     onopen: () => void
@@ -38,7 +36,6 @@
 
   let {
     imageId,
-    version,
     renditionWidth = DEFAULT_GRID_RENDITION_WIDTH,
     card,
     onopen,
@@ -61,7 +58,7 @@
     else onopen()
   }
   const name = $derived(card?.fileName ?? `Image ${imageId}`)
-  const src = $derived(imageUrl(imageId, ImageDisplay.Grid, { version, width: renditionWidth }))
+  const src = $derived(imageUrl(imageId, ImageDisplay.Grid, renditionWidth))
 </script>
 
 <article class="card" class:selected aria-label={name}>

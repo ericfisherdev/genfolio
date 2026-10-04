@@ -223,7 +223,6 @@
           >
             <GalleryCard
               {imageId}
-              version={gallery.versionAt(item.index)}
               {renditionWidth}
               card={gallery.card(imageId)}
               onopen={() => open(imageId)}

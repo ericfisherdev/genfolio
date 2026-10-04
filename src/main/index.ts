@@ -111,15 +111,8 @@ function openMainWindow(): void {
   })
 }
 
-/**
- * Chromium's disk cache holds the versioned image responses; capped so it can't grow with
- * the library (renditions are small, and the service keeps its own in-memory cache).
- */
-const DISK_CACHE_BYTES = 100 * 1024 * 1024
-
 function startApp(): void {
   registerImageSchemeAsPrivileged()
-  app.commandLine.appendSwitch('disk-cache-size', String(DISK_CACHE_BYTES))
   app.on('web-contents-created', (_, contents) => guardNavigation(contents, rendererEntry))
   app.whenReady().then(onReady)
   app.on('window-all-closed', () => {

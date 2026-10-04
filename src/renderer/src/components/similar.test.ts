@@ -148,7 +148,7 @@ describe('cleaning up a group', () => {
     }))
     const harness = testServices(sampleLibrary(), {
       listSimilarGroupMembers: async () => [9, 4, 5],
-      getImageLayout: async () => new Int32Array([9, 1, 1, 1, 4, 1, 1, 1, 5, 1, 1, 1]),
+      getImageLayout: async () => new Int32Array([9, 1, 1, 4, 1, 1, 5, 1, 1]),
       getImages: async (ids) => ids.map((id) => card({ id, fileName: `image-${id}.png` })),
       deleteImages
     })

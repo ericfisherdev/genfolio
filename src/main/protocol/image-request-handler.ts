@@ -20,8 +20,7 @@ export interface ImageRequestDependencies {
   readonly renderDisplayCopy: (imageId: number, maxWidth: number) => Promise<Uint8Array | null>
 }
 
-/** A versioned URL changes whenever the file does, so its response never goes stale. */
-const IMMUTABLE = 'max-age=31536000, immutable'
+/** Nothing image-derived is written to disk, so Chromium's cache must not keep responses. */
 const NO_STORE = 'no-store'
 
 const notFound = (): Response => new Response(null, { status: 404 })
@@ -39,7 +38,6 @@ export function createImageRequestHandler(
     const parsed = parseImageRequest(request.url)
     if (!parsed) return notFound()
     const imageId = parsed.imageId as ImageId
-    const cacheControl = parsed.version === undefined ? NO_STORE : IMMUTABLE
 
     if (parsed.display === ImageDisplay.Grid) {
       const size = deps.imageDimensions(imageId)
@@ -49,7 +47,7 @@ export function createImageRequestHandler(
         if (!copy) return notFound()
         // Arrived by structured clone, so it owns a plain ArrayBuffer: no copy needed.
         return new Response(copy as Uint8Array<ArrayBuffer>, {
-          headers: { 'content-type': 'image/webp', 'cache-control': cacheControl }
+          headers: { 'content-type': 'image/webp', 'cache-control': NO_STORE }
         })
       }
     }
@@ -57,7 +55,7 @@ export function createImageRequestHandler(
     const file = await deps.openImage(imageId)
     if (!file) return notFound()
     return new Response(deps.streamFile(file), {
-      headers: { 'content-type': contentTypeFor(file.fileName), 'cache-control': cacheControl }
+      headers: { 'content-type': contentTypeFor(file.fileName), 'cache-control': NO_STORE }
     })
   }
 }

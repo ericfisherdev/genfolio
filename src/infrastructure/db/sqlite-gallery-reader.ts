@@ -67,10 +67,7 @@ interface DirectoryRow {
   image_count: number
 }
 
-type LayoutRow = [number, number, number, number]
-
-/** The file version: the low 31 bits of its mtime, so it fits an Int32 and changes with the file. */
-const VERSION_SQL = '(mtime_ms & 2147483647)'
+type LayoutRow = [number, number, number]
 
 export class SqliteGalleryReader implements GalleryReader {
   private readonly layoutStatements = new Map<string, Database.Statement<unknown[], LayoutRow>>()
@@ -106,8 +103,8 @@ export class SqliteGalleryReader implements GalleryReader {
   layout(query: GalleryQuery): Int32Array<ArrayBuffer> {
     const selection = this.selector.select(query)
     const order = orderBy(query, (id) => this.selector.albumKind(id) === AlbumKind.Manual)
-    const sql = `${selection.prefix} SELECT id, width, height, ${VERSION_SQL} FROM images
-      ${selection.where} ORDER BY ${order.sql}`
+    const sql = `${selection.prefix} SELECT id, width, height FROM images ${selection.where}
+      ORDER BY ${order.sql}`
     const rows = this.layoutStatement(sql).all(...selection.params, ...order.params)
     const layout = new Int32Array(rows.length * LAYOUT_STRIDE)
     rows.forEach((row, index) => layout.set(row, index * LAYOUT_STRIDE))

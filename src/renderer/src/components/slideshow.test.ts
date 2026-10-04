@@ -9,7 +9,7 @@ import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
 
-const layout = new Int32Array([7, 1, 1, 1, 8, 1, 1, 1, 9, 1, 1, 1])
+const layout = new Int32Array([7, 1, 1, 8, 1, 1, 9, 1, 1])
 
 const cardFor = (id: number): ImageCard => ({
   id,

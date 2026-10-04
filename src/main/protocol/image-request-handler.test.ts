@@ -58,6 +58,7 @@ describe('image request handler', () => {
     const { get, openImage, streamFile, renderDisplayCopy } = setup(wide)
     const response = await get('genfolio://img/7?display=grid&w=600')
     expect(response.headers.get('content-type')).toBe('image/webp')
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
     expect(renderDisplayCopy).toHaveBeenCalledWith(7, 600)
     expect(openImage).not.toHaveBeenCalled()
@@ -69,14 +70,6 @@ describe('image request handler', () => {
     expect((await get('genfolio://img/7?display=grid&w=400')).status).toBe(200)
     expect(renderDisplayCopy).not.toHaveBeenCalled()
     expect(streamFile).toHaveBeenCalledOnce()
-  })
-
-  it('marks a versioned URL immutable, for renditions and originals alike', async () => {
-    const { get } = setup(wide)
-    const rendition = await get('genfolio://img/7?display=grid&w=400&v=5')
-    expect(rendition.headers.get('cache-control')).toBe('max-age=31536000, immutable')
-    const original = await get('genfolio://img/7?v=5')
-    expect(original.headers.get('cache-control')).toBe('max-age=31536000, immutable')
   })
 
   it('always serves the original when the grid is not asked for', async () => {

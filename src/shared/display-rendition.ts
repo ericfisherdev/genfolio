@@ -32,29 +32,12 @@ export function usesGridCopy(imageWidth: number, renditionWidth: number): boolea
   return imageWidth > renditionWidth
 }
 
-export interface ImageUrlOptions {
-  /**
-   * The file's version from the layout. A URL carrying it is served as immutable, so the
-   * browser caches it until the file changes and the version with it; without one the
-   * response is `no-store`.
-   */
-  readonly version?: number
-  /** Grid only; the default width when omitted. */
-  readonly width?: GridRenditionWidth
-}
-
 /** URL of an image by id; paths never appear in image URLs. */
 export function imageUrl(
   imageId: number,
   display: ImageDisplay,
-  options: ImageUrlOptions = {}
+  width: GridRenditionWidth = DEFAULT_GRID_RENDITION_WIDTH
 ): string {
-  const params = new URLSearchParams()
-  if (display === ImageDisplay.Grid) {
-    params.set('display', ImageDisplay.Grid)
-    params.set('w', String(options.width ?? DEFAULT_GRID_RENDITION_WIDTH))
-  }
-  if (options.version !== undefined) params.set('v', String(options.version))
-  const query = params.toString()
-  return `${IMAGE_SCHEME}://img/${imageId}${query ? `?${query}` : ''}`
+  const base = `${IMAGE_SCHEME}://img/${imageId}`
+  return display === ImageDisplay.Grid ? `${base}?display=${ImageDisplay.Grid}&w=${width}` : base
 }

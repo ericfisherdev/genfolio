@@ -35,12 +35,9 @@ describe('isGridRenditionWidth', () => {
 })
 
 describe('imageUrl', () => {
-  it('builds id-only URLs with the display, width and version as query parameters', () => {
+  it('builds id-only URLs with the display and width as query parameters', () => {
     expect(imageUrl(42, ImageDisplay.Original)).toBe('genfolio://img/42')
-    expect(imageUrl(42, ImageDisplay.Original, { version: 7 })).toBe('genfolio://img/42?v=7')
     expect(imageUrl(42, ImageDisplay.Grid)).toBe('genfolio://img/42?display=grid&w=400')
-    expect(imageUrl(42, ImageDisplay.Grid, { width: 800, version: 7 })).toBe(
-      'genfolio://img/42?display=grid&w=800&v=7'
-    )
+    expect(imageUrl(42, ImageDisplay.Grid, 800)).toBe('genfolio://img/42?display=grid&w=800')
   })
 })

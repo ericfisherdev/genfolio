@@ -59,9 +59,9 @@ describe('queryForRoute', () => {
 })
 
 describe('GalleryState', () => {
-  const layout = new Int32Array([7, 832, 1216, 11, 8, 1024, 1024, 12])
+  const layout = new Int32Array([7, 832, 1216, 8, 1024, 1024])
 
-  it('exposes ids, sizes and versions and finds indexes', async () => {
+  it('exposes ids and sizes and finds indexes', async () => {
     const gallery = new GalleryState({
       getImageLayout: async () => layout,
       getImages: async () => []
@@ -70,7 +70,6 @@ describe('GalleryState', () => {
     expect(gallery.count).toBe(2)
     expect(gallery.idAt(1)).toBe(8)
     expect(gallery.sizeAt(0)).toEqual({ width: 832, height: 1216 })
-    expect(gallery.versionAt(1)).toBe(12)
     expect(gallery.indexOf(8)).toBe(1)
     expect(gallery.indexOf(99)).toBe(-1)
   })
@@ -196,7 +195,7 @@ describe('GalleryState.refresh', () => {
       return ids.filter((id) => id === 7).map((id) => cardOf(id, rating))
     })
     const gallery = new GalleryState({
-      getImageLayout: async () => new Int32Array([7, 1, 1, 1]),
+      getImageLayout: async () => new Int32Array([7, 1, 1]),
       getImages
     })
     await gallery.load({ scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest })

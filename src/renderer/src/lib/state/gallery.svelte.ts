@@ -20,7 +20,7 @@ export interface CardPatch {
 }
 
 /**
- * The current result set: its layout (ids, sizes and versions, loaded whole) and the cards
+ * The current result set: its layout (ids and sizes, loaded whole) and the cards
  * fetched so far for the images that have been visible. Stale responses from older queries
  * are ignored. No method rejects: a failed layout becomes `loadError`; failed card fetches
  * are retried on the next request.
@@ -105,11 +105,6 @@ export class GalleryState {
   sizeAt(index: number): { width: number; height: number } {
     const base = index * LAYOUT_STRIDE
     return { width: this.layout[base + 1] ?? 1, height: this.layout[base + 2] ?? 1 }
-  }
-
-  /** The file's version, for image URLs the browser may cache until the file changes. */
-  versionAt(index: number): number {
-    return this.layout[index * LAYOUT_STRIDE + 3] ?? 0
   }
 
   indexOf(imageId: number): number {

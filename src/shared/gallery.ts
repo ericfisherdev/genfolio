@@ -37,9 +37,8 @@ export const galleryQuerySchema = z
 export type GalleryQuery = z.infer<typeof galleryQuerySchema>
 
 /**
- * The whole result set in display order as `[id, width, height, version, id, …]`: enough
- * for the masonry grid to size every card and build a cacheable URL for it before any image
- * loads. The version changes whenever the file does.
+ * The whole result set in display order as `[id, width, height, id, width, height, …]`:
+ * enough for the masonry grid to size every card before any image loads.
  */
 export const imageLayoutSchema = z
   .instanceof(Int32Array)

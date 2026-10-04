@@ -34,7 +34,7 @@ interface FakeApi {
 
 function fakeApi(): FakeApi {
   return {
-    getImageLayout: vi.fn(async () => new Int32Array([1, 1, 1, 1, 2, 1, 1, 1])),
+    getImageLayout: vi.fn(async () => new Int32Array([1, 1, 1, 2, 1, 1])),
     getImages: vi.fn(async (ids: readonly number[]) => ids.map(card)),
     setFavorite: vi.fn(async (ids: readonly number[]) => ids.length),
     setRating: vi.fn(async (ids: readonly number[]) => ids.length),

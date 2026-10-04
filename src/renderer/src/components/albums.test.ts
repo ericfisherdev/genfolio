@@ -12,7 +12,7 @@ import BulkBar from './BulkBar.svelte'
 import SidebarAlbums from './SidebarAlbums.svelte'
 
 const TRIP: Album = { id: 3, name: 'Trip', kind: AlbumKind.Manual, imageCount: 2, coverImageId: 7 }
-const layout = new Int32Array([7, 1, 1, 1, 8, 1, 1, 1, 9, 1, 1, 1])
+const layout = new Int32Array([7, 1, 1, 8, 1, 1, 9, 1, 1])
 
 const cardFor = (id: number): ImageCard => ({
   id,

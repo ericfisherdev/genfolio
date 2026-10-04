@@ -156,7 +156,7 @@ describe('registerLibraryChannels', () => {
   })
 
   it('forwards gallery queries and caps image requests at 500 ids', async () => {
-    const layout = new Int32Array([1, 800, 1200, 1])
+    const layout = new Int32Array([1, 800, 1200])
     const { request, invoke } = setup(async () => undefined, {
       [ServiceMethod.GalleryLayout]: layout
     })
