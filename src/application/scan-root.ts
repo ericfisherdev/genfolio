@@ -149,12 +149,10 @@ export class ScanRoot {
     const report: ReportProgress = (phase, done, total, final = false) =>
       throttle.report({ rootId: root.id, phase, done, total }, final)
 
-    const inScope = scope ? new Set(scope) : undefined
     const stored = new Map(
-      this.deps.images
-        .fileStatsByRoot(root.id)
-        .filter((stat) => !inScope || inScope.has(stat.relDir))
-        .map((stat) => [fileKey(stat.relDir, stat.fileName), stat] as const)
+      this.storedStats(root, scope).map(
+        (stat) => [fileKey(stat.relDir, stat.fileName), stat] as const
+      )
     )
     const classified = await this.classify(root, stored, signal, report, scope)
     const counts = await this.index(root, classified.toIndex, stored, signal, report)
@@ -165,6 +163,13 @@ export class ScanRoot {
     this.deps.directories.pruneEmpty(root.id)
     this.deps.metadata.pruneUnusedModels()
     return { ...counts, unchanged: classified.unchanged, removed }
+  }
+
+  /** Only the scope's rows are read, so a one-file live refresh doesn't load the whole root. */
+  private storedStats(root: LibraryRoot, scope: ScanScope | undefined): StoredFileStat[] {
+    return scope
+      ? this.deps.images.fileStatsByDirectories(root.id, scope)
+      : this.deps.images.fileStatsByRoot(root.id)
   }
 
   private async classify(

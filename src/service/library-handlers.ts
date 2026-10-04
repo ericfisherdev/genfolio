@@ -117,8 +117,8 @@ export function createLibraryHandlers(
   const emitAndHash = (event: ScanEvent): void => {
     emit(event)
     if (event.type !== ScanEventType.Finished) return
-    // Removed images leave their groups; new and changed ones are hashed, then compared.
-    similarity.regroup()
+    // Removed and changed images leave their groups; new and changed ones are hashed, then compared.
+    similarity.scanFinished(event.report)
     void similarity.ensureCurrent().catch(logFailure('finding look-alikes'))
     hashing.request()
   }
@@ -207,6 +207,8 @@ export function createLibraryHandlers(
     },
     [ServiceMethod.RemoveRoot]: async ({ rootId }) => {
       const removed = await roots.remove(rootId as RootId)
+      // The root's images left their groups with it.
+      if (removed) similarity.regroup()
       await live.sync(roots.all())
       return { removed }
     },

@@ -110,6 +110,20 @@ describe('SqliteDirectoryRepository', () => {
     expect(directories.listByRoot(inner.id)).toEqual([])
   })
 
+  it('lists only the directories at the given paths, skipping unknown ones', () => {
+    const root = roots.add('/a', 1)
+    const other = roots.add('/b', 1)
+    directories.ensure(root.id, 'x/y')
+    directories.ensure(root.id, 'z')
+    directories.ensure(other.id, 'x')
+
+    const listed = directories.listByRelPaths(root.id, ['z', 'x', '', 'missing'])
+
+    expect(listed.map((d) => d.relPath)).toEqual(['', 'x', 'z'])
+    expect(listed.every((d) => d.rootId === root.id)).toBe(true)
+    expect(directories.listByRelPaths(root.id, [])).toEqual([])
+  })
+
   it('returns the same id when called again', () => {
     const root = roots.add('/a', 1)
     expect(directories.ensure(root.id, 'x')).toBe(directories.ensure(root.id, 'x'))
@@ -143,6 +157,26 @@ describe('SqliteImageRepository', () => {
 
     images.deleteMany([stats[0]!])
     expect(images.fileStatsByRoot(root.id).map((s) => s.fileName)).toEqual(['b.png'])
+  })
+
+  it('lists stored file stats of only the given directories of a root', () => {
+    const root = roots.add('/a', 1)
+    const other = roots.add('/b', 1)
+    images.upsertMany(
+      [
+        imageIn(directories.ensure(root.id, ''), 'top.png'),
+        imageIn(directories.ensure(root.id, 'x'), 'x.png'),
+        imageIn(directories.ensure(root.id, 'x/deep'), 'deep.png'),
+        imageIn(directories.ensure(root.id, 'y'), 'y.png'),
+        imageIn(directories.ensure(other.id, 'x'), 'foreign.png')
+      ],
+      1
+    )
+
+    const stats = images.fileStatsByDirectories(root.id, ['x', ''])
+
+    expect(stats.map((s) => `${s.relDir}/${s.fileName}`).sort()).toEqual(['/top.png', 'x/x.png'])
+    expect(images.fileStatsByDirectories(root.id, [])).toEqual([])
   })
 
   it('keeps a row whose size or mtime changed since the snapshot', () => {

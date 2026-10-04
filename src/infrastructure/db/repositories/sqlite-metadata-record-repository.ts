@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import type { ImageId } from '@domain/library'
+import type { DirectoryId, ImageId } from '@domain/library'
 import type { MetadataRecord } from '@domain/metadata-record'
 import type { ImageVersion, MetadataRecordRepository } from '@domain/repositories'
 import type { MetadataOrigin } from '@shared/metadata-kinds'
@@ -15,6 +15,10 @@ export class SqliteMetadataRecordRepository implements MetadataRecordRepository 
   private readonly deleteAll: Database.Statement<[number]>
   private readonly insert: Database.Statement<[number, string, string, string]>
   private readonly select: Database.Statement<[number], RecordRow>
+  private readonly selectValuesInDir: Database.Statement<
+    [number, string, string],
+    { file_name: string; value: string }
+  >
 
   constructor(
     private readonly db: Database.Database,
@@ -27,6 +31,10 @@ export class SqliteMetadataRecordRepository implements MetadataRecordRepository 
     this.select = db.prepare(
       'SELECT origin, key, value FROM metadata_raw WHERE image_id = ? ORDER BY id'
     )
+    this.selectValuesInDir = db.prepare(`
+      SELECT images.file_name, metadata_raw.value
+      FROM images JOIN metadata_raw ON metadata_raw.image_id = images.id
+      WHERE images.directory_id = ? AND metadata_raw.origin = ? AND metadata_raw.key = ?`)
   }
 
   replace(version: ImageVersion, records: readonly MetadataRecord[]): boolean {
@@ -46,5 +54,15 @@ export class SqliteMetadataRecordRepository implements MetadataRecordRepository 
       key: row.key,
       value: row.value
     }))
+  }
+
+  valuesInDirectory(
+    directoryId: DirectoryId,
+    origin: MetadataOrigin,
+    key: string
+  ): Map<string, string> {
+    return new Map(
+      this.selectValuesInDir.all(directoryId, origin, key).map((row) => [row.file_name, row.value])
+    )
   }
 }

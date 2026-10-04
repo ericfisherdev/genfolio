@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ImageId } from '@domain/library'
 import { createImageSelector } from '@infrastructure/db/search/create-image-selector'
 import { SqliteSimilarityRepository } from '@infrastructure/db/repositories/sqlite-similarity-repository'
@@ -94,6 +94,72 @@ describe('SimilarityService', () => {
     hash(2, 2)
     await similarity.ensureCurrent()
     expect(pairs()).toEqual([])
+  })
+
+  it('does not regroup when comparing found and removed no pairs', async () => {
+    hash(1, 0)
+    hash(2, 30)
+    const writeGroups = vi.spyOn(SqliteSimilarityRepository.prototype, 'writeGroups')
+    await similarity.index([image(1), image(2)])
+    expect(pairs()).toEqual([])
+    expect(writeGroups).not.toHaveBeenCalled()
+  })
+
+  it('regroups when comparing replaces pairs that existed', async () => {
+    hash(1, 0)
+    hash(2, 2)
+    await similarity.index([image(1), image(2)])
+    expect(groupOf(2)).toBe(image(1))
+    hash(2, 30)
+    await similarity.index([image(2)])
+    expect(groupOf(1)).toBeNull()
+    expect(groupOf(2)).toBeNull()
+  })
+
+  it('regroups after a scan only when it removed or changed images', async () => {
+    hash(1, 0)
+    hash(2, 2)
+    await similarity.index([image(1), image(2)])
+    const writeGroups = vi.spyOn(SqliteSimilarityRepository.prototype, 'writeGroups')
+
+    similarity.scanFinished({ removed: 0, updated: 0 })
+    expect(writeGroups).not.toHaveBeenCalled()
+
+    library.db.prepare('DELETE FROM images WHERE id = ?').run(image(2))
+    similarity.scanFinished({ removed: 1, updated: 0 })
+    expect(writeGroups).toHaveBeenCalledTimes(1)
+    expect(groupOf(1)).toBeNull()
+
+    similarity.scanFinished({ removed: 0, updated: 1 })
+    expect(writeGroups).toHaveBeenCalledTimes(2)
+  })
+
+  it('rewrites only the images whose group changed', async () => {
+    hash(1, 0)
+    hash(2, 2)
+    hash(3, 4)
+    hash(4, 40)
+    hash(5, 42)
+    await similarity.index([1, 2, 3, 4, 5].map(image))
+    const before = new Map([1, 2, 3, 4, 5].map((n) => [n, groupOf(n)]))
+    const updates: string[] = []
+    library.db.function('record_group_write', (id: number) => {
+      updates.push(String(id))
+      return 0
+    })
+    library.db.exec(
+      `CREATE TEMP TRIGGER group_writes AFTER UPDATE OF similar_group_id ON images
+       BEGIN SELECT record_group_write(NEW.id); END`
+    )
+
+    similarity.regroup()
+    expect(updates).toEqual([])
+
+    similarity.setThreshold(3)
+    expect([1, 2, 3, 4, 5].map(groupOf)).toEqual(
+      [...before.values()].map((g, i) => (i === 2 ? null : g))
+    )
+    expect(updates).toEqual([String(image(3))])
   })
 
   it('lists groups largest first with the keeper (most pixels) first', async () => {

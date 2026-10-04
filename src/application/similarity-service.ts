@@ -3,6 +3,7 @@ import type { ImageId } from '@domain/library'
 import { HASH_VERSION } from '@domain/perceptual-hash'
 import type { SimilarityRepository } from '@domain/repositories'
 import { groupSimilar, type SimilarPair } from '@domain/similarity'
+import type { ScanReport } from '@shared/scan'
 import { GROUP_PREVIEW_SIZE, type SimilarGroupsPage } from '@shared/similarity'
 import { DEFAULT_SIMILARITY_THRESHOLD, MAX_SIMILARITY_DISTANCE } from '@shared/similarity-kinds'
 
@@ -41,7 +42,7 @@ export class SimilarityService {
     this.regroup()
   }
 
-  /** Compares these images' hashes with every hashed image, stores their pairs, regroups. */
+  /** Compares these images' hashes with every hashed image, stores their pairs, regroups if any pair changed. */
   index(ids: readonly ImageId[]): Promise<void> {
     return this.serially(() => this.compare(ids))
   }
@@ -66,6 +67,14 @@ export class SimilarityService {
   /** Every member of a group, the suggested keeper first; empty when there is no such group. */
   members(groupId: number): ImageId[] {
     return this.repository.members(groupId)
+  }
+
+  /**
+   * Call after a scan. Images it removed or changed took their pairs with them, so groups may
+   * have shrunk; a scan that only added images (not hashed yet, so unpaired) leaves them as is.
+   */
+  scanFinished(report: Pick<ScanReport, 'removed' | 'updated'>): void {
+    if (report.removed > 0 || report.updated > 0) this.regroup()
   }
 
   regroup(): void {
@@ -98,7 +107,6 @@ export class SimilarityService {
       }
       await this.yieldToEvents()
     }
-    this.repository.replacePairs(ids, pairs)
-    this.regroup()
+    if (this.repository.replacePairs(ids, pairs)) this.regroup()
   }
 }

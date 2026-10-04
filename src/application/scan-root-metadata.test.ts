@@ -21,12 +21,14 @@ import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sql
 import { SqliteMetadataRecordRepository } from '@infrastructure/db/repositories/sqlite-metadata-record-repository'
 import { SqliteModelCatalog } from '@infrastructure/db/repositories/sqlite-model-catalog'
 import { migratedMemoryDb } from '@infrastructure/db/testing/migrated-memory-db'
+import { NodeLogFileSource } from '@infrastructure/fs/node-log-file-source'
 import { FooocusLogParser } from '@infrastructure/metadata/fooocus-log-parser'
 import { MetadataRecordReader } from '@infrastructure/metadata/metadata-record-reader'
 import { GeneratorKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { createScanRoot } from '../service/scan-root-factory'
 import { FooocusLogIndexer } from './fooocus-log-indexer'
+import { ImageMetadataIndex } from './image-metadata-index'
 
 const FIXTURES = resolve(__dirname, '../../tests/fixtures/fooocus')
 const NO_METADATA_PNG = '2026-09-27_20-47-27_2563.png'
@@ -53,7 +55,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-const scan = (scope?: readonly string[]): ReturnType<ReturnType<typeof createScanRoot>['run']> =>
+const newScanner = (): ReturnType<typeof createScanRoot> =>
   createScanRoot(
     db,
     {
@@ -64,7 +66,13 @@ const scan = (scope?: readonly string[]): ReturnType<ReturnType<typeof createSca
       now: () => Date.now()
     },
     { batchSize: 500, headerConcurrency: 4, progressIntervalMs: 0 }
-  ).run(root, new AbortController().signal, undefined, scope)
+  )
+
+const scan = (
+  scope?: readonly string[],
+  scanner = newScanner()
+): ReturnType<ReturnType<typeof createScanRoot>['run']> =>
+  scanner.run(root, new AbortController().signal, undefined, scope)
 
 function imageId(relDir: string, fileName: string): ImageId {
   const stat = images
@@ -134,6 +142,19 @@ describe('ScanRoot metadata indexing', () => {
     expect(generationOf(NO_METADATA_PNG)?.loras?.[0]?.weight).toBe(0.9)
   })
 
+  it('loads only the scoped folders stored rows and directories in a scoped scan', async () => {
+    await scan()
+    const statsByRoot = vi.spyOn(SqliteImageRepository.prototype, 'fileStatsByRoot')
+    const statsByDirectories = vi.spyOn(SqliteImageRepository.prototype, 'fileStatsByDirectories')
+    const listByRoot = vi.spyOn(SqliteDirectoryRepository.prototype, 'listByRoot')
+
+    await scan(['day'])
+
+    expect(statsByRoot).not.toHaveBeenCalled()
+    expect(listByRoot).not.toHaveBeenCalled()
+    expect(statsByDirectories).toHaveBeenCalledWith(root.id, ['day'])
+  })
+
   it('re-reads a rewritten log in a scan scoped to its folder (live changes)', async () => {
     await scan()
     const logPath = join(dir, 'day', 'log.html')
@@ -159,6 +180,44 @@ describe('ScanRoot metadata indexing', () => {
     refresh.mockRestore()
     await scan()
     expect(generationOf(NO_METADATA_PNG)?.origin).toBe(MetadataOrigin.FooocusLog)
+  })
+
+  it('does not read or parse an unchanged log again when a new image arrives beside it', async () => {
+    const scanner = newScanner()
+    await scan(undefined, scanner)
+    cpSync(join(FIXTURES, NO_METADATA_PNG), join(dir, 'day', '2026-09-27_21-00-00_1.png'))
+    const parse = vi.spyOn(FooocusLogParser.prototype, 'parse')
+    const read = vi.spyOn(NodeLogFileSource.prototype, 'read')
+
+    expect(await scan(['day'], scanner)).toMatchObject({ added: 1, unchanged: 6 })
+
+    expect(parse).not.toHaveBeenCalled()
+    expect(read).not.toHaveBeenCalled()
+    expect(generationOf(NO_METADATA_PNG)?.origin).toBe(MetadataOrigin.FooocusLog)
+  })
+
+  it('parses a log again once its file changed, even if it was parsed before', async () => {
+    const scanner = newScanner()
+    await scan(undefined, scanner)
+    const logPath = join(dir, 'day', 'log.html')
+    utimesSync(logPath, new Date(), new Date(Date.now() + 5000))
+    const parse = vi.spyOn(FooocusLogParser.prototype, 'parse')
+
+    await scan(['day'], scanner)
+
+    expect(parse).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads the stored log records of a folder once instead of every image', async () => {
+    await scan()
+    utimesSync(join(dir, 'day', 'log.html'), new Date(), new Date(Date.now() + 5000))
+    const storedRecords = vi.spyOn(ImageMetadataIndex.prototype, 'storedRecords')
+    const storedValues = vi.spyOn(ImageMetadataIndex.prototype, 'storedValuesInDirectory')
+
+    await scan(['day'])
+
+    expect(storedValues).toHaveBeenCalledTimes(1)
+    expect(storedRecords).not.toHaveBeenCalled()
   })
 
   it('drops log data when the log is deleted', async () => {

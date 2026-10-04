@@ -16,10 +16,18 @@ export function ancestorPaths(relPath: string): string[] {
   return ['', ...segments.map((_, index) => segments.slice(0, index + 1).join('/'))]
 }
 
+const directoryOf = (row: DirectoryRow): Directory => ({
+  id: row.id as DirectoryId,
+  rootId: row.root_id as RootId,
+  parentId: row.parent_id as DirectoryId | null,
+  relPath: row.rel_path
+})
+
 export class SqliteDirectoryRepository implements DirectoryRepository {
   private readonly insert: Database.Statement<[number, number | null, string]>
   private readonly selectId: Database.Statement<[number, string], { id: number }>
   private readonly selectByRoot: Database.Statement<[number], DirectoryRow>
+  private readonly selectByRelPaths: Database.Statement<[number, string], DirectoryRow>
   private readonly deleteEmptyLeaves: Database.Statement<[number]>
   private readonly moveAll: Database.Statement<{ from: number; to: number; prefix: string }>
   private readonly setParent: Database.Statement<[number, number, string]>
@@ -32,6 +40,10 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
     this.selectByRoot = db.prepare(
       'SELECT id, root_id, parent_id, rel_path FROM directories WHERE root_id = ? ORDER BY rel_path'
     )
+    this.selectByRelPaths = db.prepare(`
+      SELECT id, root_id, parent_id, rel_path FROM directories
+      WHERE root_id = ? AND rel_path IN (SELECT value FROM json_each(?))
+      ORDER BY rel_path`)
     this.moveAll = db.prepare(`
       UPDATE directories
       SET root_id = @to,
@@ -61,12 +73,11 @@ export class SqliteDirectoryRepository implements DirectoryRepository {
   }
 
   listByRoot(rootId: RootId): Directory[] {
-    return this.selectByRoot.all(rootId).map((row) => ({
-      id: row.id as DirectoryId,
-      rootId: row.root_id as RootId,
-      parentId: row.parent_id as DirectoryId | null,
-      relPath: row.rel_path
-    }))
+    return this.selectByRoot.all(rootId).map(directoryOf)
+  }
+
+  listByRelPaths(rootId: RootId, relPaths: readonly string[]): Directory[] {
+    return this.selectByRelPaths.all(rootId, JSON.stringify(relPaths)).map(directoryOf)
   }
 
   moveRoot(from: RootId, to: RootId, prefix: string): void {

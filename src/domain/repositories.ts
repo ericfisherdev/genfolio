@@ -1,5 +1,6 @@
 import type { ModelKind } from '@shared/generation-kinds'
 import type { AlbumKind } from '@shared/album-kinds'
+import type { MetadataOrigin } from '@shared/metadata-kinds'
 import type { CivitaiRecord } from '@shared/model-civitai'
 import type { ModelDetail, ModelFields, ModelKey, ModelList, ModelListQuery } from '@shared/models'
 import type { StoredSearchFilters } from '@shared/search'
@@ -32,6 +33,8 @@ export interface DirectoryRepository {
   /** Returns the directory for `relPath`, creating it and any missing ancestors. */
   ensure(rootId: RootId, relPath: string): DirectoryId
   listByRoot(rootId: RootId): Directory[]
+  /** The root's directories at these paths (`''` is the root itself), by path; unknown paths are skipped. */
+  listByRelPaths(rootId: RootId, relPaths: readonly string[]): Directory[]
   /**
    * Moves every directory (and so every image) of root `from` under `prefix` in root `to`,
    * creating `prefix`'s ancestors in `to`. `to` must have nothing at or below `prefix`.
@@ -67,6 +70,8 @@ export interface ImageRepository {
   versionsInDirectory(directoryId: DirectoryId): Map<string, ImageVersion>
   countByRoot(rootId: RootId): number
   fileStatsByRoot(rootId: RootId): StoredFileStat[]
+  /** The stats of the files directly in these directories of the root (`''` is the root itself). */
+  fileStatsByDirectories(rootId: RootId, relDirs: readonly string[]): StoredFileStat[]
   /**
    * Deletes, in one transaction, each row that still has the size and mtime in `stats`;
    * rows another writer changed since the snapshot survive.
@@ -98,6 +103,15 @@ export interface MetadataRecordRepository {
   replace(version: ImageVersion, records: readonly MetadataRecord[]): boolean
   /** The image's records in the order they were stored. */
   list(imageId: ImageId): MetadataRecord[]
+  /**
+   * The value of each image's record with this origin and key in the directory, by file name;
+   * images without such a record are left out.
+   */
+  valuesInDirectory(
+    directoryId: DirectoryId,
+    origin: MetadataOrigin,
+    key: string
+  ): Map<string, string>
 }
 
 /** When a directory's `log.html` was last read, to skip unchanged logs. */
@@ -323,10 +337,16 @@ export interface SimilarityRepository {
   hashed(): StoredHashes[]
   /** Those of `ids` that have perceptual hashes. */
   hashesOf(ids: readonly ImageId[]): StoredHashes[]
-  /** Replaces every pair involving `ids` with `pairs`, in one transaction. */
-  replacePairs(ids: readonly ImageId[], pairs: readonly SimilarPair[]): void
+  /**
+   * Replaces every pair involving `ids` with `pairs`, in one transaction. Returns whether any
+   * pair was removed or stored, that is, whether the groups may be out of date.
+   */
+  replacePairs(ids: readonly ImageId[], pairs: readonly SimilarPair[]): boolean
   pairsWithin(distance: number): SimilarPair[]
-  /** Sets each image's group (image id → group id); every other image gets none. */
+  /**
+   * Sets each image's group (image id → group id); every other image gets none. Only rows
+   * whose group differs are written.
+   */
   writeGroups(groups: ReadonlyMap<number, number>): void
   /** Groups largest first, each with its first `preview` members in keeper order. */
   groups(offset: number, limit: number, preview: number): SimilarGroup[]
