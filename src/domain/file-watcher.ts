@@ -5,6 +5,11 @@ export interface WatchedChange {
 }
 
 export interface WatchSubscription {
+  /**
+   * Resolves once the watch has found its way around the tree and reports changes from then
+   * on, or has failed (then `onFailure` ran). Never rejects.
+   */
+  readonly ready: Promise<void>
   close(): Promise<void>
 }
 

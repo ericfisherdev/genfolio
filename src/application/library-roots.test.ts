@@ -80,6 +80,18 @@ describe('isInside', () => {
 })
 
 describe('LibraryRoots', () => {
+  it('reconciles every root with a scan and resolves once the scans have ended', async () => {
+    await roots.add(folder('one'))
+    await roots.add(folder('two'))
+    await settle()
+    started = []
+
+    await roots.reconcileAll()
+
+    expect(started).toHaveLength(2)
+    expect(roots.list().every((root) => !root.scanning)).toBe(true)
+  })
+
   it('adds a folder, starts its scan and lists it', async () => {
     const path = folder('outputs')
     const result = await roots.add(path)

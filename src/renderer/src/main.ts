@@ -24,6 +24,7 @@ import { LibraryState } from './lib/state/library.svelte'
 import { refreshAfterAlbumChange, refreshAfterTagChange } from './lib/state/refresh-results'
 import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
+import { RootRefreshBatcher } from './lib/state/root-refresh-batcher'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { UpdateNotices } from './lib/state/update-notices'
 import { localPreferenceStore, SortPreference } from './lib/state/sort-preference.svelte'
@@ -40,6 +41,7 @@ const problems = new ProblemReports(api, library)
 window.addEventListener('error', (event) => problems.unexpected(event.error))
 window.addEventListener('unhandledrejection', (event) => problems.unexpected(event.reason))
 new UpdateNotices(api, library)
+const rootRefresh = new RootRefreshBatcher((rootIds) => void library.refresh(rootIds))
 const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
 const deletion = new ImageDeletion(api, library, () => void library.refresh())
@@ -49,8 +51,8 @@ const services: AppServices = {
   router,
   library,
   gallery,
-  scans: new ScanProgressState(api, (_rootId, report) => {
-    void library.refresh()
+  scans: new ScanProgressState(api, (rootId, report) => {
+    rootRefresh.add(rootId)
     problems.scanFinished(report)
   }),
   sort: new SortPreference(localPreferenceStore(() => window.localStorage)),

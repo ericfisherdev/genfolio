@@ -38,6 +38,13 @@ export class ScanCoordinator {
     return this.running.has(rootId)
   }
 
+  /** Resolves once no scan is running or queued, including scans started in the meantime. */
+  async whenIdle(): Promise<void> {
+    while (this.running.size > 0) {
+      await Promise.allSettled([...this.running.values()].map((scan) => scan.done))
+    }
+  }
+
   /** Starts a full scan; returns false when one is already running for this root. */
   start(root: LibraryRoot): boolean {
     if (this.running.has(root.id)) return false

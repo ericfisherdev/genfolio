@@ -8,6 +8,8 @@ const root = (id: number): LibraryRoot => ({ id: id as RootId, path: `/lib/${id}
 interface FakeWatch {
   readonly change: (change: WatchedChange) => void
   readonly fail: (error: unknown) => void
+  /** Makes the watch's `ready` resolve. */
+  readonly becomeReady: () => void
   closed: boolean
 }
 
@@ -16,9 +18,11 @@ function fakeWatcher(): { watcher: FileWatcher; watches: Map<string, FakeWatch> 
   const watches = new Map<string, FakeWatch>()
   const watcher: FileWatcher = {
     watch: (path, change, fail) => {
-      const entry: FakeWatch = { change, fail, closed: false }
+      let becomeReady: () => void = () => undefined
+      const ready = new Promise<void>((resolve) => (becomeReady = resolve))
+      const entry: FakeWatch = { change, fail, becomeReady, closed: false }
       watches.set(path, entry)
-      return { close: async () => void (entry.closed = true) }
+      return { ready, close: async () => void (entry.closed = true) }
     }
   }
   return { watcher, watches }
@@ -43,6 +47,28 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 describe('LiveUpdates', () => {
+  it('is ready once every watched root has been walked', async () => {
+    const { watcher, watches } = fakeWatcher()
+    const live = new LiveUpdates(watcher, targets(), scheduler)
+    await live.sync([root(1), root(2)])
+    let ready = false
+    const waiting = live.ready().then(() => (ready = true))
+
+    watches.get('/lib/1')?.becomeReady()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(ready).toBe(false)
+
+    watches.get('/lib/2')?.becomeReady()
+    await waiting
+    expect(ready).toBe(true)
+  })
+
+  it('is ready at once with nothing watched', async () => {
+    const live = new LiveUpdates(fakeWatcher().watcher, targets(), scheduler)
+    await expect(live.ready()).resolves.toBeUndefined()
+  })
+
   it('scans the changed folders together once changes pause', async () => {
     const { watcher, watches } = fakeWatcher()
     const to = targets()

@@ -51,6 +51,26 @@ describe('ScanCoordinator', () => {
     expect(coordinator.isScanning(root.id)).toBe(false)
   })
 
+  it('is idle at once when nothing is scanning, and after queued scans end otherwise', async () => {
+    const scanner = controllableScanner()
+    const coordinator = new ScanCoordinator(scanner, () => undefined)
+    await coordinator.whenIdle()
+
+    coordinator.start(root)
+    coordinator.refresh(root, ['day'])
+    let idle = false
+    const waiting = coordinator.whenIdle().then(() => (idle = true))
+    scanner.finish() // the full scan ends; the queued refresh starts
+    await flush()
+    expect(idle).toBe(false)
+    expect(scanner.scopes).toEqual([undefined, ['day']])
+
+    scanner.finish()
+    await waiting
+    expect(idle).toBe(true)
+    expect(coordinator.isScanning(root.id)).toBe(false)
+  })
+
   it('refuses a second scan of the same root while one runs', () => {
     const coordinator = new ScanCoordinator(controllableScanner(), () => undefined)
     expect(coordinator.start(root)).toBe(true)

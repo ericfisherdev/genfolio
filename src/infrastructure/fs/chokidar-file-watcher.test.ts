@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -27,7 +27,7 @@ async function watching(changes: string[]): Promise<void> {
     (change) => changes.push(change.relDir),
     () => undefined
   )
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  await subscription.ready
 }
 
 describe('ChokidarFileWatcher', () => {
@@ -41,6 +41,43 @@ describe('ChokidarFileWatcher', () => {
     writeFileSync(join(dir, 'top.jpg'), 'jpg')
     await expect.poll(() => [...new Set(changes)].sort(), { timeout: 5000 }).toEqual(['', 'day'])
     expect(changes.filter((relDir) => relDir === 'day')).toHaveLength(2)
+  })
+
+  it('is ready only once the tree has been read, and reports files written after that', async () => {
+    const changes: string[] = []
+    subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
+      dir,
+      (change) => changes.push(change.relDir),
+      () => undefined
+    )
+    await subscription.ready
+    writeFileSync(join(dir, 'day', 'late.png'), 'png')
+    await expect.poll(() => changes, { timeout: 5000 }).toContain('day')
+  })
+
+  it('is ready, not stuck, when the watch fails', async () => {
+    // A missing path is not a failure for chokidar (it reports ready); an unreadable folder is
+    // (EACCES), and its handler closes the watcher, so `ready` only resolves through the handler.
+    const failures: unknown[] = []
+    const locked = join(dir, 'locked')
+    mkdirSync(locked)
+    chmodSync(locked, 0o000)
+    try {
+      subscription = new ChokidarFileWatcher({ stabilityMs: 100 }).watch(
+        locked,
+        () => undefined,
+        (error) => failures.push(error)
+      )
+      await expect(
+        Promise.race([
+          subscription.ready.then(() => 'ready'),
+          new Promise((resolve) => setTimeout(() => resolve('stuck'), 3000))
+        ])
+      ).resolves.toBe('ready')
+      expect(failures).toHaveLength(1)
+    } finally {
+      chmodSync(locked, 0o755)
+    }
   })
 
   it('reports a removed folder and its parent', async () => {
