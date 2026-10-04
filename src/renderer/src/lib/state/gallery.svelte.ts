@@ -44,6 +44,10 @@ export class GalleryState {
   private requested: Record<number, true> = {}
   /** What the latest ensureCards call asked for: the ids on screen now. */
   private onScreen: readonly number[] = []
+  /** Counts optimistic patches; a fetch started before a patch must not undo it. */
+  private patchSeq = 0
+  /** Per id, the sequence number of its latest optimistic patch (plain bookkeeping). */
+  private patchedAt: Record<number, number> = {}
   private generation = 0
   /** Bumped by reload(); card fetches started before it are discarded. */
   private cardGeneration = 0
@@ -77,6 +81,7 @@ export class GalleryState {
     this.cardGeneration++
     this.cards.clear()
     this.requested = {}
+    this.patchedAt = {}
     if (this.query) await this.load(this.query)
   }
 
@@ -122,26 +127,32 @@ export class GalleryState {
 
   /**
    * Changes cached cards in place (an optimistic update); cards not cached yet are fetched
-   * fresh later anyway.
+   * fresh later anyway. A fetch already in flight for a patched card keeps the patched
+   * marks when it lands, since the database it read may predate the write.
    */
   patchCards(ids: readonly number[], patch: MarkFields): CardPatch {
     const generation = this.cardGeneration
     // Plain bookkeeping for the revert, deliberately not reactive.
     const previous: Record<number, ImageCard> = {}
+    const seq = ++this.patchSeq
     for (const id of ids) {
       const card = this.cards.get(id)
       if (!card) continue
       previous[id] = card
+      this.patchedAt[id] = seq
       this.cards.set(id, { ...card, ...patch })
     }
     return {
       revert: (only = ids) => {
         // A reload refetched every card from the database, which never saw this patch.
         if (generation !== this.cardGeneration) return
+        const revertSeq = ++this.patchSeq
         for (const id of only) {
           const before = previous[id]
           const now = this.cards.get(id)
-          if (before && now) this.cards.set(id, revertedFields(now, before, patch))
+          if (!before || !now) continue
+          this.patchedAt[id] = revertSeq
+          this.cards.set(id, revertedFields(now, before, patch))
         }
       }
     }
@@ -170,6 +181,7 @@ export class GalleryState {
     for (const id of missing) this.requested[id] = true
     for (let start = 0; start < missing.length; start += MAX_IMAGES_PER_REQUEST) {
       const batch = missing.slice(start, start + MAX_IMAGES_PER_REQUEST)
+      const started = this.patchSeq
       let cards: readonly ImageCard[]
       try {
         cards = await this.api.getImages(batch)
@@ -181,12 +193,19 @@ export class GalleryState {
       // Plain bookkeeping, deliberately not reactive.
       const kept: Record<number, true> = {}
       for (const card of cards) {
-        this.cards.set(card.id, card)
+        this.cards.set(card.id, this.withMarksPatchedSince(card, started))
         kept[card.id] = true
       }
       for (const id of batch) if (!kept[id]) this.cards.delete(id)
     }
     this.evictBeyondBudget()
+  }
+
+  /** The fetched card, keeping the cached marks if they were patched after `started`. */
+  private withMarksPatchedSince(fetched: ImageCard, started: number): ImageCard {
+    const cached = this.cards.get(fetched.id)
+    if (!cached || (this.patchedAt[fetched.id] ?? 0) <= started) return fetched
+    return { ...fetched, favorite: cached.favorite, rating: cached.rating }
   }
 
   /**
@@ -203,6 +222,7 @@ export class GalleryState {
       if (keep[id]) continue
       this.cards.delete(id)
       delete this.requested[id]
+      delete this.patchedAt[id]
     }
   }
 }

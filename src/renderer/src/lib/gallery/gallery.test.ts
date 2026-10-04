@@ -134,6 +134,69 @@ describe('GalleryState', () => {
     expect(gallery.card(11)).toBeUndefined()
   })
 
+  it('keeps marks patched while a refetch was in flight, and lets a later fetch replace them', async () => {
+    const dbCard = (id: number, favorite: boolean): ImageCard => ({
+      id,
+      rootId: 1,
+      directoryId: 1,
+      fileName: `${id}.png`,
+      relDir: '',
+      format: ImageFormat.Png,
+      width: 1,
+      height: 1,
+      sizeBytes: 1,
+      createdAt: 1,
+      addedAt: 1,
+      favorite,
+      rating: 0,
+      similarGroupId: null,
+      similarCount: 0
+    })
+    let favoriteInDb = false
+    let release: () => void = () => undefined
+    let hold = false
+    const getImages = vi.fn(async (ids: readonly number[]) => {
+      if (hold) await new Promise<void>((resolve) => (release = resolve))
+      return ids.map((id) => dbCard(id, favoriteInDb))
+    })
+    const gallery = new GalleryState({ getImageLayout: async () => layout, getImages })
+    await gallery.ensureCards([7])
+    // A refresh starts a refetch that reads the database before the write below lands.
+    hold = true
+    await gallery.refresh()
+    const refetch = gallery.ensureCards([7])
+    gallery.patchCards([7], { favorite: true })
+    favoriteInDb = true
+    release()
+    await refetch
+    expect(gallery.card(7)?.favorite).toBe(true)
+    // A fetch started after the patch reads the written value and replaces the card.
+    hold = false
+    await gallery.refresh()
+    await gallery.ensureCards([7])
+    expect(getImages).toHaveBeenCalledTimes(3)
+    expect(gallery.card(7)?.favorite).toBe(true)
+  })
+
+  it('does not keep a reverted patch over a fetch that started before the revert', async () => {
+    let release: () => void = () => undefined
+    const getImages = vi.fn(async (ids: readonly number[]) => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return ids.map((id) => ({ id, favorite: false, rating: 0 }) as never)
+    })
+    const gallery = new GalleryState({ getImageLayout: async () => layout, getImages })
+    const first = gallery.ensureCards([7])
+    release()
+    await first
+    const patch = gallery.patchCards([7], { favorite: true })
+    await gallery.refresh()
+    const refetch = gallery.ensureCards([7])
+    patch.revert()
+    release()
+    await refetch
+    expect(gallery.card(7)).toEqual({ id: 7, favorite: false, rating: 0 })
+  })
+
   it('remembers scroll per query', async () => {
     const gallery = new GalleryState({
       getImageLayout: async () => layout,
