@@ -100,7 +100,8 @@ describe('routes with filters', () => {
     unalbumed: true,
     favoritesOnly: true,
     minRating: 3,
-    tags: { ids: [8, 9], mode: SetMatchMode.All, excludeIds: [10] }
+    tags: { ids: [8, 9], mode: SetMatchMode.All, excludeIds: [10] },
+    modelTagIds: [3, 4]
   }
 
   it.each<Route>([
@@ -110,7 +111,8 @@ describe('routes with filters', () => {
       kind: RouteKind.All,
       filters: { keywords: { query: 'café 桜', scope: KeywordScope.Positive } }
     },
-    { kind: RouteKind.All, filters: { loras: { ids: [1], mode: SetMatchMode.Any } } }
+    { kind: RouteKind.All, filters: { loras: { ids: [1], mode: SetMatchMode.Any } } },
+    { kind: RouteKind.All, filters: { modelTagIds: [3] } }
   ])('round-trips %j', (route) => {
     expect(parseRoute(formatRoute(route))).toEqual(route)
   })
@@ -131,6 +133,11 @@ describe('routes with filters', () => {
       filters: { seed: '1' }
     })
     expect(parseRoute('#/?q=%20%20&lmode=all')).toEqual(ALL_PHOTOS)
+    expect(parseRoute('#/?mtag=0,abc')).toEqual(ALL_PHOTOS)
+    expect(parseRoute('#/?mtag=3&seed=1')).toEqual({
+      kind: RouteKind.All,
+      filters: { modelTagIds: [3], seed: '1' }
+    })
     expect(parseRoute('#/?lora=1&lmin=1&lmax=0.5')).toEqual({
       kind: RouteKind.All,
       filters: { loras: { ids: [1], mode: SetMatchMode.Any } }

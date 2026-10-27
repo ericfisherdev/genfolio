@@ -9,7 +9,7 @@
   import FacetPicker from './FacetPicker.svelte'
   import SaveSmartAlbum from './SaveSmartAlbum.svelte'
 
-  const { router, facets } = getAppServices()
+  const { router, facets, modelTags, library } = getAppServices()
   const KEYWORD_DELAY_MS = 300
 
   const route = $derived(isGalleryRoute(router.route) ? router.route : undefined)
@@ -17,6 +17,10 @@
   const checkpoints = $derived(facets.facets?.checkpoints ?? [])
   const loras = $derived(facets.facets?.loras ?? [])
   const tagFacets = $derived(facets.facets?.tags ?? [])
+  /** Model tags are counted in models, not images, so they aren't facets of the results. */
+  const modelTagValues = $derived(
+    modelTags.tags.map((tag): FacetValue => ({ id: tag.id, name: tag.name, count: tag.modelCount }))
+  )
   /** Shown in the pickers only when there are no facets at all to fall back on. */
   const facetsError = $derived(facets.facets ? undefined : facets.loadError)
   const generators = $derived(
@@ -26,6 +30,12 @@
         filters.generators?.includes(kind)
     )
   )
+
+  // The vocabulary isn't loaded anywhere else for the gallery; models come and go with roots.
+  $effect(() => {
+    void library.roots
+    untrack(() => void modelTags.load())
+  })
 
   /** Navigates to the same scope with `next` filters; unset fields are dropped. */
   function apply(next: SearchFilters, history: 'push' | 'replace' = 'push'): void {
@@ -114,6 +124,9 @@
     })
   }
 
+  const setModelTags = (ids: number[]): void =>
+    apply({ ...filters, modelTagIds: ids.length > 0 ? ids : undefined })
+
   function weight(event: Event): number | undefined {
     const value = (event.currentTarget as HTMLInputElement).value
     const number = Number(value)
@@ -158,6 +171,11 @@
     }
     if (filters.samePromptAs !== undefined) {
       list.push({ label: 'Same prompt', remove: without('samePromptAs') })
+    }
+    if (filters.modelTagIds) {
+      const names = filters.modelTagIds.map((id) => nameOf(modelTagValues, id)).join(', ')
+      const mode = filters.modelTagIds.length > 1 ? ` (${SetMatchMode.Any})` : ''
+      list.push({ label: `Model tag${mode}: ${names}`, remove: without('modelTagIds') })
     }
     if (filters.tags?.ids) {
       const names = filters.tags.ids.map((id) => nameOf(tagFacets, id)).join(', ')
@@ -298,6 +316,17 @@
         selected={filters.tags?.excludeIds ?? []}
         onchange={(excludeIds) => setTags({ excludeIds })}
       />
+      <FacetPicker
+        label="Model tags"
+        values={modelTagValues}
+        selected={filters.modelTagIds ?? []}
+        onchange={setModelTags}
+        emptyText="No model tags yet. Tag models on the Models page."
+      >
+        <p class="model-tag-note">
+          Images using any model with a selected tag. Counts are models, not images.
+        </p>
+      </FacetPicker>
       <button
         type="button"
         class="chip-toggle"
@@ -402,8 +431,13 @@
     gap: var(--space-2);
     font-size: 0.9em;
   }
-  .tag-mode {
+  .tag-mode,
+  .model-tag-note {
     font-size: 0.9em;
+  }
+  .model-tag-note {
+    margin: 0;
+    color: var(--color-text-muted);
   }
   fieldset {
     display: flex;

@@ -3,7 +3,7 @@ import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, MAX_SEED_LENGTH, SetMatchMode } from '@shared/search-kinds'
 import type { SearchFilters } from '@shared/search'
 
-// Search filters as hash query parameters, e.g. `?ckpt=4,9&lora=2&lmode=all&q=red+hair`.
+// Search filters as hash query parameters, e.g. `?ckpt=4,9&lora=2&lmode=all&mtag=3&q=red+hair`.
 // Parsing is lenient: an invalid parameter is dropped, never an error.
 
 const MAX_IDS = 200
@@ -95,6 +95,7 @@ export function parseFilters(params: URLSearchParams): SearchFilters | undefined
           ])
         : undefined
     ],
+    ['modelTagIds', idList(params.get('mtag'))],
     ['untagged', params.get('untag') === '1' ? true : undefined],
     ['unalbumed', params.get('unalbum') === '1' ? true : undefined],
     ['favoritesOnly', params.get('fav') === '1' ? true : undefined],
@@ -128,6 +129,7 @@ export function writeFilters(filters: SearchFilters | undefined, params: URLSear
   set('tag', filters.tags?.ids?.join(','))
   set('tmode', filters.tags?.mode === SetMatchMode.All ? SetMatchMode.All : undefined)
   set('xtag', filters.tags?.excludeIds?.join(','))
+  set('mtag', filters.modelTagIds?.join(','))
   set('untag', filters.untagged ? 1 : undefined)
   set('unalbum', filters.unalbumed ? 1 : undefined)
   set('fav', filters.favoritesOnly ? 1 : undefined)

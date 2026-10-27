@@ -68,6 +68,31 @@ test('filters by checkpoint and by LoRAs with All or Any', async () => {
   await expect(cards(page).getByRole('article')).toHaveAttribute('aria-label', /20-45-48/)
 })
 
+test('filters by a model tag applied to a LoRA on the Models page', async () => {
+  const page = await openGallery()
+  await page.evaluate(() => (location.hash = '#/models'))
+  await page
+    .getByRole('list', { name: 'Models' })
+    .getByRole('button', { name: /add-detail-xl/ })
+    .click()
+  const box = page.getByRole('combobox', { name: 'Add a model tag' })
+  await box.fill('lighting')
+  await box.press('Enter')
+  await expect(page.getByRole('list', { name: 'Tags of this model' })).toContainText('lighting')
+
+  await page.evaluate(() => (location.hash = '#/'))
+  await expect(cards(page)).toHaveCount(6)
+  await page.getByRole('button', { name: /^Model tags/ }).click()
+  const dialog = page.getByRole('dialog', { name: 'Model tags' })
+  await expect(dialog).toContainText('Counts are models, not images')
+  await dialog.getByRole('checkbox', { name: /lighting/ }).check()
+  await expect(cards(page)).toHaveCount(4)
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText(
+    'Model tag: lighting'
+  )
+  expect(await page.evaluate(() => location.hash)).toMatch(/^#\/\?mtag=\d+$/)
+})
+
 test('keyword search follows its scope, and an exclusion that removes everything offers Clear filters', async () => {
   const page = await openGallery()
   const search = page.getByRole('searchbox', { name: 'Search prompts' })

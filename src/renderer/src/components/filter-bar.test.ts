@@ -215,6 +215,73 @@ describe('FilterBar', () => {
     expect(filters(harness)?.tags).toEqual({ mode: SetMatchMode.All, excludeIds: [31] })
   })
 
+  describe('model tags', () => {
+    async function renderWithModelTags(
+      tags: { id: number; name: string; modelCount: number }[],
+      route: Route = { kind: RouteKind.All }
+    ): Promise<TestServices> {
+      const harness = testServices(sampleLibrary(), {
+        getFacets: async () => FACETS,
+        listModelTags: async () => tags
+      })
+      harness.services.router.navigate(route)
+      render(FilterBar, { context: harness.context })
+      await vi.waitFor(() => expect(harness.services.modelTags.tags).toEqual(tags))
+      return harness
+    }
+
+    const TAGS = [
+      { id: 3, name: 'lighting', modelCount: 4 },
+      { id: 8, name: 'disney', modelCount: 1 }
+    ]
+
+    it('picks model tags, counted in models, and filters by their ids', async () => {
+      const harness = await renderWithModelTags(TAGS, {
+        kind: RouteKind.Directory,
+        directoryId: 11,
+        recursive: true
+      })
+      await fireEvent.click(screen.getByRole('button', { name: /^Model tags/ }))
+      const dialog = screen.getByRole('dialog', { name: 'Model tags' })
+      expect(dialog.textContent).toContain('Counts are models, not images')
+      expect(
+        within(dialog)
+          .getByRole('checkbox', { name: /lighting/ })
+          .closest('label')?.textContent
+      ).toContain('4')
+      await fireEvent.click(within(dialog).getByRole('checkbox', { name: /disney/ }))
+      await fireEvent.click(within(dialog).getByRole('checkbox', { name: /lighting/ }))
+      expect(harness.services.router.route).toEqual({
+        kind: RouteKind.Directory,
+        directoryId: 11,
+        recursive: true,
+        filters: { modelTagIds: [8, 3] }
+      })
+      expect(harness.hash.current).toBe('#/dir/11?recursive=1&mtag=8%2C3')
+    })
+
+    it('shows the chosen tags as one removable chip', async () => {
+      const harness = await renderWithModelTags(TAGS, {
+        kind: RouteKind.All,
+        filters: { modelTagIds: [3, 8], seed: '7' }
+      })
+      const active = screen.getByRole('list', { name: 'Active filters' })
+      expect(active.textContent).toContain('Model tag (any): lighting, disney')
+      await fireEvent.click(
+        within(active).getByRole('button', { name: 'Remove Model tag (any): lighting, disney' })
+      )
+      expect(filters(harness)).toEqual({ seed: '7' })
+    })
+
+    it('explains an empty vocabulary', async () => {
+      await renderWithModelTags([])
+      await fireEvent.click(screen.getByRole('button', { name: /^Model tags/ }))
+      expect(screen.getByRole('dialog', { name: 'Model tags' }).textContent).toContain(
+        'No model tags yet. Tag models on the Models page.'
+      )
+    })
+  })
+
   it('toggles generators', async () => {
     const harness = await renderBar()
     const fooocus = screen.getByRole('button', { name: 'Fooocus' })

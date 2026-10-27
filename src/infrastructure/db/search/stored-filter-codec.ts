@@ -18,6 +18,8 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
   private readonly modelsByIdentity: Database.Statement<[string, string], NamedRow>
   private readonly tagsById: Database.Statement<[string], NamedRow>
   private readonly tagsByKey: Database.Statement<[string], NamedRow>
+  private readonly modelTagsById: Database.Statement<[string], NamedRow>
+  private readonly modelTagsByKey: Database.Statement<[string], NamedRow>
   private readonly promptOf: Database.Statement<[number], { prompt: string | null }>
   private readonly imageWithPrompt: Database.Statement<[string], { image_id: number }>
 
@@ -34,6 +36,12 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
     this.tagsByKey = db.prepare(
       'SELECT id, name_key AS name FROM tags WHERE name_key IN (SELECT value FROM json_each(?))'
     )
+    this.modelTagsById = db.prepare(
+      'SELECT id, name FROM model_tags WHERE id IN (SELECT value FROM json_each(?))'
+    )
+    this.modelTagsByKey = db.prepare(
+      'SELECT id, name_key AS name FROM model_tags WHERE name_key IN (SELECT value FROM json_each(?))'
+    )
     this.promptOf = db.prepare('SELECT prompt FROM generations WHERE image_id = ?')
     this.imageWithPrompt = db.prepare(
       'SELECT image_id FROM generations WHERE prompt = ? ORDER BY image_id LIMIT 1'
@@ -41,7 +49,7 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
   }
 
   store(filters: SearchFilters): StoredSearchFilters {
-    const { checkpointIds, loras, tags, samePromptAs, ...plain } = filters
+    const { checkpointIds, loras, tags, modelTagIds, samePromptAs, ...plain } = filters
     const stored: StoredSearchFilters = { ...plain }
     const checkpoints = checkpointIds && this.identities(ModelKind.Checkpoint, checkpointIds)
     if (checkpoints?.length) stored.checkpoints = checkpoints
@@ -62,13 +70,15 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
         }
       }
     }
+    const modelTags = modelTagIds && this.namesOf(this.modelTagsById, modelTagIds)
+    if (modelTags?.length) stored.modelTags = modelTags
     const prompt = samePromptAs === undefined ? null : this.promptOf.get(samePromptAs)?.prompt
     if (prompt) stored.samePrompt = prompt
     return stored
   }
 
   resolve(stored: StoredSearchFilters): SearchFilters | undefined {
-    const { checkpoints, loras, tags, samePrompt, ...plain } = stored
+    const { checkpoints, loras, tags, modelTags, samePrompt, ...plain } = stored
     const filters: SearchFilters = { ...plain }
     if (checkpoints) {
       // Any of them: the ones still stored will do.
@@ -93,6 +103,12 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
         }
       }
     }
+    if (modelTags) {
+      // Any of them: the tags still stored will do.
+      const found = this.idsOf(this.modelTagsByKey, modelTags)
+      if (found.ids.length === 0) return undefined
+      filters.modelTagIds = found.ids
+    }
     if (samePrompt !== undefined) {
       const image = this.imageWithPrompt.get(samePrompt)
       if (!image) return undefined
@@ -106,7 +122,11 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
   }
 
   private tagNames(ids: readonly number[]): string[] {
-    return this.tagsById.all(JSON.stringify(ids)).map((row) => row.name)
+    return this.namesOf(this.tagsById, ids)
+  }
+
+  private namesOf(byId: Database.Statement<[string], NamedRow>, ids: readonly number[]): string[] {
+    return byId.all(JSON.stringify(ids)).map((row) => row.name)
   }
 
   private modelIds(kind: ModelKind, models: readonly { identity: string }[]): Resolved {
@@ -116,8 +136,12 @@ export class SqliteStoredFilterCodec implements StoredFilterCodec {
   }
 
   private tagIds(names: readonly string[]): Resolved {
+    return this.idsOf(this.tagsByKey, names)
+  }
+
+  private idsOf(byKey: Database.Statement<[string], NamedRow>, names: readonly string[]): Resolved {
     const keys = [...new Set(names.map(nameKey))]
-    const rows = this.tagsByKey.all(JSON.stringify(keys))
+    const rows = byKey.all(JSON.stringify(keys))
     return { ids: rows.map((row) => row.id), complete: rows.length === keys.length }
   }
 }

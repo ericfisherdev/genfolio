@@ -13,6 +13,7 @@ const FOLDERS = 100
 const CHECKPOINTS = 50
 const LORAS = 500
 const TAGS = 50
+const MODEL_TAGS = 5
 /**
  * Per query, measured on the reference machine (i7-11800H, 8 cores, Node 24 in Electron's
  * runtime). Slower machines scale roughly linearly, so this gate is meaningful there only.
@@ -35,7 +36,7 @@ const WORDS = Array.from({ length: 200 }, (_, index) => `word${index}`)
 
 /**
  * 100k images with generations, 50 checkpoints and 500 LoRAs (1–5 per image), 50 tags (0–3
- * per image), 5% favourites and ratings spread over 0–5.
+ * per image), 5 model tags on 25 LoRAs and 5 checkpoints, 5% favourites and ratings spread over 0–5.
  */
 function buildLibrary(db: Database.Database): void {
   const random = seeded(7)
@@ -70,6 +71,18 @@ function buildLibrary(db: Database.Database): void {
     const tag = db.prepare('INSERT INTO tags (id, name, name_key, created_at) VALUES (?, ?, ?, 1)')
     for (let id = 1; id <= TAGS; id++) tag.run(id, `tag${id}`, `tag${id}`)
     const tagged = db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)')
+    // Model tags: 5 tags over 5% of the LoRAs and 10% of the checkpoints, by identity.
+    const modelTag = db.prepare(
+      'INSERT INTO model_tags (id, name, name_key, created_at) VALUES (?, ?, ?, 1)'
+    )
+    const modelLink = db.prepare(
+      'INSERT OR IGNORE INTO model_tag_links (tag_id, kind, identity, created_at) VALUES (?, ?, ?, 1)'
+    )
+    for (let id = 1; id <= MODEL_TAGS; id++) modelTag.run(id, `mtag${id}`, `mtag${id}`)
+    for (let n = 1; n <= LORAS; n += 20) modelLink.run(1 + (n % MODEL_TAGS), 'lora', `lora${n}`)
+    for (let n = 1; n <= CHECKPOINTS; n += 10) {
+      modelLink.run(1 + (n % MODEL_TAGS), 'checkpoint', `ckpt${n}`)
+    }
     const mark = db.prepare('UPDATE images SET is_favorite = ?, rating = ? WHERE id = ?')
     for (let id = 1; id <= IMAGES; id++) {
       image.run(id, 2 + (id % FOLDERS), `${id}.png`, id)
@@ -126,6 +139,11 @@ const CASES: Record<string, SearchFilters> = {
   'tag any of 2': { tags: { ids: [3, 9], mode: SetMatchMode.Any } },
   'tag all of 2': { tags: { ids: [3, 9], mode: SetMatchMode.All } },
   'without a tag': { tags: { mode: SetMatchMode.Any, excludeIds: [3] } },
+  'model tag': { modelTagIds: [2] },
+  'model tag any of 2 + keyword': {
+    modelTagIds: [2, 3],
+    keywords: { query: 'word1', scope: KeywordScope.Positive }
+  },
   favourites: { favoritesOnly: true },
   'rating 4+': { minRating: 4 },
   'favourites + tag + checkpoint': {

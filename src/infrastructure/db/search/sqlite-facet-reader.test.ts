@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { ImageId } from '@domain/library'
 import { GalleryScopeKind, SortOrder, type GalleryQuery } from '@shared/gallery'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteGenerationRepository } from '../repositories/sqlite-generation-repository'
 import { SqliteImageVersionCheck } from '../repositories/sqlite-image-version-check'
+import { SqliteModelTagRepository } from '../repositories/sqlite-model-tag-repository'
 import { SqliteModelCatalog } from '../repositories/sqlite-model-catalog'
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
@@ -125,6 +126,26 @@ describe('SqliteFacetReader', () => {
       ['alpha', 1],
       ['beta', 1]
     ])
+  })
+
+  it('applies a model tag filter to every facet', () => {
+    const tags = new SqliteModelTagRepository(library.db)
+    const look = tags.create('look', 1)
+    tags.apply(look.id, { kind: ModelKind.Lora, identity: 'style' }, 1)
+    const facets = reader.facets(query({ modelTagIds: [look.id] }))
+    expect(named(facets.checkpoints)).toEqual([
+      ['alpha', 1],
+      ['beta', 1]
+    ])
+    expect(named(facets.loras)).toEqual([
+      ['style', 2],
+      ['detail', 1]
+    ])
+    expect(facets.generators).toEqual([
+      { kind: GeneratorKind.A1111, count: 1 },
+      { kind: GeneratorKind.Fooocus, count: 1 }
+    ])
+    expect(facets.withoutMetadata).toBe(0)
   })
 
   it('counts LoRAs in All mode as what adding each would leave, within the weight bounds', () => {

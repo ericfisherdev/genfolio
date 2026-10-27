@@ -3,7 +3,11 @@ import { GalleryScopeKind, SortOrder } from '@shared/gallery-kinds'
 import type { GalleryQuery } from '@shared/gallery'
 import { SetMatchMode } from '@shared/search-kinds'
 import { LayoutUpdate } from './image-marks'
-import { refreshAfterAlbumChange, refreshAfterTagChange } from './refresh-results'
+import {
+  refreshAfterAlbumChange,
+  refreshAfterModelTagChange,
+  refreshAfterTagChange
+} from './refresh-results'
 
 const PLAIN: GalleryQuery = { scope: { kind: GalleryScopeKind.All }, sort: SortOrder.Newest }
 const BY_TAG: GalleryQuery = {
@@ -58,6 +62,46 @@ describe('refreshAfterTagChange', () => {
     refreshAfterTagChange(gallery, facets, LayoutUpdate.Deferred)
     expect(gallery.refreshLayout).not.toHaveBeenCalled()
     expect(gallery.markLayoutStale).toHaveBeenCalled()
+  })
+})
+
+describe('refreshAfterModelTagChange', () => {
+  const BY_MODEL_TAG: GalleryQuery = { ...PLAIN, filters: { modelTagIds: [1] } }
+
+  it('leaves a view that does not depend on model tags alone', () => {
+    for (const query of [PLAIN, BY_TAG]) {
+      const { gallery, facets } = fakes(query)
+      refreshAfterModelTagChange(gallery, facets, LayoutUpdate.Now)
+      expect(facets.load).not.toHaveBeenCalled()
+      expect(gallery.refreshLayout).not.toHaveBeenCalled()
+    }
+  })
+
+  it('reloads the facets and layout of a model-tag-filtered view', () => {
+    const { gallery, facets } = fakes(BY_MODEL_TAG)
+    refreshAfterModelTagChange(gallery, facets, LayoutUpdate.Now)
+    expect(facets.load).toHaveBeenCalledWith(BY_MODEL_TAG)
+    expect(gallery.refreshLayout).toHaveBeenCalled()
+  })
+
+  it('reloads an album, which may be a smart one searching by model tags', () => {
+    const album: GalleryQuery = { ...PLAIN, scope: { kind: GalleryScopeKind.Album, albumId: 2 } }
+    const { gallery, facets } = fakes(album)
+    refreshAfterModelTagChange(gallery, facets, LayoutUpdate.Now)
+    expect(gallery.refreshLayout).toHaveBeenCalled()
+  })
+
+  it('only flags the layout stale while an image is open', () => {
+    const { gallery, facets } = fakes(BY_MODEL_TAG)
+    refreshAfterModelTagChange(gallery, facets, LayoutUpdate.Deferred)
+    expect(gallery.refreshLayout).not.toHaveBeenCalled()
+    expect(gallery.markLayoutStale).toHaveBeenCalled()
+  })
+
+  it('does nothing before the gallery has a query', () => {
+    const { gallery, facets } = fakes(PLAIN)
+    refreshAfterModelTagChange({ ...gallery, query: undefined as never }, facets, LayoutUpdate.Now)
+    expect(facets.load).not.toHaveBeenCalled()
   })
 })
 
