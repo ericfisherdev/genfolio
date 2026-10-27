@@ -21,7 +21,11 @@ import { GenerationCopier } from './lib/state/generation-copier'
 import { GenerationDetailsState } from './lib/state/generation-details.svelte'
 import { ImageMarks, layoutUpdateFor } from './lib/state/image-marks'
 import { LibraryState } from './lib/state/library.svelte'
-import { refreshAfterAlbumChange, refreshAfterTagChange } from './lib/state/refresh-results'
+import {
+  refreshAfterAlbumChange,
+  refreshAfterModelTagChange,
+  refreshAfterTagChange
+} from './lib/state/refresh-results'
 import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
 import { ModelTagsState } from './lib/state/model-tags.svelte'
@@ -80,7 +84,10 @@ const services: AppServices = {
   ),
   modelFolders: new ModelFoldersState(api, library),
   models,
-  modelTags: new ModelTagsState(api, library, () => void models.refresh()),
+  modelTags: new ModelTagsState(api, library, () => {
+    void models.refresh()
+    refreshAfterModelTagChange(gallery, facets, layoutUpdateFor(router.route))
+  }),
   civitaiBrowse: new CivitaiBrowseState(api, library),
   downloads: new DownloadsState(api, library),
   civitaiKey: new CivitaiKeyState(api, library),

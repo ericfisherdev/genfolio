@@ -50,6 +50,8 @@ export const searchFiltersSchema = z
         message: 'a tag filter needs tags to include or exclude'
       })
       .optional(),
+    /** Images using any model carrying one of these model tags (as LoRA, checkpoint or refiner). */
+    modelTagIds: ids.optional(),
     /** Only images carrying no tags (false isn't a filter). */
     untagged: z.literal(true).optional(),
     /** Only images in no manual album (false isn't a filter). */
@@ -141,6 +143,8 @@ export const storedSearchFiltersSchema = z
         message: 'a tag filter needs tags to include or exclude'
       })
       .optional(),
+    /** Model tags by name, for the same reason and compared the same way as `tags`. */
+    modelTags: storedNames.optional(),
     untagged: z.literal(true).optional(),
     unalbumed: z.literal(true).optional(),
     favoritesOnly: z.literal(true).optional(),

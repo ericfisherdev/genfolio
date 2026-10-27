@@ -2,14 +2,21 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { AlbumService } from '@application/album-service'
 import type { ImageId } from '@domain/library'
 import { GalleryScopeKind, LAYOUT_STRIDE, SortOrder, type GalleryQuery } from '@shared/gallery'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { ImageFormat } from '@shared/image-format'
 import { MetadataOrigin } from '@shared/metadata-kinds'
 import { ChangeOutcome } from '@shared/albums'
-import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
+import {
+  KeywordScope,
+  SetMatchMode,
+  searchFiltersSchema,
+  storedSearchFiltersSchema,
+  type SearchFilters
+} from '@shared/search'
 import { SqliteAlbumRepository } from '../repositories/sqlite-album-repository'
 import { SqliteGenerationRepository } from '../repositories/sqlite-generation-repository'
 import { SqliteImageRepository } from '../repositories/sqlite-image-repository'
+import { SqliteModelTagRepository } from '../repositories/sqlite-model-tag-repository'
 import { SqliteImageVersionCheck } from '../repositories/sqlite-image-version-check'
 import { SqliteModelCatalog } from '../repositories/sqlite-model-catalog'
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
@@ -106,7 +113,79 @@ describe('SqliteStoredFilterCodec', () => {
   })
 })
 
+describe('SqliteStoredFilterCodec model tags', () => {
+  let tags: SqliteModelTagRepository
+
+  beforeEach(() => {
+    tags = new SqliteModelTagRepository(library.db)
+  })
+
+  function tagged(name: string, kind: ModelKind, identity: string): number {
+    const tag = tags.list().find((existing) => existing.name === name) ?? tags.create(name, 1)
+    tags.apply(tag.id, { kind, identity }, 1)
+    return tag.id
+  }
+
+  it('stores model tags by name and resolves them by name key, so ids never reach the album', () => {
+    const lighting = tagged('Lighting', ModelKind.Lora, 'detail')
+    const stored = codec.store({ modelTagIds: [lighting] })
+    expect(stored).toEqual({ modelTags: ['Lighting'] })
+    // Resolving looks the tag up by name key: the id it gets is the live tag's.
+    expect(codec.resolve({ modelTags: ['LIGHTING'] })).toEqual({ modelTagIds: [lighting] })
+  })
+
+  it('matches nothing once every stored tag is gone, and keeps the ones still there', () => {
+    const lighting = tagged('lighting', ModelKind.Lora, 'detail')
+    const disney = tagged('disney', ModelKind.Lora, 'style')
+    expect(codec.resolve({ modelTags: ['lighting', 'gone'] })).toEqual({ modelTagIds: [lighting] })
+    tags.delete(lighting)
+    tags.delete(disney)
+    expect(codec.resolve({ modelTags: ['lighting', 'disney'] })).toBeUndefined()
+  })
+
+  it('leaves no raw field behind for any filter: a stored form always passes its schema', () => {
+    const lighting = tagged('lighting', ModelKind.Lora, 'detail')
+    const red = new SqliteTagRepository(library.db).create('red', 1)
+    const everyFilter: Required<SearchFilters> = {
+      checkpointIds: [alpha()],
+      loras: { ids: [lora('detail')], mode: SetMatchMode.Any, minWeight: 0.1, maxWeight: 1 },
+      keywords: { query: 'girl', scope: KeywordScope.Both },
+      generators: [GeneratorKind.A1111],
+      seed: '1',
+      samePromptAs: image(1),
+      hasMetadata: true,
+      tags: { ids: [red.id], mode: SetMatchMode.All, excludeIds: [red.id] },
+      modelTagIds: [lighting],
+      untagged: true,
+      unalbumed: true,
+      favoritesOnly: true,
+      minRating: 3
+    }
+    // A new filter field must be added here, and to the codec, together.
+    expect(Object.keys(everyFilter).sort()).toEqual(Object.keys(searchFiltersSchema.shape).sort())
+    const stored = codec.store(everyFilter)
+    expect(storedSearchFiltersSchema.parse(stored)).toEqual(stored)
+    expect(codec.resolve(stored)).toEqual(everyFilter)
+  })
+})
+
 describe('smart albums', () => {
+  it('hold the images using a model carrying a model tag, and none once the tag is deleted', () => {
+    const tags = new SqliteModelTagRepository(library.db)
+    const lighting = tags.create('lighting', 1)
+    tags.apply(lighting.id, { kind: ModelKind.Lora, identity: 'style' }, 1)
+    const albumId = smartAlbum({ modelTagIds: [lighting.id] })
+    const filtersJson = library.db
+      .prepare('SELECT filters_json FROM albums WHERE id = ?')
+      .pluck()
+      .get(albumId)
+    expect(JSON.parse(String(filtersJson))).toEqual({ modelTags: ['lighting'] })
+    expect(numbers(inAlbum(albumId))).toEqual([3, 1])
+    tags.delete(lighting.id)
+    expect(numbers(inAlbum(albumId))).toEqual([])
+    expect(albums.list()[0]?.imageCount).toBe(0)
+  })
+
   it('show what matches their search, newest first, and count it', () => {
     const albumId = smartAlbum({ checkpointIds: [alpha()] })
     expect(numbers(inAlbum(albumId))).toEqual([6, 2, 1])

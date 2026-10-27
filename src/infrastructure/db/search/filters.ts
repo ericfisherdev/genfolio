@@ -132,6 +132,29 @@ export class TagFilter implements CriteriaFilter {
   }
 }
 
+/**
+ * Images using any model carrying one of the model tags: a tagged LoRA, or a tagged
+ * checkpoint as the model or the refiner. Links are keyed by (kind, identity), so they reach
+ * the model rows through that pair.
+ */
+export class ModelTagFilter implements CriteriaFilter {
+  condition({ modelTagIds }: SearchFilters): SqlCondition | undefined {
+    if (!modelTagIds) return undefined
+    return {
+      sql: `id IN (
+        WITH tagged(id) AS (
+          SELECT models.id FROM models
+          JOIN model_tag_links links ON links.kind = models.kind AND links.identity = models.identity
+          WHERE links.tag_id ${IN_LIST})
+        SELECT image_id FROM generation_loras WHERE model_id IN tagged
+        UNION
+        SELECT image_id FROM generations
+        WHERE checkpoint_id IN tagged OR refiner_id IN tagged)`,
+      params: [list([...new Set(modelTagIds)])]
+    }
+  }
+}
+
 /** Images with no tag at all. */
 export class UntaggedFilter implements CriteriaFilter {
   condition({ untagged }: SearchFilters): SqlCondition | undefined {
@@ -171,6 +194,7 @@ export function createSearchFilters(): CriteriaFilter[] {
     new SamePromptFilter(),
     new HasMetadataFilter(),
     new TagFilter(),
+    new ModelTagFilter(),
     new UntaggedFilter(),
     new UnalbumedFilter(),
     new FavoriteFilter(),

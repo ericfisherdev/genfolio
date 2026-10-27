@@ -8,10 +8,11 @@ import {
   SortOrder,
   type GalleryQuery
 } from '@shared/gallery'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteAlbumRepository } from '../repositories/sqlite-album-repository'
 import { SqliteImageMarkRepository } from '../repositories/sqlite-image-mark-repository'
+import { SqliteModelTagRepository } from '../repositories/sqlite-model-tag-repository'
 import { SqliteTagRepository } from '../repositories/sqlite-tag-repository'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { searchLibrary, type SearchLibrary } from '../testing/search-library'
@@ -205,6 +206,39 @@ describe('tags', () => {
   })
 })
 
+describe('model tags', () => {
+  function tagModel(tag: string, kind: ModelKind, name: string): number {
+    const repository = new SqliteModelTagRepository(db)
+    const record =
+      repository.list().find((existing) => existing.name === tag) ?? repository.create(tag, 1)
+    repository.apply(record.id, { kind, identity: name }, 1)
+    return record.id
+  }
+
+  it('matches images using a tagged LoRA, checkpoint or refiner', () => {
+    const style = tagModel('look', ModelKind.Lora, 'style')
+    expect(search({ modelTagIds: [style] })).toEqual([1, 3])
+    // Image 6 uses alpha only as its refiner.
+    const alpha = tagModel('base', ModelKind.Checkpoint, 'alpha')
+    expect(search({ modelTagIds: [alpha] })).toEqual([1, 2, 6])
+    expect(search({ modelTagIds: [style, alpha] })).toEqual([1, 2, 3, 6])
+  })
+
+  it('matches nothing for a tag no model carries and ignores untagged models', () => {
+    const empty = new SqliteModelTagRepository(db).create('empty', 1).id
+    expect(search({ modelTagIds: [empty] })).toEqual([])
+    expect(search({ modelTagIds: [999] })).toEqual([])
+  })
+
+  it('combines with other filters', () => {
+    const detail = tagModel('look', ModelKind.Lora, 'detail')
+    expect(search({ modelTagIds: [detail], seed: '2' })).toEqual([2])
+    expect(
+      search({ modelTagIds: [detail], checkpointIds: [modelId('checkpoint', 'beta')] })
+    ).toEqual([])
+  })
+})
+
 describe('untagged and unalbumed', () => {
   const image = (n: number): ImageId => ids.get(n) ?? (0 as ImageId)
 
@@ -243,6 +277,9 @@ describe('searchFiltersSchema', () => {
     expect(query({ tags: { mode: 'any' } })).toBe(false)
     expect(query({ tags: { ids: [], mode: 'any' } })).toBe(false)
     expect(query({ tags: { mode: 'all', excludeIds: [3] } })).toBe(true)
+    expect(query({ modelTagIds: [3] })).toBe(true)
+    expect(query({ modelTagIds: [] })).toBe(false)
+    expect(query({ modelTagIds: [0] })).toBe(false)
     expect(query({ minRating: 6 })).toBe(false)
     expect(query({ minRating: 0 })).toBe(false)
     expect(query({ favoritesOnly: true, minRating: 5 })).toBe(true)

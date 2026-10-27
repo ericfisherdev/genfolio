@@ -30,6 +30,22 @@ export function refreshAfterTagChange(
 }
 
 /**
+ * After model tags change: no facet counts them, so only a view they select images for (a
+ * model-tag filter, or an album, which may be a smart one searching by them) can change.
+ */
+export function refreshAfterModelTagChange(
+  gallery: Results,
+  facets: Facets,
+  update: LayoutUpdate
+): void {
+  const query = gallery.query
+  if (!query) return
+  if (!query.filters?.modelTagIds && query.scope.kind !== GalleryScopeKind.Album) return
+  void facets.load(query)
+  reloadLayout(gallery, update)
+}
+
+/**
  * After an album changes: an album view may have gained, lost or reordered images, and a
  * "not in an album" view may have lost or regained some.
  */
