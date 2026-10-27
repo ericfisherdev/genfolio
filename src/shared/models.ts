@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ChangeOutcome } from './change-outcome'
 import { ModelKind } from './generation-kinds'
 import { civitaiInfoSchema } from './model-civitai'
+import { modelTagRefSchema } from './model-tags'
 import { userNameSchema } from './user-name'
 
 export { ChangeOutcome } from './change-outcome'
@@ -53,7 +54,9 @@ export const modelEntrySchema = z
     hasInfo: z.boolean(),
     baseModel: z.string().nullable(),
     triggerWords: z.array(z.string()).readonly(),
-    strength: z.number().nullable()
+    strength: z.number().nullable(),
+    /** The model tags it carries, by name. */
+    tags: z.array(modelTagRefSchema).readonly()
   })
   .strict()
 
@@ -79,6 +82,8 @@ export const modelListQuerySchema = z
     baseModel: z.string().max(MAX_BASE_MODEL).optional(),
     /** Only models with nothing recorded and no Civitai link (false isn't a filter). */
     withoutInfo: z.literal(true).optional(),
+    /** Only models carrying this model tag. */
+    modelTagId: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative(),
     limit: z.number().int().min(1).max(MAX_MODELS_PER_PAGE)
   })

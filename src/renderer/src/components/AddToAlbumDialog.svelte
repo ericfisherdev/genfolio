@@ -48,6 +48,7 @@
     items={manual}
     excluded={[]}
     onpick={(choice) => void add(choice)}
+    countOf={(album) => album.imageCount}
     maxName={MAX_ALBUM_NAME}
     label="Album"
     listLabel="Albums"

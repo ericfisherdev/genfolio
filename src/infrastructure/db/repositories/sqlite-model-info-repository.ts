@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import type { ModelInfoRepository } from '@domain/repositories'
 import type { ModelKind } from '@shared/generation-kinds'
 import type { CivitaiInfo } from '@shared/model-civitai'
+import type { ModelTagRef } from '@shared/model-tags'
 import type {
   ModelDetail,
   ModelEntry,
@@ -16,6 +17,7 @@ interface EntryRow {
   identity: string
   name: string
   image_count: number
+  tags_json: string
   model_id: number | null
   info_id: number | null
   civitai_id: number | null
@@ -80,6 +82,9 @@ const MATCHING = `
   WHERE (@kind IS NULL OR kind = @kind)
     AND (@baseModel IS NULL OR fold(base_model) = fold(@baseModel))
     AND (@withoutInfo = 0 OR (info_id IS NULL AND civitai_id IS NULL))
+    AND (@modelTagId IS NULL OR EXISTS (
+      SELECT 1 FROM model_tag_links l
+      WHERE l.tag_id = @modelTagId AND l.kind = entries.kind AND l.identity = entries.identity))
     AND (@text IS NULL
       OR instr(fold(name), @text) > 0
       OR instr(fold(COALESCE(base_model, '')), @text) > 0
@@ -101,6 +106,12 @@ const IMAGE_COUNT = `
        WHERE checkpoint_id = e.model_id OR refiner_id = e.model_id)
   END`
 
+// The model's tags by name, as JSON; links are keyed by (kind, identity), not by models.id.
+const TAGS = `
+  (SELECT json_group_array(json_object('id', t.id, 'name', t.name) ORDER BY t.name_key, t.id)
+   FROM model_tag_links l JOIN model_tags t ON t.id = l.tag_id
+   WHERE l.kind = e.kind AND l.identity = e.identity)`
+
 const words = (json: string | null): string[] => (json ? (JSON.parse(json) as string[]) : [])
 
 /** The user's words first, then Civitai's that they don't already have. */
@@ -117,7 +128,8 @@ const entryOf = (row: EntryRow): ModelEntry => ({
   hasInfo: row.info_id !== null || row.civitai_id !== null,
   baseModel: row.base_model,
   triggerWords: allWords(words(row.custom_words), words(row.civitai_words)),
-  strength: row.strength
+  strength: row.strength,
+  tags: JSON.parse(row.tags_json) as ModelTagRef[]
 })
 
 function civitaiOf(row: EntryRow): CivitaiInfo | null {
@@ -172,7 +184,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
     )
     this.selectPage = db.prepare(
       `${ENTRIES}
-       SELECT e.*, ${IMAGE_COUNT} AS image_count FROM (
+       SELECT e.*, ${IMAGE_COUNT} AS image_count, ${TAGS} AS tags_json FROM (
          SELECT * ${MATCHING}
          ORDER BY name COLLATE NOCASE, kind, identity LIMIT @limit OFFSET @offset
        ) e
@@ -187,7 +199,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
       .pluck()
     this.selectOne = db.prepare(
       `${ENTRIES}
-       SELECT e.*, ${IMAGE_COUNT} AS image_count
+       SELECT e.*, ${IMAGE_COUNT} AS image_count, ${TAGS} AS tags_json
        FROM (SELECT * FROM entries WHERE kind = ? AND identity = ?) e`
     )
     const columns = `base_model = @baseModel, trigger_words_json = @triggerWords,
@@ -228,6 +240,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
       kind: query.kind ?? null,
       baseModel: query.baseModel ?? null,
       withoutInfo: query.withoutInfo ? 1 : 0,
+      modelTagId: query.modelTagId ?? null,
       text: text ? text : null
     }
     return this.db.transaction(() => ({

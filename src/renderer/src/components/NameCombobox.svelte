@@ -9,6 +9,8 @@
     excluded: readonly number[]
     /** A chosen item, or the typed name when it names no item yet. */
     onpick: (choice: T | string) => void
+    /** The number shown beside an item, such as the images or models it holds. */
+    countOf: (item: T) => number
     /** Longest name that can be created. */
     maxName: number
     label: string
@@ -16,7 +18,7 @@
     listLabel: string
   }
 
-  let { items, excluded, onpick, maxName, label, listLabel }: Props = $props()
+  let { items, excluded, onpick, countOf, maxName, label, listLabel }: Props = $props()
   const MAX_SUGGESTIONS = 8
   const uid = $props.id()
   const listId = `${uid}-options`
@@ -105,7 +107,7 @@
           {#if typeof option === 'string'}
             Create “{option}”
           {:else}
-            {option.name} <span class="count">{option.imageCount}</span>
+            {option.name} <span class="count">{countOf(option)}</span>
           {/if}
         </li>
       {/each}

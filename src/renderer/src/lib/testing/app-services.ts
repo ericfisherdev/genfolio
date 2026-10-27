@@ -16,6 +16,7 @@ import { CivitaiKeyState } from '../state/civitai-key.svelte'
 import { DownloadsState } from '../state/downloads.svelte'
 import { ModelFoldersState } from '../state/model-folders.svelte'
 import { ModelsState } from '../state/models.svelte'
+import { ModelTagsState } from '../state/model-tags.svelte'
 import { SimilarityState } from '../state/similarity.svelte'
 import { FacetsState } from '../state/facets.svelte'
 import { GenerationCopier } from '../state/generation-copier'
@@ -104,6 +105,7 @@ export function testServices(
     getImageLayout: async () => new Int32Array(0),
     getImages: async () => [],
     listTags: async () => [],
+    listModelTags: async () => [],
     listAlbums: async () => [],
     getDiagnostics: async () => ({ serviceRestarts: 0, serviceStopped: false }),
     listSlideshowPresets: async () => [],
@@ -132,6 +134,7 @@ export function testServices(
   const facets = new FacetsState(api)
   const deletion = new ImageDeletion(api, libraryState, () => void libraryState.refresh())
   const router = new RouterState(hash)
+  const models = new ModelsState(api, libraryState)
   const services: AppServices = {
     api,
     router,
@@ -160,7 +163,8 @@ export function testServices(
       }
     ),
     modelFolders: new ModelFoldersState(api, libraryState),
-    models: new ModelsState(api, libraryState),
+    models,
+    modelTags: new ModelTagsState(api, libraryState, () => void models.refresh()),
     civitaiBrowse: new CivitaiBrowseState(api, libraryState),
     downloads: new DownloadsState(api, libraryState),
     civitaiKey: new CivitaiKeyState(api, libraryState),

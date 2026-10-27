@@ -6,6 +6,7 @@
   import CivitaiSearchDialog from './CivitaiSearchDialog.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import ModelForm, { type ModelDraft } from './ModelForm.svelte'
+  import ModelTagEditor from './ModelTagEditor.svelte'
 
   interface Props {
     model: ModelDetail
@@ -87,6 +88,8 @@
       {/if}
     </dd>
   </dl>
+
+  <ModelTagEditor {model} />
 
   <section class="block" aria-label="Civitai">
     <h3>Civitai</h3>

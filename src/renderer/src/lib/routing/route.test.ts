@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GeneratorKind } from '@shared/generation-kinds'
+import { GeneratorKind, ModelKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode } from '@shared/search-kinds'
 import type { SearchFilters } from '@shared/search'
 import { ALL_PHOTOS, formatRoute, parseRoute, RouteKind, withFilters, type Route } from './route'
@@ -16,6 +16,11 @@ describe('routes', () => {
     { kind: RouteKind.SimilarGroups },
     { kind: RouteKind.Settings },
     { kind: RouteKind.Models },
+    { kind: RouteKind.Models, model: { kind: ModelKind.Lora, identity: 'detail' } },
+    {
+      kind: RouteKind.Models,
+      model: { kind: ModelKind.Checkpoint, identity: 'a b&c=d#e/ü' }
+    },
     { kind: RouteKind.Civitai },
     { kind: RouteKind.SimilarGroup, groupId: 4 },
     { kind: RouteKind.SimilarGroup, groupId: 4, filters: { favoritesOnly: true } },
@@ -34,6 +39,31 @@ describe('routes', () => {
 
   it('ignores a slideshow start that is not an image id', () => {
     expect(parseRoute('#/slideshow?start=abc')).toEqual({ kind: RouteKind.Slideshow })
+  })
+
+  it('formats a model link with its kind and identity', () => {
+    expect(
+      formatRoute({
+        kind: RouteKind.Models,
+        model: { kind: ModelKind.Lora, identity: 'detail' }
+      })
+    ).toBe('#/models?kind=lora&identity=detail')
+    expect(parseRoute('#/models?kind=lora&identity=detail')).toEqual({
+      kind: RouteKind.Models,
+      model: { kind: ModelKind.Lora, identity: 'detail' }
+    })
+  })
+
+  it.each([
+    '#/models?kind=lora',
+    '#/models?identity=detail',
+    '#/models?kind=sampler&identity=detail',
+    '#/models?kind=lora&identity=',
+    `#/models?kind=lora&identity=${'x'.repeat(257)}`,
+    '#/models?kind=&identity=',
+    '#/models?unrelated=1'
+  ])('shows the plain Models page for the malformed link %s', (hash) => {
+    expect(parseRoute(hash)).toEqual({ kind: RouteKind.Models })
   })
 
   it('keeps an album when its filters are cleared', () => {

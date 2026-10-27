@@ -13,7 +13,8 @@ const entry = (n: number): ModelEntry => ({
   hasInfo: false,
   baseModel: null,
   triggerWords: [],
-  strength: null
+  strength: null,
+  tags: []
 })
 
 const TOTAL = 450
@@ -72,6 +73,27 @@ describe('ModelsState', () => {
     await state.loadMore()
     await state.filter({ text: 'm' })
     expect(state.items).toHaveLength(100)
+  })
+
+  it('asks only for the models carrying the chosen tag, and for all again once it is cleared', async () => {
+    const api = libraryApi()
+    const state = new ModelsState(api, { notify: vi.fn() })
+    await state.filter({ modelTagId: 3 })
+    expect(api.listModels).toHaveBeenLastCalledWith({ offset: 0, limit: 100, modelTagId: 3 })
+    await state.filter({ modelTagId: undefined })
+    expect(api.listModels).toHaveBeenLastCalledWith({ offset: 0, limit: 100 })
+  })
+
+  it('reloads the list and the shown model when asked to refresh', async () => {
+    const api = libraryApi()
+    api.getModel = vi.fn(async () => ({ ...entry(0), custom: EMPTY_MODEL_FIELDS }) as never)
+    const state = new ModelsState(api, { notify: vi.fn() })
+    await state.refresh()
+    expect(api.getModel).not.toHaveBeenCalled()
+    await state.select({ kind: ModelKind.Lora, identity: 'm0' })
+    await state.refresh()
+    expect(api.getModel).toHaveBeenCalledTimes(2)
+    expect(api.listModels).toHaveBeenCalledTimes(2)
   })
 
   it('leaves the model the user moved on to alone when a slow Civitai answer arrives', async () => {

@@ -90,6 +90,7 @@ describe('NameCombobox', () => {
         items: [RED, BLUE],
         excluded: applied,
         onpick,
+        countOf: (tag: Tag) => tag.imageCount,
         maxName: MAX_TAG_NAME,
         label: 'Add a tag',
         listLabel: 'Tags'
@@ -176,7 +177,41 @@ describe('TagEditor', () => {
   })
 })
 
+describe('NameCombobox counts', () => {
+  it('shows the number its countOf gives, so models can be counted instead of images', async () => {
+    const lighting = { id: 5, name: 'lighting', modelCount: 7 }
+    render(NameCombobox<typeof lighting>, {
+      props: {
+        items: [lighting],
+        excluded: [],
+        onpick: vi.fn(),
+        countOf: (tag: typeof lighting) => tag.modelCount,
+        maxName: MAX_TAG_NAME,
+        label: 'Add a model tag',
+        listLabel: 'Model tags'
+      }
+    })
+    await fireEvent.input(screen.getByRole('combobox', { name: 'Add a model tag' }), {
+      target: { value: 'light' }
+    })
+    expect(screen.getByRole('option', { name: /^lighting\s+7$/ })).toBeTruthy()
+  })
+})
+
 describe('SidebarTags', () => {
+  it('never lists model tags', async () => {
+    const harness = testServices(sampleLibrary(), {
+      listTags: async () => [RED],
+      listModelTags: async () => [{ id: 9, name: 'lighting', modelCount: 3 }]
+    })
+    await Promise.all([harness.services.tags.load(), harness.services.modelTags.load()])
+    render(SidebarTags, { context: harness.context })
+    expect(
+      within(screen.getByRole('list', { name: 'Tags' })).getAllByRole('listitem')
+    ).toHaveLength(1)
+    expect(screen.queryByText(/lighting/)).toBeNull()
+  })
+
   it('opens a tag’s images and renames, merges and deletes through dialogs', async () => {
     const harness = testServices(sampleLibrary(), {
       listTags: async () => [RED, BLUE],
