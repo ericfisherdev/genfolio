@@ -3,10 +3,11 @@
   import { ModelKind } from '@shared/generation-kinds'
   import { EMPTY_MODEL_FIELDS } from '@shared/models'
   import { getAppServices } from '../lib/app-context'
+  import { RouteKind } from '../lib/routing/route'
   import ModelDetailPanel from './ModelDetailPanel.svelte'
   import ModelForm, { type ModelDraft } from './ModelForm.svelte'
 
-  const { models } = getAppServices()
+  const { models, modelTags, router } = getAppServices()
   const count = new Intl.NumberFormat()
   const SEARCH_DELAY_MS = 250
 
@@ -17,6 +18,19 @@
   // load() reads the list it replaces, so it must not be tracked or it would re-run itself.
   $effect(() => {
     untrack(() => void models.load())
+  })
+  $effect(() => {
+    untrack(() => void modelTags.load())
+  })
+
+  // A link such as #/models?kind=lora&identity=x opens that model; a later link opens another.
+  $effect(() => {
+    const target = router.route.kind === RouteKind.Models ? router.route.model : undefined
+    if (!target) return
+    untrack(() => {
+      adding = false
+      void models.select(target)
+    })
   })
   onDestroy(() => clearTimeout(searchTimer))
 
@@ -66,6 +80,17 @@
         <option value={base}>{base}</option>
       {/each}
     </select>
+    <select
+      aria-label="Model tag"
+      value={models.modelTagId ?? ''}
+      onchange={(event) =>
+        void models.filter({ modelTagId: Number(event.currentTarget.value) || undefined })}
+    >
+      <option value="">Any tag</option>
+      {#each modelTags.tags as tag (tag.id)}
+        <option value={tag.id}>{tag.name} ({tag.modelCount})</option>
+      {/each}
+    </select>
     <button
       type="button"
       class="chip-toggle"
@@ -90,7 +115,8 @@
           !models.text &&
           !models.kind &&
           !models.baseModel &&
-          !models.withoutInfo
+          !models.withoutInfo &&
+          !models.modelTagId
             ? 'No models yet. Models appear once the library has images made with them, or add one.'
             : 'No models match.'}
         </p>
@@ -113,6 +139,13 @@
                     ? ''
                     : ' · no info'}
                 </span>
+                {#if item.tags.length > 0}
+                  <span class="tags">
+                    {#each item.tags as tag (tag.id)}
+                      <span class="tag">{tag.name}</span>
+                    {/each}
+                  </span>
+                {/if}
               </button>
             </li>
           {/each}
@@ -249,6 +282,19 @@
   .sub {
     color: var(--color-text-muted);
     font-size: 0.8rem;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+  }
+  .tag {
+    padding: 0 var(--space-2);
+    background: var(--color-selected);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
   }
   .empty {
     color: var(--color-text-muted);

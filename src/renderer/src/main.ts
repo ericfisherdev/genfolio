@@ -24,6 +24,7 @@ import { LibraryState } from './lib/state/library.svelte'
 import { refreshAfterAlbumChange, refreshAfterTagChange } from './lib/state/refresh-results'
 import { SelectionState } from './lib/state/selection.svelte'
 import { TagsState } from './lib/state/tags.svelte'
+import { ModelTagsState } from './lib/state/model-tags.svelte'
 import { RootRefreshBatcher } from './lib/state/root-refresh-batcher'
 import { ScanProgressState } from './lib/state/scan-progress.svelte'
 import { UpdateNotices } from './lib/state/update-notices'
@@ -46,6 +47,7 @@ const gallery = new GalleryState(api)
 const facets = new FacetsState(api)
 const deletion = new ImageDeletion(api, library, () => void library.refresh())
 const router = new RouterState(windowHashLocation(window))
+const models = new ModelsState(api, library)
 const services: AppServices = {
   api,
   router,
@@ -77,7 +79,8 @@ const services: AppServices = {
     }
   ),
   modelFolders: new ModelFoldersState(api, library),
-  models: new ModelsState(api, library),
+  models,
+  modelTags: new ModelTagsState(api, library, () => void models.refresh()),
   civitaiBrowse: new CivitaiBrowseState(api, library),
   downloads: new DownloadsState(api, library),
   civitaiKey: new CivitaiKeyState(api, library),

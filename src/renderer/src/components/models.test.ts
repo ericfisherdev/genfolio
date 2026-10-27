@@ -9,6 +9,8 @@ import {
   type ModelEntry,
   type ModelList
 } from '@shared/models'
+import type { ModelTag, ModelTagRef } from '@shared/model-tags'
+import { nameKey } from '@shared/name-key'
 import { RouteKind } from '../lib/routing/route'
 import { sampleLibrary, testServices, type TestServices } from '../lib/testing/app-services'
 import AppShell from './AppShell.svelte'
@@ -24,6 +26,7 @@ const entry = (fields: Partial<ModelEntry> = {}): ModelEntry => ({
   baseModel: null,
   triggerWords: [],
   strength: null,
+  tags: [],
   ...fields
 })
 
@@ -291,5 +294,147 @@ describe('Models navigation', () => {
     services.router.navigate({ kind: RouteKind.Models })
     render(Sidebar, { context })
     expect(screen.getByRole('button', { name: 'Models' }).getAttribute('aria-current')).toBe('page')
+  })
+})
+
+/** A model "detail" and a tag vocabulary kept in memory, served through the tag and model calls. */
+function taggingApi(vocabulary: ModelTag[] = []): Partial<GenfolioApi> & { tagged: ModelTagRef[] } {
+  const tagged: ModelTagRef[] = []
+  const withTags = <T extends ModelEntry>(model: T): T => ({ ...model, tags: [...tagged] })
+  const countOf = (tag: ModelTag): ModelTag => ({
+    ...tag,
+    modelCount: tagged.some((ref) => ref.id === tag.id) ? 1 : 0
+  })
+  return {
+    tagged,
+    listModels: async (query) =>
+      list(
+        query.modelTagId === undefined || tagged.some((ref) => ref.id === query.modelTagId)
+          ? [withTags(entry())]
+          : []
+      ),
+    getModel: async () => withTags(detail()),
+    listModelTags: async () => vocabulary.map(countOf),
+    createModelTag: async (name) => {
+      const existing = vocabulary.find((tag) => nameKey(tag.name) === nameKey(name))
+      if (existing) return { outcome: ChangeOutcome.Duplicate, existing: countOf(existing) }
+      const tag = { id: vocabulary.length + 1, name, modelCount: 0 }
+      vocabulary.push(tag)
+      return { outcome: ChangeOutcome.Done, tag }
+    },
+    applyModelTag: async (tagId) => {
+      const tag = vocabulary.find((candidate) => candidate.id === tagId)
+      if (tag && !tagged.some((ref) => ref.id === tagId))
+        tagged.push({ id: tag.id, name: tag.name })
+      return tag !== undefined
+    },
+    removeModelTag: async (tagId) => {
+      const at = tagged.findIndex((ref) => ref.id === tagId)
+      if (at >= 0) tagged.splice(at, 1)
+      return at >= 0
+    }
+  }
+}
+
+describe('Model tags on the Models page', () => {
+  it('adds a tag in the detail panel and shows it there and on the list row, then removes it', async () => {
+    const { context } = harness(taggingApi())
+    render(ModelsView, { context })
+    await fireEvent.click(await screen.findByRole('button', { name: /detail/ }))
+    const panel = await screen.findByRole('article', { name: 'detail details' })
+    const box = within(panel).getByRole('combobox', { name: 'Add a model tag' })
+    await fireEvent.input(box, { target: { value: 'lighting' } })
+    await fireEvent.keyDown(box, { key: 'Enter' })
+
+    const chips = await within(panel).findByRole('list', { name: 'Tags of this model' })
+    expect(within(chips).getByText('lighting')).toBeTruthy()
+    const row = within(screen.getByRole('list', { name: 'Models' })).getByRole('button', {
+      name: /detail/
+    })
+    await waitFor(() => expect(within(row).getByText('lighting')).toBeTruthy())
+
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Remove tag lighting' }))
+    await waitFor(() =>
+      expect(within(panel).queryByRole('list', { name: 'Tags of this model' })).toBeNull()
+    )
+    await waitFor(() => expect(within(row).queryByText('lighting')).toBeNull())
+  })
+
+  it('reuses an existing tag typed in another case or Unicode form, and creates a new name', async () => {
+    const api = taggingApi([{ id: 1, name: 'Élan', modelCount: 0 }])
+    const createModelTag = vi.spyOn(
+      api as { createModelTag: GenfolioApi['createModelTag'] },
+      'createModelTag'
+    )
+    const { context } = harness(api)
+    render(ModelsView, { context })
+    await fireEvent.click(await screen.findByRole('button', { name: /detail/ }))
+    const panel = await screen.findByRole('article', { name: 'detail details' })
+    const box = within(panel).getByRole('combobox', { name: 'Add a model tag' })
+    await within(screen.getByRole('combobox', { name: 'Model tag' })).findByRole('option', {
+      name: 'Élan (0)'
+    })
+
+    const decomposed = 'E\u0301LAN'
+    await fireEvent.input(box, { target: { value: decomposed } })
+    expect(screen.queryByText(`Create “${decomposed}”`)).toBeNull()
+    await fireEvent.keyDown(box, { key: 'Enter' })
+    await within(panel).findByText('Élan')
+    expect(createModelTag).not.toHaveBeenCalled()
+
+    await fireEvent.input(box, { target: { value: 'disney' } })
+    await fireEvent.keyDown(box, { key: 'Enter' })
+    await within(panel).findByText('disney')
+    expect(createModelTag).toHaveBeenCalledWith('disney')
+  })
+
+  it('offers each tag with how many models carry it and narrows the list by one', async () => {
+    const api = taggingApi([{ id: 1, name: 'lighting', modelCount: 0 }])
+    const listModels = vi.spyOn(api as { listModels: GenfolioApi['listModels'] }, 'listModels')
+    const { context } = harness(api)
+    render(ModelsView, { context })
+    await screen.findByRole('list', { name: 'Models' })
+    const filter = await screen.findByRole('combobox', { name: 'Model tag' })
+    await waitFor(() =>
+      expect(within(filter).getByRole('option', { name: 'lighting (0)' })).toBeTruthy()
+    )
+    await fireEvent.change(filter, { target: { value: '1' } })
+    await waitFor(() =>
+      expect(listModels).toHaveBeenLastCalledWith({ offset: 0, limit: 100, modelTagId: 1 })
+    )
+    expect(await screen.findByText('No models match.')).toBeTruthy()
+  })
+
+  it('opens the model a link names, and a later link opens another', async () => {
+    const getModel = vi.fn(async ({ identity }: { identity: string }) =>
+      detail({ identity, name: identity })
+    )
+    const { context, services } = harness({ listModels: async () => list([entry()]), getModel })
+    services.router.navigate({
+      kind: RouteKind.Models,
+      model: { kind: ModelKind.Lora, identity: 'detail' }
+    })
+    render(ModelsView, { context })
+    expect(await screen.findByRole('article', { name: 'detail details' })).toBeTruthy()
+    services.router.navigate({
+      kind: RouteKind.Models,
+      model: { kind: ModelKind.Checkpoint, identity: 'alpha' }
+    })
+    expect(await screen.findByRole('article', { name: 'alpha details' })).toBeTruthy()
+    expect(getModel).toHaveBeenLastCalledWith({ kind: ModelKind.Checkpoint, identity: 'alpha' })
+  })
+
+  it('shows the plain Models page for a malformed link', async () => {
+    const getModel = vi.fn()
+    const { context, services, hash } = harness({
+      listModels: async () => list([entry()]),
+      getModel
+    })
+    hash.change('#/models?kind=sampler&identity=detail')
+    expect(services.router.route).toEqual({ kind: RouteKind.Models })
+    render(ModelsView, { context })
+    await screen.findByRole('list', { name: 'Models' })
+    expect(getModel).not.toHaveBeenCalled()
+    expect(screen.getByText(/Choose a model/)).toBeTruthy()
   })
 })

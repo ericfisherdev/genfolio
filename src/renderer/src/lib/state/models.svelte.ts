@@ -49,6 +49,8 @@ export class ModelsState {
   kind: ModelKind | undefined = $state()
   baseModel: string | undefined = $state()
   withoutInfo = $state(false)
+  /** Only models carrying this model tag. */
+  modelTagId: number | undefined = $state()
   /** A request to Civitai is in flight, so another one must wait. */
   civitaiBusy = $state(false)
   selected: ModelKey | undefined = $state.raw()
@@ -99,13 +101,21 @@ export class ModelsState {
     kind?: ModelKind | undefined
     baseModel?: string | undefined
     withoutInfo?: boolean
+    modelTagId?: number | undefined
   }): Promise<void> {
     if ('text' in changes) this.text = changes.text ?? ''
     if ('kind' in changes) this.kind = changes.kind
     if ('baseModel' in changes) this.baseModel = changes.baseModel
     if ('withoutInfo' in changes) this.withoutInfo = changes.withoutInfo ?? false
+    if ('modelTagId' in changes) this.modelTagId = changes.modelTagId
     this.items = []
     await this.load()
+  }
+
+  /** Reloads the list and the shown model, after model tags changed. */
+  async refresh(): Promise<void> {
+    const shown = this.selected
+    await Promise.all([this.load(), shown ? this.select(shown) : undefined])
   }
 
   /** Shows a model's details; undefined closes them. */
@@ -282,7 +292,8 @@ export class ModelsState {
       ...(this.text.trim() ? { text: this.text.trim() } : {}),
       ...(this.kind ? { kind: this.kind } : {}),
       ...(this.baseModel ? { baseModel: this.baseModel } : {}),
-      ...(this.withoutInfo ? { withoutInfo: true as const } : {})
+      ...(this.withoutInfo ? { withoutInfo: true as const } : {}),
+      ...(this.modelTagId ? { modelTagId: this.modelTagId } : {})
     }
   }
 

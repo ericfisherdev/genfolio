@@ -61,6 +61,7 @@
     items={tags.tags}
     excluded={imageTags.map((tag) => tag.id)}
     onpick={(choice) => void add(choice)}
+    countOf={(tag) => tag.imageCount}
     maxName={MAX_TAG_NAME}
     label="Add a tag"
     listLabel="Tags"

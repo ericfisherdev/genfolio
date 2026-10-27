@@ -17,7 +17,8 @@ const entry: ModelEntry = {
   hasInfo: false,
   baseModel: null,
   triggerWords: [],
-  strength: null
+  strength: null,
+  tags: []
 }
 
 const civitai: CivitaiInfo = {

@@ -164,6 +164,65 @@ describe('SqliteModelInfoRepository', () => {
     expect(page.baseModels).toEqual(['Pony', 'SDXL 1.0'])
   })
 
+  describe('model tags', () => {
+    let tags: SqliteModelTagRepository
+    beforeEach(() => {
+      tags = new SqliteModelTagRepository(db)
+    })
+    const tagNames = (query: Partial<ModelListQuery>): Record<string, string[]> =>
+      Object.fromEntries(
+        models
+          .list({ ...PAGE, ...query })
+          .items.map((item) => [item.name, item.tags.map((tag) => tag.name)])
+      )
+
+    it('lists each model with its tags in name order, and none as an empty list', () => {
+      const lighting = tags.create('Lighting', 1)
+      const anime = tags.create('anime', 1)
+      tags.apply(lighting.id, lora('detail'), 2)
+      tags.apply(anime.id, lora('detail'), 2)
+      tags.apply(anime.id, lora('style'), 2)
+      expect(tagNames({ kind: ModelKind.Lora })).toEqual({
+        detail: ['anime', 'Lighting'],
+        style: ['anime']
+      })
+      expect(tagNames({ kind: ModelKind.Checkpoint })).toEqual({ alpha: [], beta: [] })
+      expect(models.find(lora('detail'))?.tags).toEqual([
+        { id: anime.id, name: 'anime' },
+        { id: lighting.id, name: 'Lighting' }
+      ])
+    })
+
+    it('does not mix a checkpoint and a LoRA that share an identity', () => {
+      const tag = tags.create('shared', 1)
+      db.prepare(
+        "INSERT INTO models (kind, identity, display_name) VALUES ('checkpoint', 'detail', 'detail')"
+      ).run()
+      tags.apply(tag.id, lora('detail'), 2)
+      expect(models.find({ kind: ModelKind.Checkpoint, identity: 'detail' })?.tags).toEqual([])
+    })
+
+    it('narrows the list and its total to the models carrying a tag', () => {
+      const lighting = tags.create('lighting', 1)
+      tags.create('unused', 1)
+      tags.apply(lighting.id, lora('detail'), 2)
+      tags.apply(lighting.id, { kind: ModelKind.Checkpoint, identity: 'alpha' }, 2)
+      const page = models.list({ ...PAGE, modelTagId: lighting.id })
+      expect(page.total).toBe(2)
+      expect(page.items.map((item) => item.name)).toEqual(['alpha', 'detail'])
+      expect(models.list({ ...PAGE, modelTagId: lighting.id, kind: ModelKind.Lora }).total).toBe(1)
+      expect(models.list({ ...PAGE, modelTagId: lighting.id + 100 }).total).toBe(0)
+    })
+
+    it('shows every tag of a model that a tag filter selects', () => {
+      const lighting = tags.create('lighting', 1)
+      const anime = tags.create('anime', 1)
+      tags.apply(lighting.id, lora('detail'), 2)
+      tags.apply(anime.id, lora('detail'), 2)
+      expect(tagNames({ modelTagId: lighting.id })).toEqual({ detail: ['anime', 'lighting'] })
+    })
+  })
+
   it('rejects a trigger word list that is not an array', () => {
     models.save(lora('detail'), detail, 5)
     expect(() =>

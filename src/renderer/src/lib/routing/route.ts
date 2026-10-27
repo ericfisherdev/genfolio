@@ -1,3 +1,4 @@
+import { modelKeySchema, type ModelKey } from '@shared/models'
 import type { SearchFilters } from '@shared/search'
 import { filtersKey, parseFilters, writeFilters } from './filter-params'
 
@@ -35,7 +36,8 @@ export type Route =
     }
   | { readonly kind: RouteKind.SimilarGroups }
   | { readonly kind: RouteKind.Settings }
-  | { readonly kind: RouteKind.Models }
+  /** The models page, with `model` open when a link names one. */
+  | { readonly kind: RouteKind.Models; readonly model?: ModelKey }
   | { readonly kind: RouteKind.Civitai }
   | { readonly kind: RouteKind.Image; readonly imageId: number }
   /** Plays the current results, from `startId` or their first image. */
@@ -94,7 +96,7 @@ export function parseRoute(hash: string): Route {
   const filters = parseFilters(params)
   const withFilters = filters ? { filters } : {}
   if (SETTINGS.test(path)) return { kind: RouteKind.Settings }
-  if (MODELS.test(path)) return { kind: RouteKind.Models }
+  if (MODELS.test(path)) return modelsRoute(params)
   if (CIVITAI.test(path)) return { kind: RouteKind.Civitai }
   if (SIMILAR_GROUPS.test(path)) return { kind: RouteKind.SimilarGroups }
   const group = SIMILAR_GROUP.exec(path)
@@ -114,11 +116,25 @@ export function parseRoute(hash: string): Route {
   return ALL.test(path) ? { kind: RouteKind.All, ...withFilters } : ALL_PHOTOS
 }
 
+/** The Models page opening the model the parameters name; none, or a malformed one, is the plain page. */
+function modelsRoute(params: URLSearchParams): Route {
+  const model = modelKeySchema.safeParse({
+    kind: params.get('kind'),
+    identity: params.get('identity')
+  })
+  return model.success ? { kind: RouteKind.Models, model: model.data } : { kind: RouteKind.Models }
+}
+
+function formatModelsRoute(model: ModelKey | undefined): string {
+  if (!model) return '#/models'
+  return `#/models?${new URLSearchParams({ kind: model.kind, identity: model.identity })}`
+}
+
 export function formatRoute(route: Route): string {
   if (route.kind === RouteKind.Image) return `#/image/${route.imageId}`
   if (route.kind === RouteKind.SimilarGroups) return '#/similar'
   if (route.kind === RouteKind.Settings) return '#/settings'
-  if (route.kind === RouteKind.Models) return '#/models'
+  if (route.kind === RouteKind.Models) return formatModelsRoute(route.model)
   if (route.kind === RouteKind.Civitai) return '#/civitai'
   if (route.kind === RouteKind.Slideshow) {
     return route.startId === undefined ? '#/slideshow' : `#/slideshow?start=${route.startId}`

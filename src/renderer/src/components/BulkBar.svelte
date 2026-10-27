@@ -83,6 +83,7 @@
       items={tags.tags}
       excluded={[]}
       onpick={(choice) => void tag(choice)}
+      countOf={(tag) => tag.imageCount}
       maxName={MAX_TAG_NAME}
       label="Tag them"
       listLabel="Tags"
