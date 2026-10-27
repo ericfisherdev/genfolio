@@ -16,10 +16,21 @@
   import SettingsView from './SettingsView.svelte'
   import SimilarGroupsView from './SimilarGroupsView.svelte'
   import SlideshowView from './SlideshowView.svelte'
+  import StatsView from './StatsView.svelte'
   import TopBar from './TopBar.svelte'
 
-  const { library, scans, router, gallery, facets, tags, selection, albums, similarity } =
-    getAppServices()
+  const {
+    library,
+    scans,
+    router,
+    gallery,
+    facets,
+    tags,
+    selection,
+    albums,
+    similarity,
+    modelStats
+  } = getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
   // changed, whether the gallery or the detail view is on screen. The shell stays mounted in
@@ -34,6 +45,7 @@
     untrack(() => {
       void gallery.refresh()
       if (gallery.query) void facets.load(gallery.query)
+      void modelStats.refresh()
     })
   })
 
@@ -95,6 +107,9 @@
     {:else if router.route.kind === RouteKind.Models}
       <NoticeBar />
       <ModelsView />
+    {:else if router.route.kind === RouteKind.Stats}
+      <NoticeBar />
+      <StatsView />
     {:else if router.route.kind === RouteKind.Settings}
       <NoticeBar />
       <SettingsView />
