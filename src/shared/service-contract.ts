@@ -34,6 +34,7 @@ import {
 } from './models'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
+import { modelTagChangeSchema, modelTagNameSchema, modelTagSchema } from './model-tags'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
 import {
   MAX_GROUPS_PER_PAGE,
@@ -69,6 +70,13 @@ export enum ServiceMethod {
   TagsDelete = 'tags.delete',
   TagsApply = 'tags.apply',
   TagsRemove = 'tags.remove',
+  ModelTagsList = 'model-tags.list',
+  ModelTagsOfModel = 'model-tags.of-model',
+  ModelTagsCreate = 'model-tags.create',
+  ModelTagsRename = 'model-tags.rename',
+  ModelTagsDelete = 'model-tags.delete',
+  ModelTagsApply = 'model-tags.apply',
+  ModelTagsRemove = 'model-tags.remove',
   AlbumsList = 'albums.list',
   AlbumsCreate = 'albums.create',
   AlbumsCreateSmart = 'albums.create-smart',
@@ -172,6 +180,32 @@ export const serviceContract = {
   [ServiceMethod.TagsRemove]: {
     params: z.object({ tagIds, imageIds: markIds }).strict(),
     result: z.object({ changed: z.number().int().nonnegative() })
+  },
+  [ServiceMethod.ModelTagsList]: { params: noParams, result: z.array(modelTagSchema).readonly() },
+  [ServiceMethod.ModelTagsOfModel]: {
+    params: modelKeySchema,
+    result: z.array(modelTagSchema).readonly()
+  },
+  [ServiceMethod.ModelTagsCreate]: {
+    params: z.object({ name: modelTagNameSchema }).strict(),
+    result: modelTagChangeSchema
+  },
+  [ServiceMethod.ModelTagsRename]: {
+    params: z.object({ id: tagId, name: modelTagNameSchema }).strict(),
+    result: modelTagChangeSchema
+  },
+  [ServiceMethod.ModelTagsDelete]: {
+    params: z.object({ id: tagId }).strict(),
+    result: z.object({ deleted: z.boolean() })
+  },
+  [ServiceMethod.ModelTagsApply]: {
+    params: z.object({ tagId, key: modelKeySchema }).strict(),
+    /** False when the model is not listed or the tag is gone. */
+    result: z.object({ applied: z.boolean() })
+  },
+  [ServiceMethod.ModelTagsRemove]: {
+    params: z.object({ tagId, key: modelKeySchema }).strict(),
+    result: z.object({ removed: z.boolean() })
   },
   [ServiceMethod.AlbumsList]: { params: noParams, result: z.array(albumSchema).readonly() },
   [ServiceMethod.AlbumsCreate]: {

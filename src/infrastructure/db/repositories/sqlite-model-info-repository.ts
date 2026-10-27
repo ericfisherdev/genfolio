@@ -164,6 +164,7 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   private readonly insertNew: Database.Statement
   private readonly deleteEntry: Database.Statement
   private readonly deleteOrphanLink: Database.Statement
+  private readonly deleteOrphanTagLinks: Database.Statement
 
   constructor(private readonly db: Database.Database) {
     db.function('fold', { deterministic: true }, (text: unknown) =>
@@ -208,11 +209,16 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
        ON CONFLICT (kind, identity) DO NOTHING`
     )
     this.deleteEntry = db.prepare('DELETE FROM model_info WHERE kind = ? AND identity = ?')
-    // A model added by hand leaves the list with its entry, so its Civitai link goes too rather
-    // than lingering unseen to reattach to a later model of the same name.
+    // A model added by hand leaves the list with its entry, so its Civitai link and its tags go
+    // too rather than lingering unseen to reattach to a later model of the same name.
+    const notInLibrary = `NOT EXISTS (
+      SELECT 1 FROM models m WHERE m.kind = @kind AND m.identity = @identity)`
     this.deleteOrphanLink = db.prepare(
-      `DELETE FROM model_civitai WHERE kind = @kind AND identity = @identity
-       AND NOT EXISTS (SELECT 1 FROM models m WHERE m.kind = @kind AND m.identity = @identity)`
+      `DELETE FROM model_civitai WHERE kind = @kind AND identity = @identity AND ${notInLibrary}`
+    )
+    this.deleteOrphanTagLinks = db.prepare(
+      `DELETE FROM model_tag_links WHERE kind = @kind AND identity = @identity
+       AND ${notInLibrary}`
     )
   }
 
@@ -252,7 +258,10 @@ export class SqliteModelInfoRepository implements ModelInfoRepository {
   clear({ kind, identity }: ModelKey): boolean {
     return this.db.transaction(() => {
       const removed = this.deleteEntry.run(kind, identity).changes > 0
-      if (removed) this.deleteOrphanLink.run({ kind, identity })
+      if (removed) {
+        this.deleteOrphanLink.run({ kind, identity })
+        this.deleteOrphanTagLinks.run({ kind, identity })
+      }
       return removed
     })()
   }

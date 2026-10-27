@@ -31,6 +31,8 @@ const LATEST_TABLES = [
   'model_civitai',
   'model_hashes',
   'model_info',
+  'model_tag_links',
+  'model_tags',
   'models',
   'prompt_fts',
   'prompt_fts_config',

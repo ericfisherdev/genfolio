@@ -204,6 +204,58 @@ export class UnknownTagError extends Error {
   }
 }
 
+/** A model tag with how many listed models carry it. */
+export interface ModelTagRecord {
+  readonly id: number
+  readonly name: string
+  readonly modelCount: number
+}
+
+/**
+ * User-owned tags on checkpoints and LoRAs, a vocabulary apart from image tags. Links are
+ * keyed by the model's (kind, identity), so they outlive the pruning of its `models` row.
+ * Names are unique on nameKey() (case- and accent-folded); `name` must already be trimmed
+ * and valid.
+ */
+export interface ModelTagRepository {
+  /** Every tag with how many listed models carry it, by name. */
+  list(): ModelTagRecord[]
+  /** The model's tags, by name; empty for a model with none. */
+  tagsOf(key: ModelKey): ModelTagRecord[]
+  /** Throws DuplicateModelTagError when a tag with the same key exists. */
+  create(name: string, createdAt: number): ModelTagRecord
+  /**
+   * Throws UnknownModelTagError when the tag is gone, DuplicateModelTagError when another tag
+   * has the new name's key (renaming to a different case or spelling of the same key is
+   * allowed).
+   */
+  rename(id: number, name: string): ModelTagRecord
+  /** Returns false when the tag was already gone; links cascade. */
+  delete(id: number): boolean
+  /**
+   * Tags the model; applying a tag it already carries changes nothing. Returns false, linking
+   * nothing, when the model is not listed (it has neither a `models` row nor a hand-added
+   * entry). Throws UnknownModelTagError when the tag is gone.
+   */
+  apply(tagId: number, key: ModelKey, createdAt: number): boolean
+  /** Returns false when the model did not carry the tag. */
+  remove(tagId: number, key: ModelKey): boolean
+}
+
+export class DuplicateModelTagError extends Error {
+  constructor(readonly existing: ModelTagRecord) {
+    super(`A model tag named "${existing.name}" already exists`)
+    this.name = 'DuplicateModelTagError'
+  }
+}
+
+export class UnknownModelTagError extends Error {
+  constructor(readonly tagId: number) {
+    super(`Model tag ${tagId} does not exist`)
+    this.name = 'UnknownModelTagError'
+  }
+}
+
 /** An album with its size and cover. */
 export interface AlbumRecord {
   readonly id: number

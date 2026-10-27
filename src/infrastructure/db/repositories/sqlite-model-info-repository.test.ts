@@ -3,6 +3,7 @@ import { ModelKind } from '@shared/generation-kinds'
 import { EMPTY_MODEL_FIELDS, type ModelFields, type ModelListQuery } from '@shared/models'
 import { searchLibrary } from '../testing/search-library'
 import { SqliteModelInfoRepository } from './sqlite-model-info-repository'
+import { SqliteModelTagRepository } from './sqlite-model-tag-repository'
 
 let models: SqliteModelInfoRepository
 let db: ReturnType<typeof searchLibrary>['db']
@@ -88,6 +89,21 @@ describe('SqliteModelInfoRepository', () => {
     expect(models.clear(lora('ghost'))).toBe(true)
     expect(models.find(lora('detail'))).toMatchObject({ hasInfo: false, triggerWords: [] })
     expect(models.find(lora('ghost'))).toBeUndefined()
+  })
+
+  it('clears the tags of a hand-added model with its entry, and keeps a library model’s', () => {
+    const tags = new SqliteModelTagRepository(db)
+    const lighting = tags.create('lighting', 1)
+    models.save(lora('detail'), detail, 5)
+    models.create(lora('ghost'), 'Ghost', detail, 5)
+    tags.apply(lighting.id, lora('detail'), 6)
+    tags.apply(lighting.id, lora('ghost'), 6)
+
+    models.clear(lora('detail'))
+    expect(tags.tagsOf(lora('detail')).map((tag) => tag.name)).toEqual(['lighting'])
+    models.clear(lora('ghost'))
+    expect(tags.tagsOf(lora('ghost'))).toEqual([])
+    expect(tags.list()).toEqual([{ id: lighting.id, name: 'lighting', modelCount: 1 }])
   })
 
   it('keeps an entry after the images that used the model are gone', () => {

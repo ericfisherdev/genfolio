@@ -36,7 +36,7 @@ function setup(
 
 describe('registerLibraryChannels', () => {
   it('registers every library channel', () => {
-    // Registered by the image, tag, album and settings registrars instead.
+    // Registered by the image, tag, model tag, album and settings registrars instead.
     const imageChannels = [
       IpcChannel.RevealImage,
       IpcChannel.CopyImagePath,
@@ -50,6 +50,13 @@ describe('registerLibraryChannels', () => {
       IpcChannel.DeleteTag,
       IpcChannel.ApplyTags,
       IpcChannel.RemoveTags,
+      IpcChannel.ListModelTags,
+      IpcChannel.ModelTagsOf,
+      IpcChannel.CreateModelTag,
+      IpcChannel.RenameModelTag,
+      IpcChannel.DeleteModelTag,
+      IpcChannel.ApplyModelTag,
+      IpcChannel.RemoveModelTag,
       IpcChannel.ListAlbums,
       IpcChannel.CreateAlbum,
       IpcChannel.CreateSmartAlbum,
