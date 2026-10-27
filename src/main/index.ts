@@ -39,6 +39,7 @@ import { LogLevel, RotatingFileLog } from '@infrastructure/logging/rotating-file
 import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
+import { registerModelTagChannels } from './ipc/model-tag-channels'
 import { registerTagChannels } from './ipc/tag-channels'
 import { registerSettingsChannels } from './ipc/settings-channels'
 import { registerModelChannels } from './ipc/model-channels'
@@ -209,6 +210,7 @@ function onReady(): void {
   registerLibraryChannels(ipc, libraryService, pickFolderWithDialog)
   registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
   registerTagChannels(ipc, libraryService)
+  registerModelTagChannels(ipc, libraryService)
   registerAlbumChannels(ipc, libraryService)
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)

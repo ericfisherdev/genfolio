@@ -21,6 +21,7 @@ import { CivitaiBrowseService } from '@application/civitai-browse-service'
 import { ModelCivitaiService } from '@application/model-civitai-service'
 import { ModelInfoService } from '@application/model-info-service'
 import type { CivitaiCatalog } from '@domain/civitai'
+import { ModelTagService } from '@application/model-tag-service'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
 import type { ImageId, RootId } from '@domain/library'
@@ -46,6 +47,7 @@ import {
 } from '@infrastructure/logging/rotating-file-log'
 import { ChokidarFileWatcher } from '@infrastructure/fs/chokidar-file-watcher'
 import { SqliteSlideshowPresetRepository } from '@infrastructure/db/repositories/sqlite-slideshow-preset-repository'
+import { SqliteModelTagRepository } from '@infrastructure/db/repositories/sqlite-model-tag-repository'
 import { SqliteTagRepository } from '@infrastructure/db/repositories/sqlite-tag-repository'
 import { SqliteLibraryRootRepository } from '@infrastructure/db/repositories/sqlite-library-root-repository'
 import { createImageSelector } from '@infrastructure/db/search/create-image-selector'
@@ -150,6 +152,7 @@ export function createLibraryHandlers(
   const civitaiLinks = new SqliteModelCivitaiRepository(db)
   const modelCivitai = new ModelCivitaiService(civitai, civitaiLinks, civitaiLinks, modelInfo, now)
   const tags = new TagService(new SqliteTagRepository(db), now)
+  const modelTags = new ModelTagService(new SqliteModelTagRepository(db), now)
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
   const facets = new SqliteFacetReader(db, selector)
@@ -244,6 +247,17 @@ export function createLibraryHandlers(
     }),
     [ServiceMethod.TagsRemove]: async ({ tagIds, imageIds }) => ({
       changed: tags.remove(tagIds, imageIds as ImageId[])
+    }),
+    [ServiceMethod.ModelTagsList]: async () => modelTags.list(),
+    [ServiceMethod.ModelTagsOfModel]: async (key) => modelTags.tagsOf(key),
+    [ServiceMethod.ModelTagsCreate]: async ({ name }) => modelTags.create(name),
+    [ServiceMethod.ModelTagsRename]: async ({ id, name }) => modelTags.rename(id, name),
+    [ServiceMethod.ModelTagsDelete]: async ({ id }) => ({ deleted: modelTags.delete(id) }),
+    [ServiceMethod.ModelTagsApply]: async ({ tagId, key }) => ({
+      applied: modelTags.apply(tagId, key)
+    }),
+    [ServiceMethod.ModelTagsRemove]: async ({ tagId, key }) => ({
+      removed: modelTags.remove(tagId, key)
     }),
     [ServiceMethod.AlbumsList]: async () => albums.list(),
     [ServiceMethod.AlbumsCreate]: async ({ name }) => albums.create(name),

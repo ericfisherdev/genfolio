@@ -8,6 +8,7 @@ import { similarityMigration } from './007-similarity'
 import { modelInfoMigration } from './008-model-info'
 import { modelCivitaiMigration } from './009-model-civitai'
 import { similarGroupsStaleMigration } from './010-similar-groups-stale'
+import { modelTagsMigration } from './011-model-tags'
 import type { Migration } from './migration'
 
 /** Every schema migration, oldest first. Append new ones; never edit shipped ones. */
@@ -21,5 +22,6 @@ export const migrations: readonly Migration[] = [
   similarityMigration,
   modelInfoMigration,
   modelCivitaiMigration,
-  similarGroupsStaleMigration
+  similarGroupsStaleMigration,
+  modelTagsMigration
 ]

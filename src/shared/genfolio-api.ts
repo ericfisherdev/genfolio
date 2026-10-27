@@ -18,6 +18,7 @@ import type {
   ModelListQuery
 } from './models'
 import type { SearchFacets, SearchFilters } from './search'
+import type { ModelTag, ModelTagChange } from './model-tags'
 import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
 import type { AddRootViaDialogResult, RootSummary } from './library'
@@ -47,6 +48,13 @@ export enum IpcChannel {
   DeleteTag = 'tags:delete',
   ApplyTags = 'tags:apply',
   RemoveTags = 'tags:remove',
+  ListModelTags = 'model-tags:list',
+  ModelTagsOf = 'model-tags:of-model',
+  CreateModelTag = 'model-tags:create',
+  RenameModelTag = 'model-tags:rename',
+  DeleteModelTag = 'model-tags:delete',
+  ApplyModelTag = 'model-tags:apply',
+  RemoveModelTag = 'model-tags:remove',
   ListAlbums = 'albums:list',
   CreateAlbum = 'albums:create',
   CreateSmartAlbum = 'albums:create-smart',
@@ -142,6 +150,19 @@ export interface GenfolioApi {
   applyTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
   /** Resolves how many links were removed. */
   removeTags(tagIds: readonly number[], imageIds: readonly number[]): Promise<number>
+  /** Every model tag with how many listed models carry it, by name. Apart from image tags. */
+  listModelTags(): Promise<readonly ModelTag[]>
+  /** The model's tags, by name. */
+  getModelTags(key: ModelKey): Promise<readonly ModelTag[]>
+  /** Names are trimmed; a name folding to an existing model tag's is a Duplicate outcome. */
+  createModelTag(name: string): Promise<ModelTagChange>
+  renameModelTag(tagId: number, name: string): Promise<ModelTagChange>
+  /** Resolves false when the tag was already gone. */
+  deleteModelTag(tagId: number): Promise<boolean>
+  /** Resolves false when the model is not listed or the tag is gone. */
+  applyModelTag(tagId: number, key: ModelKey): Promise<boolean>
+  /** Resolves false when the model did not carry the tag. */
+  removeModelTag(tagId: number, key: ModelKey): Promise<boolean>
   /** Every album with its size and cover, by name. */
   listAlbums(): Promise<readonly Album[]>
   /** Creates an empty manual album; a name folding to an existing album's is a Duplicate. */
