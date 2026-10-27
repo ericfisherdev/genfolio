@@ -72,7 +72,10 @@ export interface SearchLibrary {
   modelId(kind: 'checkpoint' | 'lora', name: string): number
 }
 
-export function searchLibrary(): SearchLibrary {
+/** The six images above, or another set of generations numbered from 1 (1–3 in folder `a`). */
+export function searchLibrary(
+  source: Readonly<Record<number, StoredGeneration | null>> = SEARCH_LIBRARY
+): SearchLibrary {
   const db = migratedMemoryDb()
   const root = new SqliteLibraryRootRepository(db).add('/lib', 1)
   const directories = new SqliteDirectoryRepository(db)
@@ -82,7 +85,7 @@ export function searchLibrary(): SearchLibrary {
   const versions = new SqliteImageVersionCheck(db)
   const generations = new SqliteGenerationRepository(db, new SqliteModelCatalog(db), versions)
   const ids = new Map<number, ImageId>()
-  for (const [key, stored] of Object.entries(SEARCH_LIBRARY)) {
+  for (const [key, stored] of Object.entries(source)) {
     const n = Number(key)
     const [version] = images.upsertMany(
       [

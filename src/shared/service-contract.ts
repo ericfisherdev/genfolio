@@ -34,6 +34,12 @@ import {
 } from './models'
 import { addRootResultSchema, rootSummarySchema } from './library'
 import { albumChangeSchema, albumNameSchema, albumSchema } from './albums'
+import {
+  modelStatsOverviewSchema,
+  modelStatsQuerySchema,
+  modelUsageQuerySchema,
+  modelUsageSchema
+} from './model-stats'
 import { modelTagChangeSchema, modelTagNameSchema, modelTagSchema } from './model-tags'
 import { searchFacetsSchema, searchFiltersSchema } from './search'
 import {
@@ -77,6 +83,8 @@ export enum ServiceMethod {
   ModelTagsDelete = 'model-tags.delete',
   ModelTagsApply = 'model-tags.apply',
   ModelTagsRemove = 'model-tags.remove',
+  StatsOverview = 'stats.overview',
+  StatsModelUsage = 'stats.model-usage',
   AlbumsList = 'albums.list',
   AlbumsCreate = 'albums.create',
   AlbumsCreateSmart = 'albums.create-smart',
@@ -206,6 +214,15 @@ export const serviceContract = {
   [ServiceMethod.ModelTagsRemove]: {
     params: z.object({ tagId, key: modelKeySchema }).strict(),
     result: z.object({ removed: z.boolean() })
+  },
+  [ServiceMethod.StatsOverview]: {
+    params: modelStatsQuerySchema,
+    result: modelStatsOverviewSchema
+  },
+  [ServiceMethod.StatsModelUsage]: {
+    params: modelUsageQuerySchema,
+    /** null when no image uses the model: it is unknown, or only added by hand. */
+    result: modelUsageSchema.nullable()
   },
   [ServiceMethod.AlbumsList]: { params: noParams, result: z.array(albumSchema).readonly() },
   [ServiceMethod.AlbumsCreate]: {

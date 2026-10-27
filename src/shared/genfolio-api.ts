@@ -18,6 +18,7 @@ import type {
   ModelListQuery
 } from './models'
 import type { SearchFacets, SearchFilters } from './search'
+import type { ModelStatsOverview, ModelStatsQuery, ModelUsage } from './model-stats'
 import type { ModelTag, ModelTagChange } from './model-tags'
 import type { Tag, TagChange } from './tags'
 import type { CopyVariant } from './generation-kinds'
@@ -55,6 +56,8 @@ export enum IpcChannel {
   DeleteModelTag = 'model-tags:delete',
   ApplyModelTag = 'model-tags:apply',
   RemoveModelTag = 'model-tags:remove',
+  StatsOverview = 'stats:overview',
+  StatsModelUsage = 'stats:model-usage',
   ListAlbums = 'albums:list',
   CreateAlbum = 'albums:create',
   CreateSmartAlbum = 'albums:create-smart',
@@ -163,6 +166,14 @@ export interface GenfolioApi {
   applyModelTag(tagId: number, key: ModelKey): Promise<boolean>
   /** Resolves false when the model did not carry the tag. */
   removeModelTag(tagId: number, key: ModelKey): Promise<boolean>
+  /**
+   * Usage of checkpoints and LoRAs over the whole library: ranked models and the pairs used
+   * together. `modelTagId` keeps tagged models and pairs with a tagged side; `limit` (1-200,
+   * default 25) cuts each list. Counts are images, equal to the gallery of `filtersFor(row)`.
+   */
+  getModelStats(query?: ModelStatsQuery): Promise<ModelStatsOverview>
+  /** How one model is used; null when no image uses it (unknown, or only added by hand). */
+  getModelUsage(key: ModelKey, limit?: number): Promise<ModelUsage | null>
   /** Every album with its size and cover, by name. */
   listAlbums(): Promise<readonly Album[]>
   /** Creates an empty manual album; a name folding to an existing album's is a Duplicate. */

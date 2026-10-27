@@ -21,6 +21,7 @@ import { CivitaiBrowseService } from '@application/civitai-browse-service'
 import { ModelCivitaiService } from '@application/model-civitai-service'
 import { ModelInfoService } from '@application/model-info-service'
 import type { CivitaiCatalog } from '@domain/civitai'
+import { ModelStatsService } from '@application/model-stats-service'
 import { ModelTagService } from '@application/model-tag-service'
 import { TagService } from '@application/tag-service'
 import { generationText } from '@domain/generation-text'
@@ -54,7 +55,9 @@ import { createImageSelector } from '@infrastructure/db/search/create-image-sele
 import { SqliteSmartAlbumEvaluator } from '@infrastructure/db/search/sqlite-smart-album-evaluator'
 import { SqliteStoredFilterCodec } from '@infrastructure/db/search/stored-filter-codec'
 import { SqliteFacetReader } from '@infrastructure/db/search/sqlite-facet-reader'
+import { SqliteChangeCounter } from '@infrastructure/db/sqlite-change-counter'
 import { SqliteGalleryReader } from '@infrastructure/db/sqlite-gallery-reader'
+import { SqliteModelStatsReader } from '@infrastructure/db/sqlite-model-stats-reader'
 import { SqliteImageLocator } from '@infrastructure/db/sqlite-image-locator'
 import { NapiImageResizer } from '@infrastructure/imaging/napi-image-resizer'
 import { NodeDirectoryResolver } from '@infrastructure/fs/node-directory-resolver'
@@ -156,6 +159,10 @@ export function createLibraryHandlers(
   const selector = createImageSelector(db)
   const gallery = new SqliteGalleryReader(db, selector)
   const facets = new SqliteFacetReader(db, selector)
+  const modelStats = new ModelStatsService(
+    new SqliteModelStatsReader(db),
+    new SqliteChangeCounter(db, facets)
+  )
   const albums = new AlbumService(
     new SqliteAlbumRepository(db),
     new SqliteStoredFilterCodec(db),
@@ -259,6 +266,8 @@ export function createLibraryHandlers(
     [ServiceMethod.ModelTagsRemove]: async ({ tagId, key }) => ({
       removed: modelTags.remove(tagId, key)
     }),
+    [ServiceMethod.StatsOverview]: async (query) => modelStats.overview(query),
+    [ServiceMethod.StatsModelUsage]: async ({ key, limit }) => modelStats.usage(key, limit),
     [ServiceMethod.AlbumsList]: async () => albums.list(),
     [ServiceMethod.AlbumsCreate]: async ({ name }) => albums.create(name),
     [ServiceMethod.AlbumsCreateSmart]: async ({ name, filters }) =>

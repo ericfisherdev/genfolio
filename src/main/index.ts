@@ -40,6 +40,7 @@ import { registerGenerationChannels } from './ipc/generation-channels'
 import { registerImageChannels } from './ipc/image-channels'
 import { registerAlbumChannels } from './ipc/album-channels'
 import { registerModelTagChannels } from './ipc/model-tag-channels'
+import { registerStatsChannels } from './ipc/stats-channels'
 import { registerTagChannels } from './ipc/tag-channels'
 import { registerSettingsChannels } from './ipc/settings-channels'
 import { registerModelChannels } from './ipc/model-channels'
@@ -211,6 +212,7 @@ function onReady(): void {
   registerGenerationChannels(ipc, libraryService, (text) => clipboard.writeText(text))
   registerTagChannels(ipc, libraryService)
   registerModelTagChannels(ipc, libraryService)
+  registerStatsChannels(ipc, libraryService)
   registerAlbumChannels(ipc, libraryService)
   registerSlideshowChannels(ipc, libraryService)
   registerSimilarityChannels(ipc, libraryService)
