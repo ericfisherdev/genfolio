@@ -3,6 +3,7 @@ import type { ModelInfoRepository } from '@domain/repositories'
 import type { ModelKind } from '@shared/generation-kinds'
 import type { CivitaiInfo } from '@shared/model-civitai'
 import type { ModelTagRef } from '@shared/model-tags'
+import { modelTagsJson } from './model-tags-sql'
 import type {
   ModelDetail,
   ModelEntry,
@@ -106,11 +107,7 @@ const IMAGE_COUNT = `
        WHERE checkpoint_id = e.model_id OR refiner_id = e.model_id)
   END`
 
-// The model's tags by name, as JSON; links are keyed by (kind, identity), not by models.id.
-const TAGS = `
-  (SELECT json_group_array(json_object('id', t.id, 'name', t.name) ORDER BY t.name_key, t.id)
-   FROM model_tag_links l JOIN model_tags t ON t.id = l.tag_id
-   WHERE l.kind = e.kind AND l.identity = e.identity)`
+const TAGS = modelTagsJson('e')
 
 const words = (json: string | null): string[] => (json ? (JSON.parse(json) as string[]) : [])
 

@@ -5,110 +5,17 @@ import { GeneratorKind } from '@shared/generation-kinds'
 import { KeywordScope, SetMatchMode, type SearchFilters } from '@shared/search'
 import { SqliteGalleryReader } from '../sqlite-gallery-reader'
 import { migratedMemoryDb } from '../testing/migrated-memory-db'
+import { buildPerfLibrary, PERF_CHECKPOINTS, PERF_IMAGES } from '../testing/perf-library'
 import { createImageSelector } from './create-image-selector'
 import { SqliteFacetReader } from './sqlite-facet-reader'
 
-const IMAGES = 100_000
-const FOLDERS = 100
-const CHECKPOINTS = 50
-const LORAS = 500
-const TAGS = 50
-const MODEL_TAGS = 5
 /**
  * Per query, measured on the reference machine (i7-11800H, 8 cores, Node 24 in Electron's
  * runtime). Slower machines scale roughly linearly, so this gate is meaningful there only.
  */
 const BUDGET_MS = 200
 
-/** mulberry32: deterministic, so every run builds the same library, and well mixed. */
-function seeded(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const WORDS = Array.from({ length: 200 }, (_, index) => `word${index}`)
-
-/**
- * 100k images with generations, 50 checkpoints and 500 LoRAs (1–5 per image), 50 tags (0–3
- * per image), 5 model tags on 25 LoRAs and 5 checkpoints, 5% favourites and ratings spread over 0–5.
- */
-function buildLibrary(db: Database.Database): void {
-  const random = seeded(7)
-  const pick = <T>(values: readonly T[]): T => values[Math.floor(random() * values.length)] as T
-  const words = (count: number): string =>
-    Array.from({ length: count }, () => pick(WORDS)).join(', ')
-  db.transaction(() => {
-    db.prepare("INSERT INTO library_roots (id, path, added_at) VALUES (1, '/lib', 1)").run()
-    const directory = db.prepare(
-      'INSERT INTO directories (id, root_id, parent_id, rel_path) VALUES (?, 1, ?, ?)'
-    )
-    directory.run(1, null, '')
-    for (let folder = 2; folder <= FOLDERS + 1; folder++) directory.run(folder, 1, `f${folder}`)
-    const model = db.prepare(
-      'INSERT INTO models (id, kind, identity, display_name) VALUES (?, ?, ?, ?)'
-    )
-    for (let id = 1; id <= CHECKPOINTS; id++) model.run(id, 'checkpoint', `ckpt${id}`, `ckpt${id}`)
-    for (let id = 1; id <= LORAS; id++) {
-      model.run(CHECKPOINTS + id, 'lora', `lora${id}`, `lora${id}`)
-    }
-    const image = db.prepare(
-      `INSERT INTO images (id, directory_id, file_name, format, size_bytes, mtime_ms, width,
-        height, created_at, added_at, metadata_version) VALUES (?, ?, ?, 'png', 1, 1, 832, 1216, ?, 1, 1)`
-    )
-    const generation = db.prepare(
-      `INSERT INTO generations (image_id, generator, origin, prompt, negative_prompt, seed,
-        checkpoint_id, params_json) VALUES (?, ?, 'png-text', ?, ?, ?, ?, '{}')`
-    )
-    const link = db.prepare(
-      'INSERT OR IGNORE INTO generation_loras (image_id, model_id, position, weight) VALUES (?, ?, ?, ?)'
-    )
-    const tag = db.prepare('INSERT INTO tags (id, name, name_key, created_at) VALUES (?, ?, ?, 1)')
-    for (let id = 1; id <= TAGS; id++) tag.run(id, `tag${id}`, `tag${id}`)
-    const tagged = db.prepare('INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)')
-    // Model tags: 5 tags over 5% of the LoRAs and 10% of the checkpoints, by identity.
-    const modelTag = db.prepare(
-      'INSERT INTO model_tags (id, name, name_key, created_at) VALUES (?, ?, ?, 1)'
-    )
-    const modelLink = db.prepare(
-      'INSERT OR IGNORE INTO model_tag_links (tag_id, kind, identity, created_at) VALUES (?, ?, ?, 1)'
-    )
-    for (let id = 1; id <= MODEL_TAGS; id++) modelTag.run(id, `mtag${id}`, `mtag${id}`)
-    for (let n = 1; n <= LORAS; n += 20) modelLink.run(1 + (n % MODEL_TAGS), 'lora', `lora${n}`)
-    for (let n = 1; n <= CHECKPOINTS; n += 10) {
-      modelLink.run(1 + (n % MODEL_TAGS), 'checkpoint', `ckpt${n}`)
-    }
-    const mark = db.prepare('UPDATE images SET is_favorite = ?, rating = ? WHERE id = ?')
-    for (let id = 1; id <= IMAGES; id++) {
-      image.run(id, 2 + (id % FOLDERS), `${id}.png`, id)
-      generation.run(
-        id,
-        random() < 0.5 ? GeneratorKind.A1111 : GeneratorKind.Fooocus,
-        words(12),
-        words(4),
-        String(Math.floor(random() * 5000)),
-        1 + Math.floor(random() * CHECKPOINTS)
-      )
-      const loraCount = 1 + Math.floor(random() * 5)
-      for (let position = 0; position < loraCount; position++) {
-        const weight = random() < 0.1 ? null : Math.round(random() * 150) / 100
-        link.run(id, CHECKPOINTS + 1 + Math.floor(random() * LORAS), position, weight)
-      }
-      // 0–3 tags each; 5% favourites; ratings spread over 0–5.
-      const tagCount = Math.floor(random() * 4)
-      for (let n = 0; n < tagCount; n++) tagged.run(id, 1 + Math.floor(random() * TAGS))
-      mark.run(random() < 0.05 ? 1 : 0, Math.floor(random() * 6), id)
-    }
-  })()
-  db.exec('ANALYZE')
-}
-
-const lora = (n: number): number => CHECKPOINTS + n
+const lora = (n: number): number => PERF_CHECKPOINTS + n
 
 /**
  * Reported, not held to the budget: `word1*` expands to 111 of the 200 synthetic words, so it
@@ -178,9 +85,9 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('search performance at 100
   beforeAll(() => {
     db = migratedMemoryDb()
     const started = performance.now()
-    buildLibrary(db)
+    buildPerfLibrary(db)
     console.info(
-      `[perf] built ${IMAGES} images in ${((performance.now() - started) / 1000).toFixed(1)} s`
+      `[perf] built ${PERF_IMAGES} images in ${((performance.now() - started) / 1000).toFixed(1)} s`
     )
     const selector = createImageSelector(db)
     gallery = new SqliteGalleryReader(db, selector)
@@ -228,7 +135,7 @@ describe.skipIf(process.env['GENFOLIO_PERF'] !== '1')('search performance at 100
       if (layoutMs >= BUDGET_MS) slow.push(`${name} layout`)
       if (facetMs >= BUDGET_MS) slow.push(`${name} facets`)
     }
-    console.info(`[perf] search at ${IMAGES} images (* not budgeted)\n${rows.join('\n')}`)
+    console.info(`[perf] search at ${PERF_IMAGES} images (* not budgeted)\n${rows.join('\n')}`)
     expect(slow).toEqual([])
   }, 600_000)
 })

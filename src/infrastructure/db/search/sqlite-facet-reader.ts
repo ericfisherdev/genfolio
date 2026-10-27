@@ -3,6 +3,7 @@ import type { GalleryQuery } from '@shared/gallery'
 import type { GeneratorKind } from '@shared/generation-kinds'
 import { SetMatchMode } from '@shared/search-kinds'
 import type { FacetValue, SearchFacets, SearchFilters } from '@shared/search'
+import type { ScratchWrites } from '../sqlite-change-counter'
 import type { ImageSelection, ImageSelector } from './image-selection'
 
 /**
@@ -96,7 +97,8 @@ function countsOver(counted: Counted, grouped: Grouped): Sql {
 const COMPLEMENT_ABOVE = 0.7
 
 /** Facet counts for the filter pickers, over the same scope and filters as the gallery. */
-export class SqliteFacetReader {
+export class SqliteFacetReader implements ScratchWrites {
+  private scratchChanges = 0
   private readonly statements = new Map<string, Database.Statement<unknown[], unknown>>()
   private readonly clearSelections: Database.Statement
 
@@ -114,9 +116,14 @@ export class SqliteFacetReader {
     this.clearSelections = db.prepare('DELETE FROM temp.facet_selection')
   }
 
+  /** Rows written to the temp selection table so far, which hold no library data. */
+  get scratchWrites(): number {
+    return this.scratchChanges
+  }
+
   facets(query: GalleryQuery): SearchFacets {
     return this.db.transaction(() => {
-      this.clearSelections.run()
+      this.scratchChanges += this.clearSelections.run().changes
       const counted = new Map<string, Counted>()
       const count = (scope: GalleryQuery): Counted => this.counted(scope, counted)
       const loras = query.filters?.loras
@@ -277,9 +284,11 @@ export class SqliteFacetReader {
     return this.statement(sql).all(...params) as T[]
   }
 
-  /** Returns how many rows changed. */
+  /** Runs a write to the temp selection table; returns how many rows changed. */
   private run(sql: string, params: readonly unknown[]): number {
-    return this.statement(sql).run(...params).changes
+    const { changes } = this.statement(sql).run(...params)
+    this.scratchChanges += changes
+    return changes
   }
 
   /** Statements are cached by text, which depends only on the filters in use. */
