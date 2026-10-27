@@ -29,7 +29,8 @@
     selection,
     albums,
     similarity,
-    modelStats
+    modelStats,
+    modelUsage
   } = getAppServices()
 
   // A changed root list (scan finished, folder added, rescanned or removed) means the results
@@ -46,6 +47,7 @@
       void gallery.refresh()
       if (gallery.query) void facets.load(gallery.query)
       void modelStats.refresh()
+      void modelUsage.refresh()
     })
   })
 

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { MAX_TAG_NAME } from '@shared/tag-kinds'
-  import type { ModelDetail } from '@shared/models'
+  import type { ModelKey } from '@shared/models'
   import type { ModelTag, ModelTagRef } from '@shared/model-tags'
   import { getAppServices } from '../lib/app-context'
   import NameCombobox from './NameCombobox.svelte'
 
   interface Props {
     /** The model whose tags are shown and edited. */
-    model: ModelDetail
+    model: ModelKey & { readonly tags: readonly ModelTagRef[] }
   }
 
   let { model }: Props = $props()
