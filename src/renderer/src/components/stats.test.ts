@@ -211,14 +211,46 @@ describe('StatsView', () => {
     await screen.findByText('Add a folder to see how your models are used.')
   })
 
-  it('explains a library without model data, and a tag no image uses', async () => {
+  it('explains a library without model data', async () => {
     const { context, services } = harness({ getModelStats: async () => EMPTY })
     await services.library.refresh()
-    const view = render(StatsView, { context })
+    render(StatsView, { context })
     await screen.findByText(/No image has model information yet/)
+  })
+
+  it('explains a tag no image uses only once that tag has loaded', async () => {
+    let answer: (overview: ModelStatsOverview) => void = () => undefined
+    const { context, services } = harness({
+      getModelStats: (query) =>
+        query?.modelTagId === 3
+          ? new Promise<ModelStatsOverview>((resolve) => (answer = resolve))
+          : Promise.resolve(OVERVIEW)
+    })
+    await services.library.refresh()
+    render(StatsView, { context })
+    await screen.findAllByRole('link', { name: 'Sharp' })
     services.router.navigate({ kind: RouteKind.Stats, modelTagId: 3 })
+    await screen.findByText('Loading statistics…')
+    expect(screen.queryByText('No image uses a model with this tag.')).toBeNull()
+    expect(screen.queryAllByRole('link', { name: 'Sharp' })).toHaveLength(0)
+    answer(EMPTY)
     await screen.findByText('No image uses a model with this tag.')
-    view.unmount()
+  })
+
+  it('offers to try again when switching to a tag fails, without the previous tag’s tables', async () => {
+    const getModelStats = vi.fn<GenfolioApi['getModelStats']>(async (query) => {
+      if (query?.modelTagId === 3) throw new Error('database is locked')
+      return OVERVIEW
+    })
+    const { context } = harness({ getModelStats })
+    render(StatsView, { context })
+    await screen.findAllByRole('link', { name: 'Sharp' })
+    const select = screen.getByRole('combobox', { name: 'Model tag' })
+    await within(select).findByRole('option', { name: 'lighting (1)' })
+    await fireEvent.change(select, { target: { value: '3' } })
+    await screen.findByText('The statistics could not be loaded.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.queryAllByRole('link', { name: 'Sharp' })).toHaveLength(0)
   })
 
   it('says which lists are empty while showing the others', async () => {

@@ -113,6 +113,33 @@ describe('ModelStatsState', () => {
     expect(state.overview).toEqual(overview('alpha'))
   })
 
+  it('drops the overview of another tag, so a failed tag switch shows no stale tables', async () => {
+    const getModelStats = vi
+      .fn<Api['getModelStats']>()
+      .mockResolvedValueOnce(overview('alpha'))
+      .mockRejectedValueOnce(new Error('database is locked'))
+    const { state } = setup(getModelStats)
+    await state.show(undefined)
+    await state.show(3)
+    expect(state.overview).toBeUndefined()
+    expect(state.failed).toBe(true)
+  })
+
+  it('keeps the current overview while reloading the same tag', async () => {
+    const reload = deferred<ModelStatsOverview>()
+    const getModelStats = vi
+      .fn<Api['getModelStats']>()
+      .mockResolvedValueOnce(overview('alpha'))
+      .mockReturnValueOnce(reload.promise)
+    const { state } = setup(getModelStats)
+    await state.show(3)
+    const again = state.show(3)
+    expect(state.overview).toEqual(overview('alpha'))
+    reload.resolve(overview('beta'))
+    await again
+    expect(state.overview).toEqual(overview('beta'))
+  })
+
   it('does not load on refresh until the overview has been shown', async () => {
     const { state, getModelStats } = setup()
     await state.refresh()

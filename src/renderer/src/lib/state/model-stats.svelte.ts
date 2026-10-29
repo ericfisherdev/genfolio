@@ -30,6 +30,8 @@ export class ModelStatsState {
 
   /** Shows the overview for this tag (none: all models), loading it. */
   async show(modelTagId: number | undefined): Promise<void> {
+    // Another tag's overview would show under this tag's name and hide a failure of this load.
+    if (modelTagId !== this.modelTagId) this.overview = undefined
     this.modelTagId = modelTagId
     await this.load()
   }
