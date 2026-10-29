@@ -269,9 +269,10 @@ describe('StatsModelView', () => {
     openDrillDown(services, DETAIL)
     render(StatsView, { context })
     await screen.findByRole('article', { name: 'Detail usage' })
+    // The article shows while loading too; the tag editor appears only once the model has loaded.
+    const box = await screen.findByRole('combobox', { name: 'Add a model tag' })
     expect(screen.queryByRole('list', { name: 'Tags of this model' })).toBeNull()
 
-    const box = screen.getByRole('combobox', { name: 'Add a model tag' })
     await fireEvent.input(box, { target: { value: 'lighting' } })
     await fireEvent.keyDown(box, { key: 'Enter' })
     expect(applyModelTag).toHaveBeenCalledWith(3, keyOf(DETAIL))

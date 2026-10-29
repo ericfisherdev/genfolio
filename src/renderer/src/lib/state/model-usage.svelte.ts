@@ -46,6 +46,7 @@ export class ModelUsageState {
     this.usage = undefined
     this.subject = undefined
     this.loaded = false
+    this.failed = false
     await this.load(key)
   }
 

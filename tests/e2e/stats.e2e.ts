@@ -160,7 +160,8 @@ test('a tag removed on the Models page disappears from the drill-down', async ()
   await expect(page.getByRole('list', { name: 'Tags of this model' })).toHaveCount(0)
 
   await page.goBack()
-  await expect(usageOf(page)).toBeVisible()
+  // The article shows while loading too; the tag editor appears only once the model has loaded.
+  await expect(usageOf(page).getByRole('combobox', { name: 'Add a model tag' })).toBeVisible()
   await expect(usageOf(page).getByRole('list', { name: 'Tags of this model' })).toHaveCount(0)
 })
 

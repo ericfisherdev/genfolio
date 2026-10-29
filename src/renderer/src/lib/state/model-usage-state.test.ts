@@ -101,6 +101,22 @@ describe('ModelUsageState', () => {
     expect(state.usage?.model.identity).toBe('sharp')
   })
 
+  it('forgets a failure of the previous model while the next one loads', async () => {
+    const next = deferred<ModelUsage | null>()
+    const getModelUsage = vi
+      .fn<Api['getModelUsage']>()
+      .mockRejectedValueOnce(new Error('disk is busy'))
+      .mockReturnValueOnce(next.promise)
+    const { state } = setup({ getModelUsage })
+    await state.show(DETAIL)
+    expect(state.failed).toBe(true)
+    const loading = state.show(SHARP)
+    expect(state.failed).toBe(false)
+    expect(state.loaded).toBe(false)
+    next.resolve(usageOf(SHARP))
+    await loading
+  })
+
   it('drops the answer of a request that a newer one has overtaken', async () => {
     const slow = deferred<ModelUsage | null>()
     const getModelUsage = vi
