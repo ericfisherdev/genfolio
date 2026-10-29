@@ -21,6 +21,14 @@ describe('routes', () => {
       kind: RouteKind.Models,
       model: { kind: ModelKind.Checkpoint, identity: 'a b&c=d#e/ü' }
     },
+    { kind: RouteKind.Stats },
+    { kind: RouteKind.Stats, modelTagId: 3 },
+    { kind: RouteKind.Stats, model: { kind: ModelKind.Lora, identity: 'detail' } },
+    {
+      kind: RouteKind.Stats,
+      modelTagId: 3,
+      model: { kind: ModelKind.Checkpoint, identity: 'a b&c=d#e/ü?f%g 100%' }
+    },
     { kind: RouteKind.Civitai },
     { kind: RouteKind.SimilarGroup, groupId: 4 },
     { kind: RouteKind.SimilarGroup, groupId: 4, filters: { favoritesOnly: true } },
@@ -64,6 +72,40 @@ describe('routes', () => {
     '#/models?unrelated=1'
   ])('shows the plain Models page for the malformed link %s', (hash) => {
     expect(parseRoute(hash)).toEqual({ kind: RouteKind.Models })
+  })
+
+  it('formats the stats overview, its tag filter and a model drill-down', () => {
+    expect(formatRoute({ kind: RouteKind.Stats })).toBe('#/stats')
+    expect(formatRoute({ kind: RouteKind.Stats, modelTagId: 3 })).toBe('#/stats?mtag=3')
+    expect(
+      formatRoute({
+        kind: RouteKind.Stats,
+        model: { kind: ModelKind.Checkpoint, identity: 'a b?#%/c' }
+      })
+    ).toBe('#/stats/checkpoint/a%20b%3F%23%25%2Fc')
+    expect(parseRoute('#/stats/lora/detail')).toEqual({
+      kind: RouteKind.Stats,
+      model: { kind: ModelKind.Lora, identity: 'detail' }
+    })
+  })
+
+  it.each([
+    '#/stats?mtag=0',
+    '#/stats?mtag=-1',
+    '#/stats?mtag=abc',
+    '#/stats?mtag=',
+    '#/stats?x=1'
+  ])('shows the unfiltered stats for the malformed tag in %s', (hash) => {
+    expect(parseRoute(hash)).toEqual({ kind: RouteKind.Stats })
+  })
+
+  it.each([
+    '#/stats/sampler/detail',
+    '#/stats/lora/%E0%A4%A',
+    '#/stats/lora/%',
+    `#/stats/lora/${'x'.repeat(257)}`
+  ])('shows the overview for the malformed model link %s', (hash) => {
+    expect(parseRoute(hash)).toEqual({ kind: RouteKind.Stats })
   })
 
   it('keeps an album when its filters are cleared', () => {

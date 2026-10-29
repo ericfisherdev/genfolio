@@ -16,6 +16,8 @@ export enum RouteKind {
   Settings = 'settings',
   /** The checkpoints and LoRAs, with what is known about each. */
   Models = 'models',
+  /** How the checkpoints and LoRAs are used, overall or for one model. */
+  Stats = 'stats',
   /** Finding and downloading models from Civitai. */
   Civitai = 'civitai'
 }
@@ -38,6 +40,8 @@ export type Route =
   | { readonly kind: RouteKind.Settings }
   /** The models page, with `model` open when a link names one. */
   | { readonly kind: RouteKind.Models; readonly model?: ModelKey }
+  /** The stats overview, narrowed to a model tag, or the drill-down of `model`. */
+  | { readonly kind: RouteKind.Stats; readonly modelTagId?: number; readonly model?: ModelKey }
   | { readonly kind: RouteKind.Civitai }
   | { readonly kind: RouteKind.Image; readonly imageId: number }
   /** Plays the current results, from `startId` or their first image. */
@@ -53,6 +57,7 @@ export type GalleryRoute = Exclude<
       | RouteKind.SimilarGroups
       | RouteKind.Settings
       | RouteKind.Models
+      | RouteKind.Stats
       | RouteKind.Civitai
   }
 >
@@ -64,6 +69,7 @@ export const isGalleryRoute = (route: Route): route is GalleryRoute =>
   route.kind !== RouteKind.SimilarGroups &&
   route.kind !== RouteKind.Settings &&
   route.kind !== RouteKind.Models &&
+  route.kind !== RouteKind.Stats &&
   route.kind !== RouteKind.Civitai
 
 export const ALL_PHOTOS: Route = { kind: RouteKind.All }
@@ -75,6 +81,7 @@ const IMAGE = /^#\/image\/([1-9]\d*)$/
 const SLIDESHOW = /^#\/slideshow$/
 const SETTINGS = /^#\/settings$/
 const MODELS = /^#\/models$/
+const STATS = /^#\/stats(?:\/([a-z]+)\/([^/]+))?$/
 const CIVITAI = /^#\/civitai$/
 const SIMILAR_GROUPS = /^#\/similar$/
 const SIMILAR_GROUP = /^#\/similar\/([1-9]\d*)$/
@@ -97,6 +104,8 @@ export function parseRoute(hash: string): Route {
   const withFilters = filters ? { filters } : {}
   if (SETTINGS.test(path)) return { kind: RouteKind.Settings }
   if (MODELS.test(path)) return modelsRoute(params)
+  const stats = STATS.exec(path)
+  if (stats) return statsRoute(stats[1], stats[2], params)
   if (CIVITAI.test(path)) return { kind: RouteKind.Civitai }
   if (SIMILAR_GROUPS.test(path)) return { kind: RouteKind.SimilarGroups }
   const group = SIMILAR_GROUP.exec(path)
@@ -125,6 +134,42 @@ function modelsRoute(params: URLSearchParams): Route {
   return model.success ? { kind: RouteKind.Models, model: model.data } : { kind: RouteKind.Models }
 }
 
+/**
+ * The stats page for a path with an optional `kind/identity` drill-down, and its `mtag`
+ * parameter. A malformed model or tag is dropped, leaving the overview.
+ */
+function statsRoute(
+  kind: string | undefined,
+  encodedIdentity: string | undefined,
+  params: URLSearchParams
+): Route {
+  const mtag = params.get('mtag')
+  const model = statsModel(kind, encodedIdentity)
+  return {
+    kind: RouteKind.Stats,
+    ...(mtag !== null && POSITIVE.test(mtag) ? { modelTagId: Number(mtag) } : {}),
+    ...(model ? { model } : {})
+  }
+}
+
+function statsModel(
+  kind: string | undefined,
+  encodedIdentity: string | undefined
+): ModelKey | undefined {
+  if (kind === undefined || encodedIdentity === undefined) return undefined
+  try {
+    const model = modelKeySchema.safeParse({ kind, identity: decodeURIComponent(encodedIdentity) })
+    return model.success ? model.data : undefined
+  } catch {
+    return undefined // a malformed %-escape
+  }
+}
+
+function formatStatsRoute(modelTagId: number | undefined, model: ModelKey | undefined): string {
+  const path = model ? `#/stats/${model.kind}/${encodeURIComponent(model.identity)}` : '#/stats'
+  return modelTagId === undefined ? path : `${path}?mtag=${modelTagId}`
+}
+
 function formatModelsRoute(model: ModelKey | undefined): string {
   if (!model) return '#/models'
   return `#/models?${new URLSearchParams({ kind: model.kind, identity: model.identity })}`
@@ -135,6 +180,7 @@ export function formatRoute(route: Route): string {
   if (route.kind === RouteKind.SimilarGroups) return '#/similar'
   if (route.kind === RouteKind.Settings) return '#/settings'
   if (route.kind === RouteKind.Models) return formatModelsRoute(route.model)
+  if (route.kind === RouteKind.Stats) return formatStatsRoute(route.modelTagId, route.model)
   if (route.kind === RouteKind.Civitai) return '#/civitai'
   if (route.kind === RouteKind.Slideshow) {
     return route.startId === undefined ? '#/slideshow' : `#/slideshow?start=${route.startId}`

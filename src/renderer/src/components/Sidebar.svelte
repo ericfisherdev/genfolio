@@ -109,6 +109,15 @@
 
   <button
     type="button"
+    class="all stats"
+    aria-current={router.route.kind === RouteKind.Stats ? 'page' : undefined}
+    onclick={() => router.navigate({ kind: RouteKind.Stats })}
+  >
+    <span>Stats</span>
+  </button>
+
+  <button
+    type="button"
     class="all settings"
     aria-current={router.route.kind === RouteKind.Settings ? 'page' : undefined}
     onclick={() => router.navigate({ kind: RouteKind.Settings })}
