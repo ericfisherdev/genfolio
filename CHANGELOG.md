@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 — 2026-10-29
+
+See which models you use, which go together, and group them with your own tags.
+
+### Stats
+
+- A Stats page (sidebar) ranks the checkpoints (counted as model or refiner) and LoRAs of the
+  whole library by how many images use them, and lists which LoRAs are used with which
+  checkpoints and which LoRAs are used together.
+- Click a model to drill down: the checkpoints a LoRA is used with, the LoRAs used with it or
+  with a checkpoint, and the model's tags, which can be edited there. Each row can show its
+  images in the gallery, and a drill-down can open the model on the Models page.
+- The page can be narrowed to the models carrying one model tag. Its address names the tag and
+  the model, so a view survives a reload and Back and Forward.
+
+### Model tags
+
+- Tag checkpoints and LoRAs with your own words ("lighting", "style"), kept apart from image
+  tags. Tags are added and removed on the Models page and in a Stats drill-down, and the
+  Models page can be filtered by one.
+- The gallery's filter bar has a Model tags filter: images using any model with the chosen
+  tags. Smart albums can save it.
+
 ## 0.4.1 — 2026-10-03
 
 A faster gallery and a lighter live refresh while a generator is writing to your library.
