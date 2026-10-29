@@ -5,6 +5,7 @@
   import { filtersFor } from '@shared/model-stats-filters'
   import { getAppServices } from '../lib/app-context'
   import { RouteKind } from '../lib/routing/route'
+  import StatsModelView from './StatsModelView.svelte'
   import StatsTable from './StatsTable.svelte'
 
   const { library, modelStats, modelTags, router } = getAppServices()
@@ -13,9 +14,15 @@
     router.route.kind === RouteKind.Stats ? router.route.modelTagId : undefined
   )
 
-  // The route holds the tag, so Back restores the previous filter; the state follows it.
+  const drilledModel = $derived(
+    router.route.kind === RouteKind.Stats ? router.route.model : undefined
+  )
+
+  // The route holds the tag, so Back restores the previous filter; the state follows it. A
+  // drill-down doesn't show the overview, so it loads when the route comes back to it.
   $effect(() => {
     const tagId = modelTagId
+    if (drilledModel) return
     untrack(() => void modelStats.show(tagId))
   })
   $effect(() => {
@@ -50,22 +57,25 @@
 <section class="stats" aria-labelledby="stats-title">
   <header class="toolbar">
     <h1 id="stats-title">Stats</h1>
-    <select
-      aria-label="Model tag"
-      value={modelTagId ?? ''}
-      onchange={(event) => chooseTag(event.currentTarget.value)}
-    >
-      <option value="">All models</option>
-      {#each modelTags.tags as tag (tag.id)}
-        <option value={tag.id}>{tag.name} ({tag.modelCount})</option>
-      {/each}
-    </select>
+    {#if !drilledModel}
+      <select
+        aria-label="Model tag"
+        value={modelTagId ?? ''}
+        onchange={(event) => chooseTag(event.currentTarget.value)}
+      >
+        <option value="">All models</option>
+        {#each modelTags.tags as tag (tag.id)}
+          <option value={tag.id}>{tag.name} ({tag.modelCount})</option>
+        {/each}
+      </select>
+    {/if}
     <p class="note">The {DEFAULT_STATS_ROWS} most used in each list, across the whole library.</p>
   </header>
 
   <div class="content" aria-busy={modelStats.loading}>
-    <!-- A route naming a model (route.model) shows the overview for now. -->
-    {#if overview === undefined}
+    {#if drilledModel}
+      <StatsModelView model={drilledModel} />
+    {:else if overview === undefined}
       {#if modelStats.failed}
         <p class="empty">
           The statistics could not be loaded.

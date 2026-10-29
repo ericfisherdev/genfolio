@@ -12,6 +12,7 @@ import type { DownloadsState } from './state/downloads.svelte'
 import type { ModelFoldersState } from './state/model-folders.svelte'
 import type { ModelsState } from './state/models.svelte'
 import type { ModelStatsState } from './state/model-stats.svelte'
+import type { ModelUsageState } from './state/model-usage.svelte'
 import type { ModelTagsState } from './state/model-tags.svelte'
 import type { SimilarityState } from './state/similarity.svelte'
 import type { ImageDeletion } from './state/image-deletion.svelte'
@@ -49,6 +50,7 @@ export interface AppServices {
   readonly models: ModelsState
   readonly modelTags: ModelTagsState
   readonly modelStats: ModelStatsState
+  readonly modelUsage: ModelUsageState
   readonly civitaiBrowse: CivitaiBrowseState
   readonly downloads: DownloadsState
   readonly civitaiKey: CivitaiKeyState
